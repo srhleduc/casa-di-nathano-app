@@ -565,3 +565,22 @@ select cron.schedule(
 alter table ingredients add column if not exists purchase_qty numeric(10, 3);
 alter table ingredients add column if not exists purchase_unit text;
 alter table ingredients add column if not exists purchase_price numeric(10, 2);
+
+-- =====================================================================
+-- COMMANDE FOURNISSEURS (espace Direction)
+-- Fournisseurs partagés entre les deux restaurants (comme le catalogue
+-- d'ingrédients) ; chaque ingrédient peut être rattaché à un seul fournisseur.
+-- =====================================================================
+
+create table if not exists suppliers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+alter table suppliers enable row level security;
+create policy "suppliers_select" on suppliers for select to authenticated using (true);
+create policy "suppliers_write" on suppliers for insert to authenticated with check (is_manager());
+create policy "suppliers_update" on suppliers for update to authenticated using (is_manager()) with check (is_manager());
+create policy "suppliers_delete" on suppliers for delete to authenticated using (is_manager());
+
+alter table ingredients add column if not exists supplier_id uuid references suppliers (id) on delete set null;
