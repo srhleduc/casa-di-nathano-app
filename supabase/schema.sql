@@ -590,3 +590,12 @@ alter table ingredients add column if not exists supplier_id uuid references sup
 -- initial, cf. plus haut) a été décomposé en Farine + Farines graines + Eau
 -- sur chaque pizza qui l'utilisait — mêmes coûts totaux, juste plus lisible.
 -- (Exécuté une fois manuellement, rien à rejouer ici — mentionné pour la trace.)
+
+-- Import des coûts vins + bière Moretti depuis « cout de revient 25.xlsx »
+-- (Feuil3) : 14 vins (ingrédient = la bouteille en ml, recette bouteille =
+-- 750ml, recette verre = 120ml — volume de service supposé 12cl) + Birra
+-- Moretti (coût connu pour 25cl, réutilisé pour la 50cl). Le vin "Monte
+-- Pietroso" et les 9 autres bières du menu n'ont pas de coût dans le
+-- fichier — à compléter manuellement, comme tous les antipasti/salades/
+-- desserts/boissons/cocktails (aucune donnée source disponible pour eux).
+-- (Exécuté une fois manuellement, rien à rejouer ici — mentionné pour la trace.)
