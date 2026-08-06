@@ -10,8 +10,9 @@ import {
   setPizzaIngredient,
   removePizzaIngredient,
   useMenu,
+  insertMenuItem,
 } from "@/lib/data";
-import { eur, CATEGORIES } from "@/lib/menu";
+import { eur, CATEGORIES, newMenuItemId } from "@/lib/menu";
 
 // TVA — les prix du menu sont TTC (affichage légal), les coûts ingrédients
 // saisis sont supposés HT (comme sur une facture fournisseur) : il faut donc
@@ -294,6 +295,69 @@ function IngredientsPanel({ ingredients }) {
   );
 }
 
+function NewProductForm({ category, onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+
+  async function create() {
+    if (!name.trim()) return;
+    try {
+      const id = newMenuItemId(category, name.trim());
+      await insertMenuItem({ id, name: name.trim(), price: parseFloat(price) || 0, cat: category });
+      setName("");
+      setPrice("");
+      setOpen(false);
+      onCreated?.(id);
+    } catch (err) {
+      console.error(err);
+      alert("Échec de la création du produit.");
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="tap-scale rounded-xl py-2 px-4 font-bold border-2 border-[#3a2b1f] text-sm mb-4">
+        + Nouveau produit
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-[#C0392B] p-4 mb-4 flex flex-wrap gap-3 items-end">
+      <div>
+        <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Nom</div>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ex. Limonade"
+          className="rounded-lg px-3 py-2 w-56"
+          style={inputStyle}
+          autoFocus
+        />
+      </div>
+      <div>
+        <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Prix TTC (€)</div>
+        <input
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          type="number"
+          step="0.1"
+          placeholder="Ex. 4.5"
+          className="rounded-lg px-3 py-2 w-28"
+          style={inputStyle}
+        />
+      </div>
+      <button onClick={create} className="tap-scale rounded-xl py-2 px-5 font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+        Créer
+      </button>
+      <button onClick={() => setOpen(false)} className="tap-scale rounded-xl py-2 px-4 font-bold border-2 border-[#3a2b1f]">
+        Annuler
+      </button>
+    </div>
+  );
+}
+
 function RecipesPanel({ products, category, ingredients, pizzaIngredients }) {
   const [selectedId, setSelectedId] = useState(products[0]?.id || null);
   const tvaRate = tvaRateForCategory(category);
@@ -327,6 +391,7 @@ function RecipesPanel({ products, category, ingredients, pizzaIngredients }) {
       <div className="text-xs text-[#8a7561] mb-3">
         Prix de vente TTC reconverti en HT (TVA {(tvaRate * 100).toFixed(0)}%) avant calcul de la marge — les coûts ingrédients sont supposés HT.
       </div>
+      <NewProductForm category={category} onCreated={setSelectedId} />
       <div className="overflow-x-auto mb-8">
         <table className="w-full text-sm">
           <thead>
