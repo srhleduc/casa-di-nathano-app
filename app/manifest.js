@@ -3,7 +3,10 @@
 // tous les restaurants) pour que le nom affiché sur l'écran d'accueil
 // corresponde au bon établissement.
 const RESTAURANT_NAMES = { riec: "Casa Di Nathano", quimperle: "Casa Di Luigi" };
-const restaurantName = RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
+const restaurantName =
+  process.env.NEXT_PUBLIC_APP_MODE === "direction"
+    ? "Direction"
+    : RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
 
 export default function manifest() {
   return {

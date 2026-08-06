@@ -350,3 +350,44 @@ alter table table_plan alter column restaurant_id set not null;
 alter table team_config alter column restaurant_id set not null;
 alter table pizza_stock alter column restaurant_id set not null;
 alter table test_mode alter column restaurant_id set not null;
+
+-- =====================================================================
+-- MULTI-RESTAURANT — PHASE 3 (Quimperlé)
+-- À exécuter une fois le nouveau code (restaurant_id au lieu de id=1,
+-- onConflict composite pour slots) déployé et vérifié sur Riec.
+-- =====================================================================
+
+-- Retire l'ancienne contrainte "un seul label pour tout le monde" (retrouvée
+-- dynamiquement — son nom auto-généré n'est pas garanti d'un environnement à l'autre).
+do $$
+declare
+  c text;
+begin
+  select conname into c from pg_constraint
+    where conrelid = 'slots'::regclass and contype = 'u' and array_length(conkey, 1) = 1;
+  if c is not null then
+    execute format('alter table slots drop constraint %I', c);
+  end if;
+end $$;
+
+-- table_plan / team_config / pizza_stock / test_mode : la clé primaire
+-- devient restaurant_id (une ligne par restaurant) au lieu de id=1 fixe.
+alter table table_plan drop constraint if exists table_plan_pkey;
+alter table table_plan drop column if exists id;
+alter table table_plan add primary key (restaurant_id);
+insert into table_plan (restaurant_id) values ('quimperle') on conflict do nothing;
+
+alter table team_config drop constraint if exists team_config_pkey;
+alter table team_config drop column if exists id;
+alter table team_config add primary key (restaurant_id);
+insert into team_config (restaurant_id, pin) values ('quimperle', '0505') on conflict do nothing;
+
+alter table pizza_stock drop constraint if exists pizza_stock_pkey;
+alter table pizza_stock drop column if exists id;
+alter table pizza_stock add primary key (restaurant_id);
+insert into pizza_stock (restaurant_id) values ('quimperle') on conflict do nothing;
+
+alter table test_mode drop constraint if exists test_mode_pkey;
+alter table test_mode drop column if exists id;
+alter table test_mode add primary key (restaurant_id);
+insert into test_mode (restaurant_id) values ('quimperle') on conflict do nothing;

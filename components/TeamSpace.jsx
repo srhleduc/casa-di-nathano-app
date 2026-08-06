@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useTestMode, setTestModeEnabled, deleteAllTestOrders } from "@/lib/data";
-import { useRestaurant } from "@/lib/restaurant";
+import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
 import FinitionBoard from "./team/FinitionBoard";
@@ -29,7 +29,9 @@ export default function TeamSpace({ onExit }) {
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
   const { testMode } = useTestMode();
-  const restaurant = useRestaurant();
+  const restaurantFilter = useRestaurantFilter();
+  const restaurant = useRestaurant(restaurantFilter);
+  const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
 
   function goZone(z, defaultTab) {
     setZone(z);
@@ -60,13 +62,15 @@ export default function TeamSpace({ onExit }) {
     <div className="kiosk-root--team">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
         <div className="flex items-center gap-3">
-          <button
-            onClick={toggleTestMode}
-            className="tap-scale text-xs font-bold px-4 py-2 rounded-full border-2 shrink-0"
-            style={testMode.enabled ? { background: "#f0c860", borderColor: "#f0c860", color: "#1a120b" } : { borderColor: "#4a3826", color: "#c9b8a4" }}
-          >
-            🧪 Mode test{testMode.enabled ? " ACTIF" : ""}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={toggleTestMode}
+              className="tap-scale text-xs font-bold px-4 py-2 rounded-full border-2 shrink-0"
+              style={testMode.enabled ? { background: "#f0c860", borderColor: "#f0c860", color: "#1a120b" } : { borderColor: "#4a3826", color: "#c9b8a4" }}
+            >
+              🧪 Mode test{testMode.enabled ? " ACTIF" : ""}
+            </button>
+          )}
           {zone && (
             <button onClick={() => setZone(null)} className="text-[#c9b8a4] text-sm font-semibold tap-scale">
               ← Zones
@@ -82,7 +86,13 @@ export default function TeamSpace({ onExit }) {
         </button>
       </div>
 
-      {testMode.enabled && (
+      {readOnly && (
+        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#2c1c14", color: "#a88f78" }}>
+          👁️ Vue Direction en lecture seule — les actions ne sont pas prises en compte, seule l'équipe sur place peut agir
+        </div>
+      )}
+
+      {!readOnly && testMode.enabled && (
         <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#4a3a10", color: "#f0c860" }}>
           🧪 Mode test actif — les commandes créées côté équipe ne comptent pas dans le chiffre du jour et seront supprimées à la désactivation
         </div>
@@ -145,7 +155,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Desserts du jour</button>
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
             <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱ Temps de prépa</button>
-            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>✏️ Menu</button>
+            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
             <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
             <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Plan de table</button>
           </div>
@@ -154,7 +164,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "desserts" && <DessertStockAdmin />}
           {tab === "patons" && <PizzaStockAdmin />}
           {tab === "timing" && <TimingStatsAdmin />}
-          {tab === "newproduct" && <MenuAdmin />}
+          {tab === "newproduct" && <MenuAdmin canEdit={readOnly} />}
           {tab === "maintenance" && <MaintenanceAdmin />}
           {tab === "tables" && <TablePlanAdmin />}
         </>
