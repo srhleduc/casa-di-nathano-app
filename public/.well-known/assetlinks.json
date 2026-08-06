@@ -1,1 +1,8 @@
-[]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.casa_di_nathano_app.twa",
+        "sha256_cert_fingerprints": ["75:E3:FC:37:73:10:A0:F0:62:3D:37:C1:41:40:8E:84:6C:60:CF:AD:A2:A9:59:5B:0A:E5:5B:95:FA:D7:D2:95"]
+      }
+    }]
