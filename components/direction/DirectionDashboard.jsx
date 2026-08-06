@@ -1,12 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOrders } from "@/lib/data";
 import { isOrderActiveToday } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import { RestaurantFilterContext, useRestaurantsList } from "@/lib/restaurant";
-import { signOutManager } from "@/lib/managerAuth";
+import { signOutManager, useManagerSession } from "@/lib/managerAuth";
+import { supabase } from "@/lib/supabaseClient";
+import { isPushSupported, getExistingPushSubscription, enablePushNotifications, disablePushNotifications } from "@/lib/push";
 import TeamSpace from "../TeamSpace";
+
+function NotificationsToggle() {
+  const { session } = useManagerSession();
+  const [state, setState] = useState("checking"); // checking | off | on | unsupported | error
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      setState("unsupported");
+      return;
+    }
+    getExistingPushSubscription().then((sub) => setState(sub ? "on" : "off"));
+  }, []);
+
+  async function toggle() {
+    if (state === "on") {
+      setState("checking");
+      await disablePushNotifications(supabase).catch((err) => console.error(err));
+      setState("off");
+      return;
+    }
+    setState("checking");
+    setErrorMsg("");
+    try {
+      await enablePushNotifications(supabase, session.user.id);
+      setState("on");
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || "Échec de l'activation.");
+      setState("off");
+    }
+  }
+
+  if (state === "unsupported") return null;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={toggle}
+        disabled={state === "checking"}
+        className="tap-scale text-xs font-bold px-4 py-2 rounded-full border-2 shrink-0"
+        style={state === "on" ? { background: "#f0c860", borderColor: "#f0c860", color: "#1a120b" } : { borderColor: "#4a3826", color: "#c9b8a4" }}
+      >
+        {state === "on" ? "🔔 Notifications activées" : "🔕 Activer les notifications"}
+      </button>
+      {errorMsg && <span className="text-xs text-red-400">{errorMsg}</span>}
+    </div>
+  );
+}
 
 export default function DirectionDashboard() {
   // Un manager n'a pas de restaurant propre : RLS lui renvoie les commandes
@@ -29,9 +80,12 @@ export default function DirectionDashboard() {
     <div className="kiosk-root--team">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
         <span className="display-font text-xl font-semibold">🧑‍💼 Espace Direction</span>
-        <button onClick={signOutManager} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-3">
+          <NotificationsToggle />
+          <button onClick={signOutManager} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
+            Se déconnecter
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6">

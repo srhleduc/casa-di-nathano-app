@@ -391,3 +391,75 @@ alter table test_mode drop constraint if exists test_mode_pkey;
 alter table test_mode drop column if exists id;
 alter table test_mode add primary key (restaurant_id);
 insert into test_mode (restaurant_id) values ('quimperle') on conflict do nothing;
+
+-- =====================================================================
+-- MULTI-RESTAURANT — PHASE 4 (espace Direction)
+-- Resserre l'édition du menu (catalogue partagé) aux seuls comptes managers ;
+-- la lecture reste ouverte à tout compte authentifié (équipe + Direction).
+-- =====================================================================
+
+drop policy if exists "menu_items_authenticated_all" on menu_items;
+
+create policy "menu_items_select" on menu_items for select to authenticated using (true);
+create policy "menu_items_write" on menu_items for insert to authenticated with check (is_manager());
+create policy "menu_items_update" on menu_items for update to authenticated using (is_manager()) with check (is_manager());
+create policy "menu_items_delete" on menu_items for delete to authenticated using (is_manager());
+
+-- =====================================================================
+-- NOTIFICATIONS DIRECTION — alerte "embouteillage four"
+-- Notifie les comptes managers par notification push (navigateur/téléphone)
+-- dès que 3 commandes ou plus attendent simultanément au four depuis plus
+-- de 15 minutes, par restaurant. Déclenchée par une tâche planifiée
+-- (pg_cron, toutes les minutes) qui appelle une Supabase Edge Function —
+-- voir supabase/functions/oven-alert-check.
+-- =====================================================================
+
+-- Abonnements push : un manager peut avoir plusieurs appareils (téléphone,
+-- ordinateur...), chacun une ligne. RLS : chacun ne voit/gère que les siens ;
+-- l'edge function utilise la clé service_role et n'est donc pas concernée.
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  auth_uid uuid not null references auth.users (id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth_key text not null,
+  created_at timestamptz not null default now()
+);
+alter table push_subscriptions enable row level security;
+create policy "push_subscriptions_own" on push_subscriptions
+  for all to authenticated
+  using (auth_uid = auth.uid())
+  with check (auth_uid = auth.uid());
+
+-- Mémorise, par restaurant, si l'alerte est actuellement "active" — évite de
+-- notifier à nouveau chaque minute tant que l'embouteillage persiste ; se
+-- réarme dès que le nombre repasse sous 3.
+create table if not exists oven_alert_state (
+  restaurant_id text primary key references restaurants (id),
+  active boolean not null default false,
+  triggered_at timestamptz
+);
+insert into oven_alert_state (restaurant_id)
+  select id from restaurants
+  on conflict do nothing;
+alter table oven_alert_state enable row level security;
+create policy "oven_alert_state_managers" on oven_alert_state
+  for select to authenticated
+  using (is_manager());
+
+-- Déclenche la vérification toutes les minutes. La fonction est déployée
+-- avec --no-verify-jwt (appel interne uniquement), donc pas de clé à stocker
+-- dans le job. Adapter l'URL si le projet Supabase change un jour.
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'oven-alert-check',
+  '* * * * *',
+  $$
+    select net.http_post(
+      url := 'https://tvuqyrkomuwlapevgekv.functions.supabase.co/oven-alert-check'
+    );
+  $$
+);
+
+-- Pour désactiver plus tard : select cron.unschedule('oven-alert-check');

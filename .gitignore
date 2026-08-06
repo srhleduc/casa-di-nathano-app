@@ -21,6 +21,9 @@ npm-debug.log*
 # vercel
 .vercel
 
+# supabase CLI local state
+/supabase/.temp
+
 # editor
 .vscode/*
 !.vscode/extensions.json
