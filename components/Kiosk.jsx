@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
-import { useOrders, useSlots, useRuptures, useDessertStock, useMenu, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, insertOrder } from "@/lib/data";
 
 import WelcomeScreen from "./WelcomeScreen";
 import ServiceTypeScreen from "./ServiceTypeScreen";
@@ -46,6 +46,7 @@ export default function Kiosk() {
   const { slots } = useSlots();
   const { ruptures } = useRuptures();
   const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
@@ -185,6 +186,7 @@ export default function Kiosk() {
           ruptures={ruptures}
           orders={orders}
           dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
           menu={menuItems}
           showPhotos={true}
           onFinishApero={() => {

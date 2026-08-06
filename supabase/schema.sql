@@ -89,6 +89,15 @@ create table if not exists team_config (
 );
 insert into team_config (id) values (1) on conflict (id) do nothing;
 
+-- Décompte de pâtons du soir (optionnel — total = 0 signifie "pas de limite
+-- configurée", les pizzas restent illimitées tant que l'équipe n'a rien saisi).
+create table if not exists pizza_stock (
+  id integer primary key default 1 check (id = 1),
+  total integer not null default 0,
+  safety_margin integer not null default 0
+);
+insert into pizza_stock (id) values (1) on conflict (id) do nothing;
+
 -- ---------------------------------------------------------------------
 -- Row Level Security
 -- Outil interne (tablettes du restaurant, pas de comptes utilisateurs) :
@@ -106,6 +115,7 @@ alter table custom_menu_items enable row level security;
 alter table menu_items enable row level security;
 alter table table_plan enable row level security;
 alter table team_config enable row level security;
+alter table pizza_stock enable row level security;
 
 create policy "orders_anon_all" on orders for all to anon using (true) with check (true);
 create policy "slots_anon_all" on slots for all to anon using (true) with check (true);
@@ -115,6 +125,7 @@ create policy "custom_menu_items_anon_all" on custom_menu_items for all to anon 
 create policy "menu_items_anon_all" on menu_items for all to anon using (true) with check (true);
 create policy "table_plan_anon_all" on table_plan for all to anon using (true) with check (true);
 create policy "team_config_anon_all" on team_config for all to anon using (true) with check (true);
+create policy "pizza_stock_anon_all" on pizza_stock for all to anon using (true) with check (true);
 
 -- ---------------------------------------------------------------------
 -- Realtime — publication des changements aux clients abonnés
@@ -127,6 +138,7 @@ alter publication supabase_realtime add table dessert_stock;
 alter publication supabase_realtime add table custom_menu_items;
 alter publication supabase_realtime add table menu_items;
 alter publication supabase_realtime add table table_plan;
+alter publication supabase_realtime add table pizza_stock;
 
 -- ---------------------------------------------------------------------
 -- Storage — bucket public pour les photos produits

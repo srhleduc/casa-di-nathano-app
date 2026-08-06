@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS } from "@/lib/menu";
-import { remainingForDessertGroup } from "@/lib/business";
+import { remainingForDessertGroup, remainingPizzaStock } from "@/lib/business";
 
 export default function OrderScreen({
   activeCat,
@@ -20,6 +20,7 @@ export default function OrderScreen({
   ruptures,
   orders,
   dessertStock,
+  pizzaStock,
   menu,
   showPhotos,
 }) {
@@ -33,7 +34,12 @@ export default function OrderScreen({
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
 
-  const items = fullMenu.filter((m) => m.cat === activeCat && !(ruptures || []).includes(m.id) && !isDessertOut(m.name));
+  const pizzaStockOut = pizzaStock ? remainingPizzaStock(orders || [], pizzaStock) <= 0 : false;
+  function isPizzaOut(cat) {
+    return cat === "pizza" && pizzaStockOut;
+  }
+
+  const items = fullMenu.filter((m) => m.cat === activeCat && !(ruptures || []).includes(m.id) && !isDessertOut(m.name) && !isPizzaOut(m.cat));
 
   return (
     <div className="flex-1 flex flex-col">
@@ -75,6 +81,12 @@ export default function OrderScreen({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-40">
+        {activeCat === "pizza" && pizzaStockOut && (
+          <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
+            <div className="font-bold">🍕 Pizzas épuisées pour ce soir</div>
+            <div className="text-[#a88f78] text-sm mt-1">Toutes nos pâtes ont trouvé preneur — le reste du menu reste disponible.</div>
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
