@@ -463,3 +463,98 @@ select cron.schedule(
 );
 
 -- Pour désactiver plus tard : select cron.unschedule('oven-alert-check');
+
+-- =====================================================================
+-- COÛT DE REVIENT & CONSOMMATION (espace Direction)
+-- =====================================================================
+
+-- Catalogue d'ingrédients (partagé entre les deux restaurants, comme
+-- menu_items) — édition réservée aux managers, lecture ouverte à tous.
+create table if not exists ingredients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  unit text not null, -- 'g' | 'kg' | 'ml' | 'l' | 'piece'
+  cost_per_unit numeric(10, 4) not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table ingredients enable row level security;
+create policy "ingredients_select" on ingredients for select to authenticated using (true);
+create policy "ingredients_write" on ingredients for insert to authenticated with check (is_manager());
+create policy "ingredients_update" on ingredients for update to authenticated using (is_manager()) with check (is_manager());
+create policy "ingredients_delete" on ingredients for delete to authenticated using (is_manager());
+
+-- Recette : quantité d'un ingrédient pour une pizza donnée (menu_items.id).
+create table if not exists pizza_ingredients (
+  id uuid primary key default gen_random_uuid(),
+  menu_item_id text not null references menu_items (id) on delete cascade,
+  ingredient_id uuid not null references ingredients (id) on delete cascade,
+  quantity numeric(10, 3) not null default 0,
+  unique (menu_item_id, ingredient_id)
+);
+alter table pizza_ingredients enable row level security;
+create policy "pizza_ingredients_select" on pizza_ingredients for select to authenticated using (true);
+create policy "pizza_ingredients_write" on pizza_ingredients for insert to authenticated with check (is_manager());
+create policy "pizza_ingredients_update" on pizza_ingredients for update to authenticated using (is_manager()) with check (is_manager());
+create policy "pizza_ingredients_delete" on pizza_ingredients for delete to authenticated using (is_manager());
+
+-- Ventes journalières archivées — alimentée chaque nuit par la remise à
+-- zéro (voir plus bas), AVANT que les commandes de la veille ne soient
+-- supprimées. La table orders ne conserve que le jour courant ; c'est cette
+-- table qui permet à la page Consommation de regarder en arrière sur une
+-- période passée.
+create table if not exists daily_sales (
+  restaurant_id text not null references restaurants (id),
+  date date not null,
+  menu_item_id text not null,
+  qty integer not null default 0,
+  primary key (restaurant_id, date, menu_item_id)
+);
+alter table daily_sales enable row level security;
+create policy "daily_sales_select" on daily_sales
+  for select to authenticated
+  using (restaurant_id = my_restaurant_id() or is_manager());
+
+-- Quantités réellement utilisées, saisies par la Direction pour une
+-- période donnée — sert à calculer l'écart avec la quantité théorique.
+create table if not exists consumption_actuals (
+  id uuid primary key default gen_random_uuid(),
+  restaurant_id text not null references restaurants (id),
+  ingredient_id uuid not null references ingredients (id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  qty_actual numeric(10, 3) not null default 0,
+  created_at timestamptz not null default now(),
+  unique (restaurant_id, ingredient_id, period_start, period_end)
+);
+alter table consumption_actuals enable row level security;
+create policy "consumption_actuals_managers" on consumption_actuals
+  for all to authenticated
+  using (is_manager())
+  with check (is_manager());
+
+-- Met à jour la remise à zéro nocturne (même nom de job → remplace la
+-- précédente définition) pour archiver les ventes de pizzas de la veille
+-- dans daily_sales avant de supprimer les commandes.
+select cron.schedule(
+  'casa-di-nathano-daily-reset',
+  '0 4 * * *',
+  $$
+    insert into daily_sales (restaurant_id, date, menu_item_id, qty)
+    select o.restaurant_id, date(o.created_at), item->>'id', sum(coalesce((item->>'qty')::int, 1))
+    from orders o, jsonb_array_elements(o.items) item
+    where date(o.created_at) < current_date
+      and (o.scheduled_for is null or o.scheduled_for < current_date)
+      and o.is_test = false
+      and item->>'cat' = 'pizza'
+    group by o.restaurant_id, date(o.created_at), item->>'id'
+    on conflict (restaurant_id, date, menu_item_id)
+      do update set qty = daily_sales.qty + excluded.qty;
+
+    delete from ruptures;
+    update dessert_stock set qty = 0;
+    delete from slots;
+    delete from orders
+      where date(created_at) < current_date
+        and (scheduled_for is null or scheduled_for < current_date);
+  $$
+);

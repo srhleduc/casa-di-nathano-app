@@ -9,6 +9,8 @@ import { signOutManager, useManagerSession } from "@/lib/managerAuth";
 import { supabase } from "@/lib/supabaseClient";
 import { isPushSupported, getExistingPushSubscription, enablePushNotifications, disablePushNotifications } from "@/lib/push";
 import TeamSpace from "../TeamSpace";
+import CostPriceAdmin from "./CostPriceAdmin";
+import ConsumptionAdmin from "./ConsumptionAdmin";
 
 function NotificationsToggle() {
   const { session } = useManagerSession();
@@ -65,6 +67,7 @@ export default function DirectionDashboard() {
   const { orders } = useOrders();
   const restaurants = useRestaurantsList();
   const [selected, setSelected] = useState(null);
+  const [tab, setTab] = useState("overview"); // "overview" | "costprice" | "consumption"
 
   if (selected) {
     return (
@@ -88,39 +91,56 @@ export default function DirectionDashboard() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <p className="text-[#a88f78] text-sm mb-6">
-          Vue en lecture seule — pour agir sur une commande, utilise l'espace équipe du restaurant concerné.
-        </p>
-        {restaurants.length === 0 && <p className="text-[#8a7561]">Chargement…</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {restaurants.map((r) => {
-            const restaurantOrders = realOrders.filter((o) => o.restaurantId === r.id);
-            const total = restaurantOrders.reduce((s, o) => s + o.total, 0);
-            const collected = restaurantOrders.filter((o) => o.status === "servie").reduce((s, o) => s + o.total, 0);
-            return (
-              <div key={r.id} className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-6">
-                <div className="display-font text-2xl font-bold mb-1">{r.name}</div>
-                <div className="text-[#a88f78] text-sm mb-5">{r.city}</div>
-                <div className="flex items-end justify-between mb-1">
-                  <span className="text-xs text-[#a88f78] uppercase font-bold">Chiffre du jour</span>
-                  <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
-                </div>
-                <div className="text-xs text-[#8a7561] mb-6">
-                  {restaurantOrders.length} commande{restaurantOrders.length > 1 ? "s" : ""} · dont {eur(collected)} déjà encaissé
-                </div>
-                <button
-                  onClick={() => setSelected(r.id)}
-                  className="tap-scale w-full rounded-xl py-4 font-bold"
-                  style={{ background: "#C0392B", color: "#fff5ea" }}
-                >
-                  Voir le détail →
-                </button>
-              </div>
-            );
-          })}
-        </div>
+      <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+        <button onClick={() => setTab("overview")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "overview" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          📊 Vue d'ensemble
+        </button>
+        <button onClick={() => setTab("costprice")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "costprice" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          💰 Coût de revient
+        </button>
+        <button onClick={() => setTab("consumption")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "consumption" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          📦 Consommation
+        </button>
       </div>
+
+      {tab === "overview" && (
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <p className="text-[#a88f78] text-sm mb-6">
+            Vue en lecture seule — pour agir sur une commande, utilise l'espace équipe du restaurant concerné.
+          </p>
+          {restaurants.length === 0 && <p className="text-[#8a7561]">Chargement…</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {restaurants.map((r) => {
+              const restaurantOrders = realOrders.filter((o) => o.restaurantId === r.id);
+              const total = restaurantOrders.reduce((s, o) => s + o.total, 0);
+              const collected = restaurantOrders.filter((o) => o.status === "servie").reduce((s, o) => s + o.total, 0);
+              return (
+                <div key={r.id} className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-6">
+                  <div className="display-font text-2xl font-bold mb-1">{r.name}</div>
+                  <div className="text-[#a88f78] text-sm mb-5">{r.city}</div>
+                  <div className="flex items-end justify-between mb-1">
+                    <span className="text-xs text-[#a88f78] uppercase font-bold">Chiffre du jour</span>
+                    <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
+                  </div>
+                  <div className="text-xs text-[#8a7561] mb-6">
+                    {restaurantOrders.length} commande{restaurantOrders.length > 1 ? "s" : ""} · dont {eur(collected)} déjà encaissé
+                  </div>
+                  <button
+                    onClick={() => setSelected(r.id)}
+                    className="tap-scale w-full rounded-xl py-4 font-bold"
+                    style={{ background: "#C0392B", color: "#fff5ea" }}
+                  >
+                    Voir le détail →
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab === "costprice" && <CostPriceAdmin />}
+      {tab === "consumption" && <ConsumptionAdmin />}
     </div>
   );
 }

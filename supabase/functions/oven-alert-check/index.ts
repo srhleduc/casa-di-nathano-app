@@ -59,7 +59,7 @@ Deno.serve(async () => {
     const isLate = (count || 0) >= THRESHOLD_COUNT;
 
     if (isLate && !state?.active) {
-      await notifyManagers(
+      const pushResults = await notifyManagers(
         supabase,
         `🔥 ${restaurant.name} — embouteillage au four`,
         `${count} commandes attendent depuis plus de ${THRESHOLD_MINUTES} min.`
@@ -68,7 +68,7 @@ Deno.serve(async () => {
         .from("oven_alert_state")
         .update({ active: true, triggered_at: new Date().toISOString() })
         .eq("restaurant_id", restaurant.id);
-      results.push({ restaurant: restaurant.id, notified: true, count });
+      results.push({ restaurant: restaurant.id, notified: true, count, pushResults });
     } else if (!isLate && state?.active) {
       await supabase.from("oven_alert_state").update({ active: false }).eq("restaurant_id", restaurant.id);
       results.push({ restaurant: restaurant.id, cleared: true });
@@ -84,23 +84,26 @@ async function notifyManagers(supabase, title, body) {
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth_key");
-  if (!subscriptions || subscriptions.length === 0) return;
+  if (!subscriptions || subscriptions.length === 0) return { sent: 0, errors: [] };
 
   const payload = JSON.stringify({ title, body });
-  await Promise.all(
+  const outcomes = await Promise.all(
     subscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
           payload
         );
+        return { id: sub.id, ok: true };
       } catch (err) {
         // Abonnement expiré/révoqué (410/404) : on le supprime pour ne plus
         // réessayer inutilement à chaque déclenchement futur.
         if (err.statusCode === 404 || err.statusCode === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         }
+        return { id: sub.id, ok: false, statusCode: err.statusCode, message: err.body || err.message };
       }
     })
   );
+  return { sent: outcomes.filter((o) => o.ok).length, errors: outcomes.filter((o) => !o.ok) };
 }
