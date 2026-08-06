@@ -354,7 +354,7 @@ function RecipesPanel({ products, category, ingredients, pizzaIngredients }) {
                   <td className="py-2 pr-4">{eur(p.price)}</td>
                   <td className="py-2 pr-4">{eur(priceHT)}</td>
                   <td className="py-2 pr-4">{eur(cost)}</td>
-                  <td className="py-2 pr-4" style={{ color: marginPct < 60 ? "#e88a8a" : "#a8e8c8" }}>
+                  <td className="py-2 pr-4" style={{ color: marginPct < 70 ? "#e88a8a" : "#a8e8c8" }}>
                     {eur(margin)} ({marginPct.toFixed(0)}%)
                   </td>
                 </tr>
