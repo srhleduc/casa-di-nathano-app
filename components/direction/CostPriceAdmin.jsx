@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useIngredients,
   insertIngredient,
@@ -77,10 +77,12 @@ function IngredientsPanel({ ingredients }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_INGREDIENT);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const formRef = useRef(null);
 
   function startEdit(ing) {
     setEditingId(ing.id);
     setForm({ name: ing.name, unit: ing.unit, costPerUnit: String(ing.costPerUnit) });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function cancelEdit() {
     setEditingId(null);
@@ -111,7 +113,7 @@ function IngredientsPanel({ ingredients }) {
 
   return (
     <div>
-      <div className={`rounded-2xl border p-5 mb-8 ${editingId ? "border-[#C0392B]" : "border-[#3a2b1f]"}`}>
+      <div ref={formRef} className={`rounded-2xl border p-5 mb-8 ${editingId ? "border-[#C0392B]" : "border-[#3a2b1f]"}`}>
         <div className="font-bold mb-4">{editingId ? `Modifier « ${form.name} »` : "Ajouter un ingrédient"}</div>
         <div className="flex flex-wrap gap-4 items-end">
           <div>
