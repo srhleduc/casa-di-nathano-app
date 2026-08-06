@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Portage des <style> injectés à l'exécution dans borne-casa-di-nathano.jsx.
+   Dans la source, chaque écran (borne / PIN / espace équipe) réinjectait sa
+   propre variante de ".kiosk-root" — ça marchait par écrasement de style au
+   fil des rendus. Ici, avec une feuille de styles unique, chaque variante
+   devient sa propre classe. */
+@layer components {
+  .kiosk-root {
+    font-family: var(--font-manrope), sans-serif;
+    background: radial-gradient(ellipse at 50% -10%, #3a2013 0%, #1a120b 55%, #120c07 100%);
+    color: #f5ebdd;
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .kiosk-root--pin {
+    font-family: var(--font-manrope), sans-serif;
+    background: #1a120b;
+    color: #f5ebdd;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kiosk-root--team {
+    font-family: var(--font-manrope), sans-serif;
+    background: #140d08;
+    color: #f5ebdd;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .display-font {
+    font-family: var(--font-fraunces), serif;
+  }
+
+  .oven-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 0%, rgba(196, 57, 43, 0.18) 0%, transparent 55%);
+  }
+
+  .tap-scale {
+    transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.08s ease;
+  }
+  .tap-scale:active {
+    transform: scale(0.93);
+    filter: brightness(1.25);
+    box-shadow: 0 0 0 3px rgba(232, 178, 61, 0.5) inset;
+  }
+
+  .ticket-edge {
+    background-image: radial-gradient(circle at 8px 0, transparent 8px, #241811 8.5px);
+    background-size: 16px 16px;
+    background-position: top;
+    background-repeat: repeat-x;
+  }
+
+  .pizza-modal {
+    font-family: var(--font-manrope), sans-serif;
+  }
+
+  .chip {
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 700;
+    border: 2px solid #3a2b1f;
+  }
+}

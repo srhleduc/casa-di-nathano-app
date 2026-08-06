@@ -1,0 +1,248 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { MENU } from "@/lib/menu";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
+import { useOrders, useSlots, useRuptures, useDessertStock, useCustomMenuItems, insertOrder } from "@/lib/data";
+
+import WelcomeScreen from "./WelcomeScreen";
+import ServiceTypeScreen from "./ServiceTypeScreen";
+import AperoAskScreen from "./AperoAskScreen";
+import OrderScreen from "./OrderScreen";
+import PizzaCustomizeModal from "./PizzaCustomizeModal";
+import FlavorModal from "./FlavorModal";
+import CheckoutScreen from "./CheckoutScreen";
+import SlotScreen from "./SlotScreen";
+import StatusScreen from "./StatusScreen";
+import PinScreen from "./PinScreen";
+import TeamSpace from "./TeamSpace";
+
+async function submitWithRetry(order, attempt = 1) {
+  try {
+    await insertOrder(order);
+  } catch (err) {
+    if (attempt < 3) {
+      await new Promise((r) => setTimeout(r, 400));
+      return submitWithRetry(order, attempt + 1);
+    }
+    console.error("Échec définitif de l'enregistrement de la commande", err);
+  }
+}
+
+export default function Kiosk() {
+  const [mode, setMode] = useState("client"); // client | pin | team
+  const [teamUnlocked, setTeamUnlocked] = useState(false); // mémorise l'accès équipe pour toute la session
+  const [screen, setScreen] = useState("welcome");
+  const [activeCat, setActiveCat] = useState("pizza");
+  const [cart, setCart] = useState([]);
+  const [serviceType, setServiceType] = useState("🍽️ Sur place");
+  const [tableName, setTableName] = useState("");
+  const [customizing, setCustomizing] = useState(null); // pizza en cours de personnalisation
+  const [flavoring, setFlavoring] = useState(null); // glace en cours de choix de parfum
+  const [aperoMode, setAperoMode] = useState(false); // vrai tant que le client n'a pas validé son apéro
+  const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
+  const [selectedSlot, setSelectedSlot] = useState(null); // créneau choisi si mode "single"
+
+  const { orders } = useOrders();
+  const { slots } = useSlots();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { customMenuItems } = useCustomMenuItems();
+  const fullMenu = useMemo(() => [...MENU, ...customMenuItems], [customMenuItems]);
+
+  const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
+  const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
+  const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+
+  function addItem(item, note) {
+    setCart((prev) => {
+      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      let next = existing
+        ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
+        : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
+      return withAutoFocaccia(next, item);
+    });
+  }
+  function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+    const modifiers = [
+      ...removedItems.map((i) => ({ name: i.name, price: i.price })),
+      ...addedItems.map((i) => ({ name: i.name, price: i.price })),
+    ];
+    setCart((prev) => {
+      const sig = cartSignature(pizzaItem.id, null, modifiers);
+      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === sig);
+      if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
+      return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers }];
+    });
+    setCustomizing(null);
+  }
+  function changeQty(id, note, modifiers, delta) {
+    const sig = cartSignature(id, note, modifiers);
+    setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  }
+  function resetAll() {
+    setCart([]);
+    setTableName("");
+    setServiceType("🍽️ Sur place");
+    setActiveCat("pizza");
+    setSlotChoice(null);
+    setSelectedSlot(null);
+    setAperoMode(false);
+    setScreen("welcome");
+  }
+
+  function submitOrder(finalPlan) {
+    const newOrder = {
+      items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers })),
+      serviceType,
+      name: tableName || "Client borne",
+      slotAllocations: finalPlan || [],
+      pizzaCount,
+      total,
+      status: "attente",
+    };
+    setScreen("done");
+    submitWithRetry(newOrder);
+  }
+
+  function goToSlot() {
+    if (pizzaCount === 0) {
+      submitOrder(null);
+      return;
+    }
+    const choice = computeSlotOptions(orders, slots, pizzaCount);
+    if (serviceType === "🍽️ Sur place" && choice.mode !== "none") {
+      const finalPlan =
+        choice.mode === "split" ? choice.plan : [{ slotId: choice.options[0].id, label: choice.options[0].label, qty: pizzaCount }];
+      setSlotChoice(choice);
+      submitOrder(finalPlan);
+      return;
+    }
+    setSelectedSlot(null);
+    setSlotChoice(choice);
+    setScreen("slot");
+  }
+
+  function onSiteDoneMessage() {
+    if (serviceType === "🍽️ Sur place" && slotChoice && slotChoice.mode !== "none") {
+      const label = slotChoice.mode === "split" ? slotChoice.plan[0].label : slotChoice.options[0].label;
+      const mins = minutesFromNow(label);
+      return mins !== null
+        ? `Votre commande sera lancée dans les ${Math.max(5, Math.ceil(mins / 5) * 5)} prochaines minutes (vers ${label}).`
+        : `Merci ${tableName ? tableName + " " : ""}— votre commande est partie en cuisine.`;
+    }
+    return `Merci ${tableName ? tableName + " " : ""}— rends-toi en caisse pour régler.`;
+  }
+
+  if (mode === "pin") return <PinScreen onSuccess={() => { setTeamUnlocked(true); setMode("team"); }} onCancel={() => setMode("client")} />;
+  if (mode === "team") return <TeamSpace onExit={() => setMode("client")} />;
+
+  return (
+    <div className="kiosk-root">
+      {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("service")} onTeam={() => setMode(teamUnlocked ? "team" : "pin")} />}
+
+      {screen === "service" && (
+        <ServiceTypeScreen
+          onSelect={(type) => {
+            setServiceType(type);
+            if (type === "🍽️ Sur place") setScreen("apero-ask");
+            else {
+              setAperoMode(false);
+              setActiveCat("pizza");
+              setScreen("order");
+            }
+          }}
+        />
+      )}
+
+      {screen === "apero-ask" && (
+        <AperoAskScreen
+          onAnswer={(wantsApero) => {
+            if (wantsApero) {
+              setAperoMode(true);
+              setActiveCat("boisson");
+            } else {
+              setAperoMode(false);
+              setActiveCat("pizza");
+            }
+            setScreen("order");
+          }}
+        />
+      )}
+
+      {screen === "order" && (
+        <OrderScreen
+          activeCat={activeCat}
+          setActiveCat={setActiveCat}
+          cart={cart}
+          addItem={addItem}
+          onPizzaTap={setCustomizing}
+          onGlaceTap={setFlavoring}
+          changeQty={changeQty}
+          total={total}
+          itemCount={itemCount}
+          onCancel={resetAll}
+          onCheckout={() => setScreen("checkout")}
+          aperoMode={aperoMode}
+          ruptures={ruptures}
+          orders={orders}
+          dessertStock={dessertStock}
+          menu={fullMenu}
+          showPhotos={true}
+          onFinishApero={() => {
+            setAperoMode(false);
+            setActiveCat("pizza");
+          }}
+        />
+      )}
+
+      {customizing && (
+        <PizzaCustomizeModal pizza={customizing} onClose={() => setCustomizing(null)} onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)} />
+      )}
+
+      {flavoring && (
+        <FlavorModal
+          item={flavoring}
+          onClose={() => setFlavoring(null)}
+          onConfirm={(note) => {
+            addItem(flavoring, note);
+            setFlavoring(null);
+          }}
+        />
+      )}
+
+      {screen === "checkout" && (
+        <CheckoutScreen
+          cart={cart}
+          changeQty={changeQty}
+          total={total}
+          pizzaCount={pizzaCount}
+          serviceType={serviceType}
+          setServiceType={setServiceType}
+          tableName={tableName}
+          setTableName={setTableName}
+          onBack={() => setScreen("order")}
+          onConfirm={goToSlot}
+        />
+      )}
+
+      {screen === "slot" && (
+        <SlotScreen
+          pizzaCount={pizzaCount}
+          slotChoice={slotChoice}
+          selectedSlot={selectedSlot}
+          setSelectedSlot={setSelectedSlot}
+          allSlotsConfigured={slots.length > 0}
+          onBack={() => setScreen("checkout")}
+          onConfirm={() => {
+            const finalPlan =
+              slotChoice.mode === "split" ? slotChoice.plan : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : null;
+            submitOrder(finalPlan);
+          }}
+        />
+      )}
+
+      {screen === "done" && <StatusScreen title="Commande envoyée !" subtitle={onSiteDoneMessage()} success onDone={resetAll} />}
+    </div>
+  );
+}
