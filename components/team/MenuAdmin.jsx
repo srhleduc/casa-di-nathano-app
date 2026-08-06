@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMenu, insertMenuItem, updateMenuItem, deleteMenuItem, uploadMenuPhoto } from "@/lib/data";
 import { CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
 
@@ -20,6 +20,7 @@ export default function MenuAdmin() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const formRef = useRef(null);
 
   const ingredientNames = ingredientNamesFromMenu(menuItems);
   const items = menuItems.filter((m) => m.cat === browseCat).sort((a, b) => a.name.localeCompare(b.name));
@@ -34,6 +35,7 @@ export default function MenuAdmin() {
       ingredients: item.ingredients || [],
       photoUrl: item.photoUrl || "",
     });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function cancelEdit() {
     setEditingId(null);
@@ -92,7 +94,7 @@ export default function MenuAdmin() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <div className="rounded-2xl border border-[#3a2b1f] p-5 mb-8">
+      <div ref={formRef} className={`rounded-2xl border p-5 mb-8 ${editingId ? "border-[#C0392B]" : "border-[#3a2b1f]"}`}>
         <div className="font-bold mb-4">{editingId ? `Modifier « ${form.name} »` : "Créer un nouveau produit"}</div>
 
         <div className="mb-4">
