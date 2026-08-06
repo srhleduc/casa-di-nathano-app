@@ -533,8 +533,10 @@ create policy "consumption_actuals_managers" on consumption_actuals
   with check (is_manager());
 
 -- Met à jour la remise à zéro nocturne (même nom de job → remplace la
--- précédente définition) pour archiver les ventes de pizzas de la veille
--- dans daily_sales avant de supprimer les commandes.
+-- précédente définition) pour archiver les ventes de la veille (tous
+-- produits, plus seulement les pizzas — coût de revient/consommation
+-- couvrent désormais toutes les catégories) dans daily_sales avant de
+-- supprimer les commandes.
 select cron.schedule(
   'casa-di-nathano-daily-reset',
   '0 4 * * *',
@@ -545,7 +547,6 @@ select cron.schedule(
     where date(o.created_at) < current_date
       and (o.scheduled_for is null or o.scheduled_for < current_date)
       and o.is_test = false
-      and item->>'cat' = 'pizza'
     group by o.restaurant_id, date(o.created_at), item->>'id'
     on conflict (restaurant_id, date, menu_item_id)
       do update set qty = daily_sales.qty + excluded.qty;
@@ -584,3 +585,8 @@ create policy "suppliers_update" on suppliers for update to authenticated using 
 create policy "suppliers_delete" on suppliers for delete to authenticated using (is_manager());
 
 alter table ingredients add column if not exists supplier_id uuid references suppliers (id) on delete set null;
+
+-- L'ingrédient générique "Pâte (base commune)" (créé lors de l'import Excel
+-- initial, cf. plus haut) a été décomposé en Farine + Farines graines + Eau
+-- sur chaque pizza qui l'utilisait — mêmes coûts totaux, juste plus lisible.
+-- (Exécuté une fois manuellement, rien à rejouer ici — mentionné pour la trace.)

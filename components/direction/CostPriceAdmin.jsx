@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useIngredients,
   insertIngredient,
@@ -11,13 +11,17 @@ import {
   removePizzaIngredient,
   useMenu,
 } from "@/lib/data";
-import { eur } from "@/lib/menu";
+import { eur, CATEGORIES } from "@/lib/menu";
 
-// TVA restauration (10%) — les prix du menu sont TTC (affichage légal), les
-// coûts ingrédients saisis sont supposés HT (comme sur une facture
-// fournisseur) : il faut donc reconvertir le prix en HT avant de comparer,
-// sinon la marge affichée inclut à tort la TVA reversée à l'État.
-const TVA_RATE = 0.1;
+// TVA — les prix du menu sont TTC (affichage légal), les coûts ingrédients
+// saisis sont supposés HT (comme sur une facture fournisseur) : il faut donc
+// reconvertir le prix en HT avant de comparer, sinon la marge affichée
+// inclut à tort la TVA reversée à l'État. 10% pour la nourriture (taux
+// restauration), 20% pour l'alcool consommé sur place (bières/vins/cocktails).
+const ALCOHOL_CATS = ["biere", "vin", "cocktail"];
+function tvaRateForCategory(cat) {
+  return ALCOHOL_CATS.includes(cat) ? 0.2 : 0.1;
+}
 
 const UNITS = [
   { key: "g", label: "g" },
@@ -53,9 +57,9 @@ function ingredientById(ingredients) {
   return Object.fromEntries(ingredients.map((i) => [i.id, i]));
 }
 
-function pizzaCost(pizzaId, pizzaIngredients, byId) {
+function productCost(productId, pizzaIngredients, byId) {
   return pizzaIngredients
-    .filter((pi) => pi.menuItemId === pizzaId)
+    .filter((pi) => pi.menuItemId === productId)
     .reduce((sum, pi) => {
       const ing = byId[pi.ingredientId];
       return ing ? sum + pi.quantity * ing.costPerUnit : sum;
@@ -66,8 +70,9 @@ export default function CostPriceAdmin() {
   const { ingredients } = useIngredients();
   const { pizzaIngredients } = usePizzaIngredients();
   const { menuItems } = useMenu();
-  const pizzas = menuItems.filter((m) => m.cat === "pizza").sort((a, b) => a.name.localeCompare(b.name));
   const [tab, setTab] = useState("ingredients"); // "ingredients" | "recipes"
+  const [recipeCat, setRecipeCat] = useState("pizza");
+  const products = menuItems.filter((m) => m.cat === recipeCat).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -81,7 +86,20 @@ export default function CostPriceAdmin() {
       </div>
       {tab === "ingredients" && <IngredientsPanel ingredients={ingredients} />}
       {tab === "recipes" && (
-        <RecipesPanel pizzas={pizzas} ingredients={ingredients} pizzaIngredients={pizzaIngredients} />
+        <div>
+          <div className="flex gap-2 mb-5 overflow-x-auto">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => setRecipeCat(c.key)}
+                className={`tap-scale shrink-0 rounded-full px-4 py-2 text-sm font-bold border-2 ${recipeCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}
+              >
+                {c.emoji} {c.label}
+              </button>
+            ))}
+          </div>
+          <RecipesPanel products={products} category={recipeCat} ingredients={ingredients} pizzaIngredients={pizzaIngredients} />
+        </div>
       )}
     </div>
   );
@@ -276,12 +294,18 @@ function IngredientsPanel({ ingredients }) {
   );
 }
 
-function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
-  const [selectedId, setSelectedId] = useState(pizzas[0]?.id || null);
+function RecipesPanel({ products, category, ingredients, pizzaIngredients }) {
+  const [selectedId, setSelectedId] = useState(products[0]?.id || null);
+  const tvaRate = tvaRateForCategory(category);
   const byId = ingredientById(ingredients);
-  const selectedPizza = pizzas.find((p) => p.id === selectedId);
+  const selectedProduct = products.find((p) => p.id === selectedId) || null;
   const recipe = pizzaIngredients.filter((pi) => pi.menuItemId === selectedId);
   const recipeByIngredient = Object.fromEntries(recipe.map((pi) => [pi.ingredientId, pi.quantity]));
+
+  useEffect(() => {
+    if (!products.find((p) => p.id === selectedId)) setSelectedId(products[0]?.id || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, products.length]);
 
   async function changeQty(ingredientId, value) {
     const qty = parseFloat(value);
@@ -299,15 +323,15 @@ function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
 
   return (
     <div>
-      <div className="font-bold mb-1">Coût de revient par pizza</div>
+      <div className="font-bold mb-1">Coût de revient</div>
       <div className="text-xs text-[#8a7561] mb-3">
-        Prix de vente TTC reconverti en HT (TVA {(TVA_RATE * 100).toFixed(0)}%) avant calcul de la marge — les coûts ingrédients sont supposés HT.
+        Prix de vente TTC reconverti en HT (TVA {(tvaRate * 100).toFixed(0)}%) avant calcul de la marge — les coûts ingrédients sont supposés HT.
       </div>
       <div className="overflow-x-auto mb-8">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-[#a88f78] uppercase">
-              <th className="py-2 pr-4">Pizza</th>
+              <th className="py-2 pr-4">Produit</th>
               <th className="py-2 pr-4">Prix TTC</th>
               <th className="py-2 pr-4">Prix HT</th>
               <th className="py-2 pr-4">Coût de revient</th>
@@ -315,9 +339,9 @@ function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
             </tr>
           </thead>
           <tbody>
-            {pizzas.map((p) => {
-              const cost = pizzaCost(p.id, pizzaIngredients, byId);
-              const priceHT = p.price / (1 + TVA_RATE);
+            {products.map((p) => {
+              const cost = productCost(p.id, pizzaIngredients, byId);
+              const priceHT = p.price / (1 + tvaRate);
               const margin = priceHT - cost;
               const marginPct = priceHT > 0 ? (margin / priceHT) * 100 : 0;
               return (
@@ -338,12 +362,12 @@ function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
             })}
           </tbody>
         </table>
-        {pizzas.length === 0 && <p className="text-[#8a7561] mt-3">Aucune pizza dans le menu.</p>}
+        {products.length === 0 && <p className="text-[#8a7561] mt-3">Aucun produit dans cette catégorie.</p>}
       </div>
 
-      {selectedPizza && (
+      {selectedProduct && (
         <div className="rounded-2xl border border-[#3a2b1f] p-5">
-          <div className="font-bold mb-4">Recette « {selectedPizza.name} »</div>
+          <div className="font-bold mb-4">Recette « {selectedProduct.name} »</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {ingredients.map((ing) => (
               <div key={ing.id} className="flex items-center justify-between gap-3">
