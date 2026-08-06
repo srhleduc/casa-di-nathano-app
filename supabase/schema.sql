@@ -19,11 +19,14 @@ create table if not exists orders (
   apero_status text,
   scheduled_for date,
   scheduled_time text,
+  prep_served boolean not null default false,
   created_at timestamptz not null default now()
 );
 create index if not exists orders_created_at_idx on orders (created_at);
 create index if not exists orders_status_idx on orders (status);
 create index if not exists orders_scheduled_for_idx on orders (scheduled_for);
+-- Migration pour une base déjà créée avant l'ajout de prep_served (sans effet si la colonne existe déjà) :
+alter table orders add column if not exists prep_served boolean not null default false;
 
 create table if not exists slots (
   id uuid primary key default gen_random_uuid(),
