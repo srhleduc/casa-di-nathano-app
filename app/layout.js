@@ -27,6 +27,11 @@ export const metadata = {
     ],
     apple: "/icons/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black",
+    title: "Casa Nathano",
+  },
 };
 
 export const viewport = {
