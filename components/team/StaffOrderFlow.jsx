@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MENU } from "@/lib/menu";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
-import { useOrders, useSlots, useRuptures, useDessertStock, useCustomMenuItems, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, useMenu, insertOrder } from "@/lib/data";
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
 import AperoAskScreen from "../AperoAskScreen";
@@ -38,8 +37,7 @@ export default function StaffOrderFlow() {
   const { slots } = useSlots();
   const { ruptures } = useRuptures();
   const { dessertStock } = useDessertStock();
-  const { customMenuItems } = useCustomMenuItems();
-  const fullMenu = useMemo(() => [...MENU, ...customMenuItems], [customMenuItems]);
+  const { menuItems } = useMenu();
 
   const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("boisson");
@@ -65,7 +63,7 @@ export default function StaffOrderFlow() {
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
         : [...prev, { ...item, qty: 1, note: note || null, modifiers: [], phase }];
-      return withAutoFocaccia(next, item, phase);
+      return withAutoFocaccia(next, item, phase, menuItems);
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
@@ -183,7 +181,7 @@ export default function StaffOrderFlow() {
           ruptures={ruptures}
           orders={orders}
           dessertStock={dessertStock}
-          menu={fullMenu}
+          menu={menuItems}
           onFinishApero={() => {
             setAperoMode(false);
             setActiveCat("pizza");
@@ -226,7 +224,7 @@ export default function StaffOrderFlow() {
       {screen === "done" && <StatusScreen title="Commande enregistrée !" subtitle="Elle est partie en cuisine." success onDone={resetAll} />}
 
       {customizing && (
-        <PizzaCustomizeModal pizza={customizing} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
+        <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
       )}
       {flavoring && (
         <FlavorModal

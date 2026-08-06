@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { MENU, PIZZA_RECIPES, eur } from "@/lib/menu";
+import { eur } from "@/lib/menu";
 
 const FEATURED_NAMES = ["Supplément Anchois", "Supplément Cœur de Burrata", "Supplément Mozzarella di Buffala", "Supplément Salade"];
 
-export default function PizzaCustomizeModal({ pizza, onClose, onConfirm }) {
+export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm }) {
   const [mode, setMode] = useState("detail"); // detail | remove | add
   const [removedNames, setRemovedNames] = useState([]); // noms d'ingrédients (sans préfixe)
   const [addedIds, setAddedIds] = useState([]); // ids d'articles Supp. sélectionnés
   const [showOtherSupp, setShowOtherSupp] = useState(false);
 
-  const recipe = PIZZA_RECIPES[pizza.name] || pizza.ingredients || [];
-  const allSupplements = MENU.filter((m) => m.cat === "supplement");
+  const recipe = pizza.ingredients || [];
+  const allSupplements = (menu || []).filter((m) => m.cat === "supplement");
   const featuredSupplements = FEATURED_NAMES.map((n) => allSupplements.find((s) => s.name === n)).filter(Boolean);
   const otherSupplements = allSupplements.filter((s) => !FEATURED_NAMES.includes(s.name));
 
@@ -24,8 +24,8 @@ export default function PizzaCustomizeModal({ pizza, onClose, onConfirm }) {
   }
 
   function confirm() {
-    const removedItems = removedNames.map((n) => MENU.find((m) => m.cat === "sans" && m.name === `Sans ${n}`)).filter(Boolean);
-    const addedItems = addedIds.map((id) => MENU.find((m) => m.id === id)).filter(Boolean);
+    const removedItems = removedNames.map((n) => (menu || []).find((m) => m.cat === "sans" && m.name === `Sans ${n}`)).filter(Boolean);
+    const addedItems = addedIds.map((id) => (menu || []).find((m) => m.id === id)).filter(Boolean);
     onConfirm(removedItems, addedItems);
   }
 

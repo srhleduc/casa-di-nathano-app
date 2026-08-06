@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useRuptures, addRupture, removeRupture } from "@/lib/data";
-import { MENU, CATEGORIES } from "@/lib/menu";
+import { useRuptures, addRupture, removeRupture, useMenu } from "@/lib/data";
+import { CATEGORIES } from "@/lib/menu";
 
 export default function RupturesAdmin() {
   const { ruptures } = useRuptures();
+  const { menuItems } = useMenu();
   const [cat, setCat] = useState("pizza");
-  const items = MENU.filter((m) => m.cat === cat);
+  const items = menuItems.filter((m) => m.cat === cat);
 
   function toggle(id) {
     if (ruptures.includes(id)) removeRupture(id).catch((err) => console.error(err));
     else addRupture(id).catch((err) => console.error(err));
   }
 
-  const rupturedItems = MENU.filter((m) => ruptures.includes(m.id));
+  const rupturedItems = menuItems.filter((m) => ruptures.includes(m.id));
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">

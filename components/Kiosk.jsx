@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MENU } from "@/lib/menu";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
-import { useOrders, useSlots, useRuptures, useDessertStock, useCustomMenuItems, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, useMenu, insertOrder } from "@/lib/data";
 
 import WelcomeScreen from "./WelcomeScreen";
 import ServiceTypeScreen from "./ServiceTypeScreen";
@@ -47,8 +46,7 @@ export default function Kiosk() {
   const { slots } = useSlots();
   const { ruptures } = useRuptures();
   const { dessertStock } = useDessertStock();
-  const { customMenuItems } = useCustomMenuItems();
-  const fullMenu = useMemo(() => [...MENU, ...customMenuItems], [customMenuItems]);
+  const { menuItems } = useMenu();
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -60,7 +58,7 @@ export default function Kiosk() {
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
         : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
-      return withAutoFocaccia(next, item);
+      return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
@@ -187,7 +185,7 @@ export default function Kiosk() {
           ruptures={ruptures}
           orders={orders}
           dessertStock={dessertStock}
-          menu={fullMenu}
+          menu={menuItems}
           showPhotos={true}
           onFinishApero={() => {
             setAperoMode(false);
@@ -197,7 +195,7 @@ export default function Kiosk() {
       )}
 
       {customizing && (
-        <PizzaCustomizeModal pizza={customizing} onClose={() => setCustomizing(null)} onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)} />
+        <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)} />
       )}
 
       {flavoring && (

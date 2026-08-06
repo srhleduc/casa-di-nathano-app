@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORIES, MENU, flavorConfigFor, eur, DESSERT_STOCK_GROUPS } from "@/lib/menu";
+import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS } from "@/lib/menu";
 import { remainingForDessertGroup } from "@/lib/business";
 
 export default function OrderScreen({
@@ -23,7 +23,7 @@ export default function OrderScreen({
   menu,
   showPhotos,
 }) {
-  const fullMenu = menu || MENU;
+  const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
   const visibleCategories = aperoMode ? CATEGORIES.filter((c) => APERO_CATS.includes(c.key)) : CATEGORIES;
 

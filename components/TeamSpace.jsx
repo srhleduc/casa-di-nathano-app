@@ -13,7 +13,7 @@ import ScheduledOrderFlow from "./team/ScheduledOrderFlow";
 import SlotsAdmin from "./team/SlotsAdmin";
 import RupturesAdmin from "./team/RupturesAdmin";
 import DessertStockAdmin from "./team/DessertStockAdmin";
-import NewProductAdmin from "./team/NewProductAdmin";
+import MenuAdmin from "./team/MenuAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import TablePlanAdmin from "./team/TablePlanAdmin";
 
@@ -100,14 +100,14 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("slots")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "slots" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱️ Créneaux du jour</button>
             <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🚫 Ruptures</button>
             <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Desserts du jour</button>
-            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>➕ Nouveau produit</button>
+            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>✏️ Menu</button>
             <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
             <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Plan de table</button>
           </div>
           {tab === "slots" && <SlotsAdmin />}
           {tab === "ruptures" && <RupturesAdmin />}
           {tab === "desserts" && <DessertStockAdmin />}
-          {tab === "newproduct" && <NewProductAdmin />}
+          {tab === "newproduct" && <MenuAdmin />}
           {tab === "maintenance" && <MaintenanceAdmin />}
           {tab === "tables" && <TablePlanAdmin />}
         </>

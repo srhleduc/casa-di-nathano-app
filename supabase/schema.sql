@@ -49,8 +49,25 @@ insert into dessert_stock (key, qty) values
   ('paris_palerme', 0)
 on conflict (key) do nothing;
 
+-- Table historique, remplacée par menu_items ci-dessous (tout le menu, y compris les
+-- produits de base, est maintenant éditable depuis Logistique → Menu). Conservée telle
+-- quelle en base (non utilisée par l'app) pour ne rien supprimer sans le demander.
 create table if not exists custom_menu_items (
   id uuid primary key default gen_random_uuid(),
+  name text not null,
+  price numeric(10, 2) not null default 0,
+  cat text not null,
+  ingredients jsonb,
+  photo_url text,
+  created_at timestamptz not null default now()
+);
+
+-- Le menu complet (anciennement codé en dur dans lib/menu.js) : pizzas, antipasti,
+-- salades, suppléments, "sans", boissons, bières, vins, cocktails, desserts. Les ids des
+-- produits d'origine sont des slugs stables (ex. "pizza-margherita-di-napoli") pour rester
+-- compatibles avec les références déjà stockées dans `ruptures.item_id`.
+create table if not exists menu_items (
+  id text primary key,
   name text not null,
   price numeric(10, 2) not null default 0,
   cat text not null,
@@ -86,6 +103,7 @@ alter table slots enable row level security;
 alter table ruptures enable row level security;
 alter table dessert_stock enable row level security;
 alter table custom_menu_items enable row level security;
+alter table menu_items enable row level security;
 alter table table_plan enable row level security;
 alter table team_config enable row level security;
 
@@ -94,6 +112,7 @@ create policy "slots_anon_all" on slots for all to anon using (true) with check 
 create policy "ruptures_anon_all" on ruptures for all to anon using (true) with check (true);
 create policy "dessert_stock_anon_all" on dessert_stock for all to anon using (true) with check (true);
 create policy "custom_menu_items_anon_all" on custom_menu_items for all to anon using (true) with check (true);
+create policy "menu_items_anon_all" on menu_items for all to anon using (true) with check (true);
 create policy "table_plan_anon_all" on table_plan for all to anon using (true) with check (true);
 create policy "team_config_anon_all" on team_config for all to anon using (true) with check (true);
 
@@ -106,6 +125,7 @@ alter publication supabase_realtime add table slots;
 alter publication supabase_realtime add table ruptures;
 alter publication supabase_realtime add table dessert_stock;
 alter publication supabase_realtime add table custom_menu_items;
+alter publication supabase_realtime add table menu_items;
 alter publication supabase_realtime add table table_plan;
 
 -- ---------------------------------------------------------------------

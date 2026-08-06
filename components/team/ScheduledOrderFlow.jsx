@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MENU } from "@/lib/menu";
 import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate } from "@/lib/business";
-import { useRuptures, useCustomMenuItems, insertOrder } from "@/lib/data";
+import { useRuptures, useMenu, insertOrder } from "@/lib/data";
 
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
@@ -25,8 +24,7 @@ async function submitWithRetry(order, attempt = 1) {
 
 export default function ScheduledOrderFlow({ onDone }) {
   const { ruptures } = useRuptures();
-  const { customMenuItems } = useCustomMenuItems();
-  const fullMenu = useMemo(() => [...MENU, ...customMenuItems], [customMenuItems]);
+  const { menuItems } = useMenu();
 
   const [screen, setScreen] = useState("date"); // date | order | checkout | done
   const [scheduledFor, setScheduledFor] = useState("");
@@ -48,7 +46,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
         : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
-      return withAutoFocaccia(next, item);
+      return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
@@ -140,7 +138,7 @@ export default function ScheduledOrderFlow({ onDone }) {
           ruptures={ruptures}
           orders={[]}
           dessertStock={{}}
-          menu={fullMenu}
+          menu={menuItems}
           onFinishApero={() => {}}
         />
       )}
@@ -165,7 +163,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       )}
 
       {customizing && (
-        <PizzaCustomizeModal pizza={customizing} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
+        <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
       )}
       {flavoring && (
         <FlavorModal
