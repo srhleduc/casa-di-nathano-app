@@ -13,6 +13,12 @@ import {
 } from "@/lib/data";
 import { eur } from "@/lib/menu";
 
+// TVA restauration (10%) — les prix du menu sont TTC (affichage légal), les
+// coûts ingrédients saisis sont supposés HT (comme sur une facture
+// fournisseur) : il faut donc reconvertir le prix en HT avant de comparer,
+// sinon la marge affichée inclut à tort la TVA reversée à l'État.
+const TVA_RATE = 0.1;
+
 const UNITS = [
   { key: "g", label: "g" },
   { key: "kg", label: "kg" },
@@ -205,22 +211,27 @@ function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
 
   return (
     <div>
-      <div className="font-bold mb-3">Coût de revient par pizza</div>
+      <div className="font-bold mb-1">Coût de revient par pizza</div>
+      <div className="text-xs text-[#8a7561] mb-3">
+        Prix de vente TTC reconverti en HT (TVA {(TVA_RATE * 100).toFixed(0)}%) avant calcul de la marge — les coûts ingrédients sont supposés HT.
+      </div>
       <div className="overflow-x-auto mb-8">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-[#a88f78] uppercase">
               <th className="py-2 pr-4">Pizza</th>
-              <th className="py-2 pr-4">Prix de vente</th>
+              <th className="py-2 pr-4">Prix TTC</th>
+              <th className="py-2 pr-4">Prix HT</th>
               <th className="py-2 pr-4">Coût de revient</th>
-              <th className="py-2 pr-4">Marge</th>
+              <th className="py-2 pr-4">Marge (HT)</th>
             </tr>
           </thead>
           <tbody>
             {pizzas.map((p) => {
               const cost = pizzaCost(p.id, pizzaIngredients, byId);
-              const margin = p.price - cost;
-              const marginPct = p.price > 0 ? (margin / p.price) * 100 : 0;
+              const priceHT = p.price / (1 + TVA_RATE);
+              const margin = priceHT - cost;
+              const marginPct = priceHT > 0 ? (margin / priceHT) * 100 : 0;
               return (
                 <tr
                   key={p.id}
@@ -229,6 +240,7 @@ function RecipesPanel({ pizzas, ingredients, pizzaIngredients }) {
                 >
                   <td className="py-2 pr-4 font-bold">{p.name}</td>
                   <td className="py-2 pr-4">{eur(p.price)}</td>
+                  <td className="py-2 pr-4">{eur(priceHT)}</td>
                   <td className="py-2 pr-4">{eur(cost)}</td>
                   <td className="py-2 pr-4" style={{ color: marginPct < 60 ? "#e88a8a" : "#a8e8c8" }}>
                     {eur(margin)} ({marginPct.toFixed(0)}%)
