@@ -158,6 +158,16 @@ alter publication supabase_realtime add table table_plan;
 alter publication supabase_realtime add table pizza_stock;
 alter publication supabase_realtime add table test_mode;
 
+-- Ajoutées après coup (Coût de revient / Consommation / Commande
+-- fournisseurs) — oubliées lors de leur création, ce qui faisait que les
+-- ajouts fonctionnaient bien en base mais n'apparaissaient jamais à l'écran
+-- sans recharger la page.
+alter publication supabase_realtime add table ingredients;
+alter publication supabase_realtime add table pizza_ingredients;
+alter publication supabase_realtime add table suppliers;
+alter publication supabase_realtime add table daily_sales;
+alter publication supabase_realtime add table consumption_actuals;
+
 -- ---------------------------------------------------------------------
 -- Storage — bucket public pour les photos produits
 -- ---------------------------------------------------------------------
