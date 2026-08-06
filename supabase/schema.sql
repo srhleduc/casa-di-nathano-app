@@ -20,13 +20,15 @@ create table if not exists orders (
   scheduled_for date,
   scheduled_time text,
   prep_served boolean not null default false,
+  is_test boolean not null default false,
   created_at timestamptz not null default now()
 );
 create index if not exists orders_created_at_idx on orders (created_at);
 create index if not exists orders_status_idx on orders (status);
 create index if not exists orders_scheduled_for_idx on orders (scheduled_for);
--- Migration pour une base déjà créée avant l'ajout de prep_served (sans effet si la colonne existe déjà) :
+-- Migrations pour une base déjà créée avant l'ajout de ces colonnes (sans effet si elles existent déjà) :
 alter table orders add column if not exists prep_served boolean not null default false;
+alter table orders add column if not exists is_test boolean not null default false;
 
 create table if not exists slots (
   id uuid primary key default gen_random_uuid(),
@@ -98,6 +100,15 @@ create table if not exists pizza_stock (
 );
 insert into pizza_stock (id) values (1) on conflict (id) do nothing;
 
+-- Mode test équipe : quand activé, les commandes créées côté équipe sont marquées
+-- is_test (voir orders) — exclues des totaux caisse et des stocks, supprimées quand
+-- le mode test est désactivé.
+create table if not exists test_mode (
+  id integer primary key default 1 check (id = 1),
+  enabled boolean not null default false
+);
+insert into test_mode (id) values (1) on conflict (id) do nothing;
+
 -- ---------------------------------------------------------------------
 -- Row Level Security
 -- Outil interne (tablettes du restaurant, pas de comptes utilisateurs) :
@@ -116,6 +127,7 @@ alter table menu_items enable row level security;
 alter table table_plan enable row level security;
 alter table team_config enable row level security;
 alter table pizza_stock enable row level security;
+alter table test_mode enable row level security;
 
 create policy "orders_anon_all" on orders for all to anon using (true) with check (true);
 create policy "slots_anon_all" on slots for all to anon using (true) with check (true);
@@ -126,6 +138,7 @@ create policy "menu_items_anon_all" on menu_items for all to anon using (true) w
 create policy "table_plan_anon_all" on table_plan for all to anon using (true) with check (true);
 create policy "team_config_anon_all" on team_config for all to anon using (true) with check (true);
 create policy "pizza_stock_anon_all" on pizza_stock for all to anon using (true) with check (true);
+create policy "test_mode_anon_all" on test_mode for all to anon using (true) with check (true);
 
 -- ---------------------------------------------------------------------
 -- Realtime — publication des changements aux clients abonnés
@@ -139,6 +152,7 @@ alter publication supabase_realtime add table custom_menu_items;
 alter publication supabase_realtime add table menu_items;
 alter publication supabase_realtime add table table_plan;
 alter publication supabase_realtime add table pizza_stock;
+alter publication supabase_realtime add table test_mode;
 
 -- ---------------------------------------------------------------------
 -- Storage — bucket public pour les photos produits

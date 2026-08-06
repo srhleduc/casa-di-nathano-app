@@ -38,10 +38,15 @@ export default function KitchenBoard() {
               const aperoItems = o.items.filter((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero");
               return (
                 <div key={o.id} className="rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                     <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a2c14", color: "#E8B23D" }}>
                       ⏳ Attente apéro
                     </span>
+                    {o.isTest && (
+                      <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
+                        🧪 TEST
+                      </span>
+                    )}
                   </div>
                   <div className="display-font text-xl font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4] mb-3">
@@ -63,10 +68,17 @@ export default function KitchenBoard() {
       <div className="flex gap-4 overflow-x-auto pb-2">
         {queue.map((o) => (
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(o.serviceType)}>
-                {o.serviceType}
-              </span>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(o.serviceType)}>
+                  {o.serviceType}
+                </span>
+                {o.isTest && (
+                  <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
+                    🧪 TEST
+                  </span>
+                )}
+              </div>
               {o.slotAllocations && o.slotAllocations.length > 0 && (
                 <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
                   🕐 {o.slotAllocations.map((a) => `${a.qty}×${a.label}`).join(" + ")}

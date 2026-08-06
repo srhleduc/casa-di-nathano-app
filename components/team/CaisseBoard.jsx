@@ -10,8 +10,11 @@ export default function CaisseBoard() {
   const { orders } = useOrders();
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const paidToday = orders.filter((o) => o.status === "servie" && isOrderActiveToday(o));
-  const totalActive = active.reduce((s, o) => s + o.total, 0);
-  const totalCollected = paidToday.reduce((s, o) => s + o.total, 0);
+  // Le chiffre du jour n'inclut jamais les commandes du mode test.
+  const realActive = active.filter((o) => !o.isTest);
+  const realPaidToday = paidToday.filter((o) => !o.isTest);
+  const totalActive = realActive.reduce((s, o) => s + o.total, 0);
+  const totalCollected = realPaidToday.reduce((s, o) => s + o.total, 0);
 
   function markPaid(order) {
     updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
@@ -21,11 +24,11 @@ export default function CaisseBoard() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="flex gap-4 mb-6">
         <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
-          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">À encaisser ({active.length})</div>
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">À encaisser ({realActive.length})</div>
           <div className="display-font text-2xl font-bold">{eur(totalActive)}</div>
         </div>
         <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
-          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Déjà encaissé ({paidToday.length})</div>
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Déjà encaissé ({realPaidToday.length})</div>
           <div className="display-font text-2xl font-bold text-[#E8B23D]">{eur(totalCollected)}</div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate } from "@/lib/business";
-import { useRuptures, useMenu, insertOrder } from "@/lib/data";
+import { useRuptures, useMenu, useTestMode, insertOrder } from "@/lib/data";
 
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
@@ -25,6 +25,7 @@ async function submitWithRetry(order, attempt = 1) {
 export default function ScheduledOrderFlow({ onDone }) {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
+  const { testMode } = useTestMode();
 
   const [screen, setScreen] = useState("date"); // date | order | checkout | done
   const [scheduledFor, setScheduledFor] = useState("");
@@ -78,6 +79,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       status: "attente",
       scheduledFor,
       scheduledTime,
+      isTest: testMode.enabled,
     };
     setScreen("done");
     submitWithRetry(newOrder);

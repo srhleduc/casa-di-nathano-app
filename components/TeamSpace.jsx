@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useOrders, useTestMode, setTestModeEnabled, deleteAllTestOrders } from "@/lib/data";
 
 import KitchenBoard from "./team/KitchenBoard";
 import FinitionBoard from "./team/FinitionBoard";
@@ -24,16 +25,45 @@ export default function TeamSpace({ onExit }) {
   const [zone, setZone] = useState(null); // null | "cuisine" | "salle" | "logistique"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
+  const { orders } = useOrders();
+  const { testMode } = useTestMode();
 
   function goZone(z, defaultTab) {
     setZone(z);
     setTab(defaultTab);
   }
 
+  async function toggleTestMode() {
+    if (testMode.enabled) {
+      const testCount = orders.filter((o) => o.isTest).length;
+      if (testCount > 0) {
+        const ok = window.confirm(
+          `Désactiver le mode test va supprimer définitivement ${testCount} commande${testCount > 1 ? "s" : ""} de test. Continuer ?`
+        );
+        if (!ok) return;
+      }
+      try {
+        await deleteAllTestOrders();
+        await setTestModeEnabled(false);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      setTestModeEnabled(true).catch((err) => console.error(err));
+    }
+  }
+
   return (
     <div className="kiosk-root--team">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTestMode}
+            className="tap-scale text-xs font-bold px-4 py-2 rounded-full border-2 shrink-0"
+            style={testMode.enabled ? { background: "#f0c860", borderColor: "#f0c860", color: "#1a120b" } : { borderColor: "#4a3826", color: "#c9b8a4" }}
+          >
+            🧪 Mode test{testMode.enabled ? " ACTIF" : ""}
+          </button>
           {zone && (
             <button onClick={() => setZone(null)} className="text-[#c9b8a4] text-sm font-semibold tap-scale">
               ← Zones
@@ -45,6 +75,12 @@ export default function TeamSpace({ onExit }) {
           Fermer
         </button>
       </div>
+
+      {testMode.enabled && (
+        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#4a3a10", color: "#f0c860" }}>
+          🧪 Mode test actif — les commandes créées côté équipe ne comptent pas dans le chiffre du jour et seront supprimées à la désactivation
+        </div>
+      )}
 
       {!zone && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8">
