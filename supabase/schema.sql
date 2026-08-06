@@ -329,24 +329,24 @@ create policy "menu_photos_authenticated_delete" on storage.objects for delete t
 -- restaurant_id. Ne PAS exécuter avant d'avoir confirmé que Riec fonctionne.
 -- =====================================================================
 
--- drop policy if exists "orders_anon_all" on orders;
--- drop policy if exists "slots_anon_all" on slots;
--- drop policy if exists "ruptures_anon_all" on ruptures;
--- drop policy if exists "dessert_stock_anon_all" on dessert_stock;
--- drop policy if exists "menu_items_anon_all" on menu_items;
--- drop policy if exists "table_plan_anon_all" on table_plan;
--- drop policy if exists "team_config_anon_all" on team_config;
--- drop policy if exists "pizza_stock_anon_all" on pizza_stock;
--- drop policy if exists "test_mode_anon_all" on test_mode;
--- drop policy if exists "menu_photos_anon_write" on storage.objects;
--- drop policy if exists "menu_photos_anon_update" on storage.objects;
--- drop policy if exists "menu_photos_anon_delete" on storage.objects;
---
--- alter table orders alter column restaurant_id set not null;
--- alter table slots alter column restaurant_id set not null;
--- alter table ruptures alter column restaurant_id set not null;
--- alter table dessert_stock alter column restaurant_id set not null;
--- alter table table_plan alter column restaurant_id set not null;
--- alter table team_config alter column restaurant_id set not null;
--- alter table pizza_stock alter column restaurant_id set not null;
--- alter table test_mode alter column restaurant_id set not null;
+drop policy if exists "orders_anon_all" on orders;
+drop policy if exists "slots_anon_all" on slots;
+drop policy if exists "ruptures_anon_all" on ruptures;
+drop policy if exists "dessert_stock_anon_all" on dessert_stock;
+drop policy if exists "menu_items_anon_all" on menu_items;
+drop policy if exists "table_plan_anon_all" on table_plan;
+drop policy if exists "team_config_anon_all" on team_config;
+drop policy if exists "pizza_stock_anon_all" on pizza_stock;
+drop policy if exists "test_mode_anon_all" on test_mode;
+drop policy if exists "menu_photos_anon_write" on storage.objects;
+drop policy if exists "menu_photos_anon_update" on storage.objects;
+drop policy if exists "menu_photos_anon_delete" on storage.objects;
+
+alter table orders alter column restaurant_id set not null;
+alter table slots alter column restaurant_id set not null;
+alter table ruptures alter column restaurant_id set not null;
+alter table dessert_stock alter column restaurant_id set not null;
+alter table table_plan alter column restaurant_id set not null;
+alter table team_config alter column restaurant_id set not null;
+alter table pizza_stock alter column restaurant_id set not null;
+alter table test_mode alter column restaurant_id set not null;
