@@ -23,6 +23,7 @@ export default function OrderScreen({
   pizzaStock,
   menu,
   showPhotos,
+  restaurantName,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -46,7 +47,7 @@ export default function OrderScreen({
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🌿</span>
-          <span className="display-font text-xl font-semibold">Casa Di Nathano</span>
+          <span className="display-font text-xl font-semibold">{restaurantName}</span>
         </div>
         <button onClick={onCancel} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
           Annuler la commande

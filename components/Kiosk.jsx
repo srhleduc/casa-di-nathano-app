@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, insertOrder } from "@/lib/data";
+import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
 import ServiceTypeScreen from "./ServiceTypeScreen";
@@ -48,6 +49,7 @@ export default function Kiosk() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const restaurant = useRestaurant();
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -138,7 +140,9 @@ export default function Kiosk() {
 
   return (
     <div className="kiosk-root">
-      {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("service")} onTeam={() => setMode(teamUnlocked ? "team" : "pin")} />}
+      {screen === "welcome" && (
+        <WelcomeScreen onStart={() => setScreen("service")} onTeam={() => setMode(teamUnlocked ? "team" : "pin")} restaurantName={restaurant.name} />
+      )}
 
       {screen === "service" && (
         <ServiceTypeScreen
@@ -188,6 +192,7 @@ export default function Kiosk() {
           dessertStock={dessertStock}
           pizzaStock={pizzaStock}
           menu={menuItems}
+          restaurantName={restaurant.name}
           showPhotos={true}
           onFinishApero={() => {
             setAperoMode(false);

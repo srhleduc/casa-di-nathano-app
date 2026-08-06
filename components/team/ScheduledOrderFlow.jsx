@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate } from "@/lib/business";
 import { useRuptures, useMenu, useTestMode, insertOrder } from "@/lib/data";
+import { useRestaurant } from "@/lib/restaurant";
 
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
@@ -26,6 +27,7 @@ export default function ScheduledOrderFlow({ onDone }) {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
   const { testMode } = useTestMode();
+  const restaurant = useRestaurant();
 
   const [screen, setScreen] = useState("date"); // date | order | checkout | done
   const [scheduledFor, setScheduledFor] = useState("");
@@ -141,6 +143,7 @@ export default function ScheduledOrderFlow({ onDone }) {
           orders={[]}
           dessertStock={{}}
           menu={menuItems}
+          restaurantName={restaurant.name}
           onFinishApero={() => {}}
         />
       )}

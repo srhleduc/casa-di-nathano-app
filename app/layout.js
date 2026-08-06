@@ -16,10 +16,17 @@ const manrope = Manrope({
   display: "swap",
 });
 
+// Le titre d'onglet/écran d'accueil PWA est figé au build (metadata Next.js
+// est statique) — chaque restaurant a son propre déploiement avec sa propre
+// variable d'environnement, donc cette petite table locale suffit à afficher
+// le bon nom sans appel réseau. Le contenu affiché à l'écran, lui, vient
+// toujours de la table `restaurants` en base (voir lib/restaurant.js).
+const RESTAURANT_NAMES = { riec: "Casa Di Nathano", quimperle: "Casa Di Luigi" };
+const restaurantName = RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
+
 export const metadata = {
-  title: "Casa Di Nathano",
-  description: "Borne de commande et espace équipe — Casa Di Nathano",
-  manifest: "/manifest.json",
+  title: restaurantName,
+  description: `Borne de commande et espace équipe — ${restaurantName}`,
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -30,7 +37,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black",
-    title: "Casa Nathano",
+    title: restaurantName,
   },
 };
 

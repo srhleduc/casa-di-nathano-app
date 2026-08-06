@@ -1,12 +1,12 @@
 "use client";
 
-export default function WelcomeScreen({ onStart, onTeam }) {
+export default function WelcomeScreen({ onStart, onTeam, restaurantName }) {
   return (
     <div className="relative flex-1 flex flex-col items-center justify-center px-8 text-center">
       <div className="oven-glow" />
       <div className="relative z-10 flex flex-col items-center">
         <span className="text-7xl mb-6">🌿</span>
-        <h1 className="display-font text-6xl font-semibold tracking-tight mb-3">Casa Di Nathano</h1>
+        <h1 className="display-font text-6xl font-semibold tracking-tight mb-3">{restaurantName}</h1>
         <p className="text-[#c9b8a4] text-xl mb-14">Pizza façonnée à la main, four à bois, tous les jours.</p>
         <button
           onClick={onStart}

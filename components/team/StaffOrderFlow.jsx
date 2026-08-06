@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, insertOrder } from "@/lib/data";
+import { useRestaurant } from "@/lib/restaurant";
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
 import AperoAskScreen from "../AperoAskScreen";
@@ -40,6 +41,7 @@ export default function StaffOrderFlow() {
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
   const { testMode } = useTestMode();
+  const restaurant = useRestaurant();
 
   const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("boisson");
@@ -186,6 +188,7 @@ export default function StaffOrderFlow() {
           dessertStock={dessertStock}
           pizzaStock={pizzaStock}
           menu={menuItems}
+          restaurantName={restaurant.name}
           onFinishApero={() => {
             setAperoMode(false);
             setActiveCat("pizza");

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useTestMode, setTestModeEnabled, deleteAllTestOrders } from "@/lib/data";
+import { useRestaurant } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
 import FinitionBoard from "./team/FinitionBoard";
@@ -28,6 +29,7 @@ export default function TeamSpace({ onExit }) {
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
   const { testMode } = useTestMode();
+  const restaurant = useRestaurant();
 
   function goZone(z, defaultTab) {
     setZone(z);
@@ -70,7 +72,10 @@ export default function TeamSpace({ onExit }) {
               ← Zones
             </button>
           )}
-          <span className="display-font text-xl font-semibold">🧑‍🍳 Espace équipe{zone ? ZONE_LABELS[zone] : ""}</span>
+          <span className="display-font text-xl font-semibold">
+            🧑‍🍳 Espace équipe · {restaurant.name}
+            {zone ? ZONE_LABELS[zone] : ""}
+          </span>
         </div>
         <button onClick={onExit} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
           Fermer

@@ -210,3 +210,143 @@ select cron.schedule(
 );
 
 -- Pour désactiver plus tard : select cron.unschedule('casa-di-nathano-daily-reset');
+-- Note : ce job ne filtre pas par restaurant, ce qui est volontaire — une fois
+-- restaurant_id ajouté (voir plus bas), il continue de remettre à zéro chaque
+-- restaurant indépendamment sans qu'on ait besoin d'y toucher.
+
+-- =====================================================================
+-- MULTI-RESTAURANT — PHASE 1 (structure, additif, sans risque)
+-- Casa Di Nathano (Riec) + Casa Di Luigi (Quimperlé) + espace Direction.
+-- Cette phase n'ajoute que des tables et des colonnes NULLABLES : rien
+-- n'est cassé pour l'app actuelle (qui ne les utilise pas encore). Le
+-- passage en clé primaire restaurant_id, la contrainte NOT NULL et le
+-- passage des RLS à `to authenticated` se feront ensemble à la Phase 2,
+-- en même temps que la mise à jour du code de l'app — pas avant.
+-- =====================================================================
+
+create table if not exists restaurants (
+  id text primary key,
+  name text not null,
+  city text not null,
+  accent_color text
+);
+insert into restaurants (id, name, city) values
+  ('riec', 'Casa Di Nathano', 'Riec-sur-Belon'),
+  ('quimperle', 'Casa Di Luigi', 'Quimperlé')
+on conflict (id) do nothing;
+
+alter table restaurants enable row level security;
+create policy "restaurants_authenticated_read" on restaurants for select to authenticated using (true);
+
+-- Associe un compte Supabase Auth fixe (un par restaurant) à son restaurant.
+create table if not exists restaurant_accounts (
+  auth_uid uuid primary key references auth.users (id) on delete cascade,
+  restaurant_id text not null references restaurants (id)
+);
+alter table restaurant_accounts enable row level security;
+create policy "restaurant_accounts_self" on restaurant_accounts for select to authenticated using (auth_uid = auth.uid());
+
+-- Comptes Direction (un par gérant), voient les deux restaurants en lecture.
+create table if not exists managers (
+  auth_uid uuid primary key references auth.users (id) on delete cascade,
+  name text
+);
+alter table managers enable row level security;
+create policy "managers_self" on managers for select to authenticated using (auth_uid = auth.uid());
+
+-- Colonnes restaurant_id — nullable pour l'instant (bascule non cassante).
+alter table orders add column if not exists restaurant_id text references restaurants (id);
+alter table slots add column if not exists restaurant_id text references restaurants (id);
+alter table ruptures add column if not exists restaurant_id text references restaurants (id);
+alter table dessert_stock add column if not exists restaurant_id text references restaurants (id);
+alter table table_plan add column if not exists restaurant_id text references restaurants (id);
+alter table team_config add column if not exists restaurant_id text references restaurants (id);
+alter table pizza_stock add column if not exists restaurant_id text references restaurants (id);
+alter table test_mode add column if not exists restaurant_id text references restaurants (id);
+
+-- Backfill : tout ce qui existe aujourd'hui appartient à Riec.
+update orders set restaurant_id = 'riec' where restaurant_id is null;
+update slots set restaurant_id = 'riec' where restaurant_id is null;
+update ruptures set restaurant_id = 'riec' where restaurant_id is null;
+update dessert_stock set restaurant_id = 'riec' where restaurant_id is null;
+update table_plan set restaurant_id = 'riec' where restaurant_id is null;
+update team_config set restaurant_id = 'riec' where restaurant_id is null;
+update pizza_stock set restaurant_id = 'riec' where restaurant_id is null;
+update test_mode set restaurant_id = 'riec' where restaurant_id is null;
+
+-- =====================================================================
+-- MULTI-RESTAURANT — PHASE 2a (additif, sans coupure)
+-- Ajoute les policies `to authenticated` À CÔTÉ des anciennes policies
+-- anon (pas de drop ici) : l'ancien code (anon) continue de fonctionner
+-- exactement comme avant, le nouveau code (authenticated) fonctionne déjà
+-- dès qu'il est déployé — aucune fenêtre de coupure entre les deux.
+-- =====================================================================
+
+-- Petites fonctions utilitaires pour ne pas répéter la sous-requête dans
+-- chaque policy. security definer + search_path figé (recommandation Supabase).
+create or replace function my_restaurant_id()
+returns text
+language sql stable security definer set search_path = public
+as $$
+  select restaurant_id from restaurant_accounts where auth_uid = auth.uid()
+$$;
+
+create or replace function is_manager()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from managers where auth_uid = auth.uid())
+$$;
+
+-- Tables propres à un restaurant : lecture pour son propre restaurant OU la
+-- Direction (managers) ; écriture réservée à son propre restaurant.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['orders', 'slots', 'ruptures', 'dessert_stock', 'table_plan', 'team_config', 'pizza_stock', 'test_mode']
+  loop
+    execute format('create policy "%s_select" on %I for select to authenticated using (restaurant_id = my_restaurant_id() or is_manager())', t, t);
+    execute format('create policy "%s_write" on %I for all to authenticated using (restaurant_id = my_restaurant_id()) with check (restaurant_id = my_restaurant_id())', t, t);
+  end loop;
+end $$;
+
+-- menu_items : catalogue partagé. Lecture et écriture ouvertes à tout compte
+-- authentifié pour l'instant (le temps que l'espace Direction existe) — sera
+-- resserré à la Phase 4 (écriture réservée aux managers).
+create policy "menu_items_authenticated_all" on menu_items for all to authenticated using (true) with check (true);
+
+-- Stockage des photos produits : upload aussi autorisé aux comptes authentifiés
+-- (la lecture publique via l'URL du bucket n'est pas affectée par RLS).
+create policy "menu_photos_authenticated_write" on storage.objects for insert to authenticated with check (bucket_id = 'menu-photos');
+create policy "menu_photos_authenticated_update" on storage.objects for update to authenticated using (bucket_id = 'menu-photos');
+create policy "menu_photos_authenticated_delete" on storage.objects for delete to authenticated using (bucket_id = 'menu-photos');
+
+-- =====================================================================
+-- MULTI-RESTAURANT — PHASE 2b (nettoyage — à exécuter seulement une fois
+-- que le nouveau code de Riec est déployé et vérifié fonctionnel avec les
+-- policies `authenticated` ci-dessus). Retire l'accès anonyme et verrouille
+-- restaurant_id. Ne PAS exécuter avant d'avoir confirmé que Riec fonctionne.
+-- =====================================================================
+
+-- drop policy if exists "orders_anon_all" on orders;
+-- drop policy if exists "slots_anon_all" on slots;
+-- drop policy if exists "ruptures_anon_all" on ruptures;
+-- drop policy if exists "dessert_stock_anon_all" on dessert_stock;
+-- drop policy if exists "menu_items_anon_all" on menu_items;
+-- drop policy if exists "table_plan_anon_all" on table_plan;
+-- drop policy if exists "team_config_anon_all" on team_config;
+-- drop policy if exists "pizza_stock_anon_all" on pizza_stock;
+-- drop policy if exists "test_mode_anon_all" on test_mode;
+-- drop policy if exists "menu_photos_anon_write" on storage.objects;
+-- drop policy if exists "menu_photos_anon_update" on storage.objects;
+-- drop policy if exists "menu_photos_anon_delete" on storage.objects;
+--
+-- alter table orders alter column restaurant_id set not null;
+-- alter table slots alter column restaurant_id set not null;
+-- alter table ruptures alter column restaurant_id set not null;
+-- alter table dessert_stock alter column restaurant_id set not null;
+-- alter table table_plan alter column restaurant_id set not null;
+-- alter table team_config alter column restaurant_id set not null;
+-- alter table pizza_stock alter column restaurant_id set not null;
+-- alter table test_mode alter column restaurant_id set not null;
