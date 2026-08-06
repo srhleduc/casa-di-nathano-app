@@ -26,9 +26,9 @@ export default function ServiceBoard() {
       {aperoReady.length > 0 && (
         <div className="mb-6">
           <div className="font-bold mb-3">🍸 Apéro servi — prêt à lancer les pizzas ({aperoReady.length})</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="flex gap-4 overflow-x-auto pb-2">
             {sortOrdersByTime(aperoReady).map((o) => (
-              <div key={o.id} className="rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
+              <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <ul className="text-sm text-[#c9b8a4] mb-3">
                   {o.items
@@ -54,9 +54,9 @@ export default function ServiceBoard() {
             <div className="font-bold mb-3">
               {g.label} ({list.length})
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex gap-4 overflow-x-auto pb-2">
               {sortOrdersByTime(list).map((o) => (
-                <div key={o.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+                <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                   <OrderCardHeader order={o} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4]">

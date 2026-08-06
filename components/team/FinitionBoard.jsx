@@ -30,14 +30,14 @@ export default function FinitionBoard() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <p className="text-[#a88f78] mb-4 text-sm">Planches, salades et garniture après-cuisson des pizzas — dès qu'elles sortent du four.</p>
       {toHandle.length === 0 && <p className="text-[#8a7561]">Rien à préparer pour l'instant.</p>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(toHandle).map((o) => {
           const prepItems = o.items.filter((it) => it.cat === "antipasti" || it.cat === "salade");
           const prepPending = prepItems.length > 0 && !o.prepServed;
           const needsGarnish = o.status === "prete";
           const canFinishService = needsGarnish || o.pizzaCount === 0;
           return (
-            <div key={o.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+            <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
               <OrderCardHeader order={o} />
               <div className="display-font text-lg font-bold mb-2">{o.name}</div>
               {prepPending && (

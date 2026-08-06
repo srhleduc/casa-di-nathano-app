@@ -33,9 +33,9 @@ export default function CaisseBoard() {
         </div>
       </div>
       {active.length === 0 && <p className="text-[#8a7561]">Aucune commande en attente de règlement.</p>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(active).map((o) => (
-          <div key={o.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+          <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
             <OrderCardHeader order={o} />
             <div className="display-font text-lg font-bold mb-2">{o.name}</div>
             <ul className="text-sm text-[#c9b8a4] mb-3">
