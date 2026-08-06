@@ -4,6 +4,7 @@ import { useOrders, updateOrder } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime, serviceTypeBadgeStyle } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
+import ElapsedBadge from "../ElapsedBadge";
 
 export default function KitchenBoard() {
   const { orders } = useOrders();
@@ -22,7 +23,7 @@ export default function KitchenBoard() {
   const queue = sortOrdersByTime(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
 
   function sendToFinition(order) {
-    updateOrder(order.id, { status: "prete" }).catch((err) => console.error(err));
+    updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
   }
   function markAperoServed(order) {
     updateOrder(order.id, { aperoStatus: "served_by_kitchen" }).catch((err) => console.error(err));
@@ -85,7 +86,10 @@ export default function KitchenBoard() {
                 </span>
               )}
             </div>
-            <div className="display-font text-xl font-bold mb-2">{o.name}</div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="display-font text-xl font-bold">{o.name}</div>
+              <ElapsedBadge since={o.createdAt} />
+            </div>
             <ul className="text-sm text-[#c9b8a4] mb-3">
               {normalPizzaItems(o).map((it, idx) => (
                 <ItemLine key={idx} it={it} />

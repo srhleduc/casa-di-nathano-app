@@ -21,6 +21,8 @@ create table if not exists orders (
   scheduled_time text,
   prep_served boolean not null default false,
   is_test boolean not null default false,
+  oven_done_at timestamptz,
+  finition_done_at timestamptz,
   created_at timestamptz not null default now()
 );
 create index if not exists orders_created_at_idx on orders (created_at);
@@ -29,6 +31,8 @@ create index if not exists orders_scheduled_for_idx on orders (scheduled_for);
 -- Migrations pour une base déjà créée avant l'ajout de ces colonnes (sans effet si elles existent déjà) :
 alter table orders add column if not exists prep_served boolean not null default false;
 alter table orders add column if not exists is_test boolean not null default false;
+alter table orders add column if not exists oven_done_at timestamptz;
+alter table orders add column if not exists finition_done_at timestamptz;
 
 create table if not exists slots (
   id uuid primary key default gen_random_uuid(),

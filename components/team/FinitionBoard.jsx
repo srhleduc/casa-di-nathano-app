@@ -4,6 +4,7 @@ import { useOrders, updateOrder } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import ElapsedBadge from "../ElapsedBadge";
 
 export default function FinitionBoard() {
   const { orders } = useOrders();
@@ -23,7 +24,7 @@ export default function FinitionBoard() {
     updateOrder(order.id, { prepServed: true }).catch((err) => console.error(err));
   }
   function markDone(order) {
-    updateOrder(order.id, { status: "pret_service" }).catch((err) => console.error(err));
+    updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
   }
 
   return (
@@ -39,7 +40,10 @@ export default function FinitionBoard() {
           return (
             <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
               <OrderCardHeader order={o} />
-              <div className="display-font text-lg font-bold mb-2">{o.name}</div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="display-font text-lg font-bold">{o.name}</div>
+                <ElapsedBadge since={o.ovenDoneAt || o.createdAt} />
+              </div>
               {prepPending && (
                 <div className="mb-2">
                   <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Planches / salades</div>
