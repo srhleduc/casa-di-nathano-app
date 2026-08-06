@@ -1,7 +1,7 @@
 "use client";
 
 import { useOrders, updateOrder } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, serviceTypeBadgeStyle } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 
@@ -64,10 +64,7 @@ export default function KitchenBoard() {
         {queue.map((o) => (
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
             <div className="flex items-center justify-between mb-2">
-              <span
-                className="text-xs font-bold rounded-full px-3 py-1"
-                style={o.serviceType === "🍽️ Sur place" ? { background: "#2c3e50", color: "#a8c8e8" } : { background: "#4a2c3e", color: "#e8a8c8" }}
-              >
+              <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(o.serviceType)}>
                 {o.serviceType}
               </span>
               {o.slotAllocations && o.slotAllocations.length > 0 && (

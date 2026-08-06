@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { MENU } from "@/lib/menu";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
 import { useOrders, useSlots, useRuptures, useDessertStock, useCustomMenuItems, insertOrder } from "@/lib/data";
 
+import ServiceTypeScreen from "../ServiceTypeScreen";
 import AperoAskScreen from "../AperoAskScreen";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
@@ -12,6 +13,13 @@ import FlavorModal from "../FlavorModal";
 import CheckoutScreen from "../CheckoutScreen";
 import SlotScreen from "../SlotScreen";
 import StatusScreen from "../StatusScreen";
+
+const STAFF_SERVICE_OPTIONS = [
+  { value: "🍽️ Sur place", label: "Sur place", desc: "La table s'installe en salle" },
+  { value: "🥡 À emporter", label: "À emporter", desc: "Le client repart avec sa commande" },
+  { value: RESERVED_SERVICE_TYPE, label: "Sur place déjà réservé", desc: RESERVED_SERVICE_NOTE },
+];
+const STAFF_SERVICE_VALUES = STAFF_SERVICE_OPTIONS.map((o) => o.value);
 
 async function submitWithRetry(order, attempt = 1) {
   try {
@@ -33,7 +41,7 @@ export default function StaffOrderFlow() {
   const { customMenuItems } = useCustomMenuItems();
   const fullMenu = useMemo(() => [...MENU, ...customMenuItems], [customMenuItems]);
 
-  const [screen, setScreen] = useState("apero-ask"); // apero-ask | order | checkout | slot | done
+  const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("boisson");
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
@@ -87,7 +95,7 @@ export default function StaffOrderFlow() {
     setSelectedSlot(null);
     setAperoMode(false);
     setAperoUsed(false);
-    setScreen("apero-ask");
+    setScreen("service");
   }
 
   function submitOrder(finalPlan) {
@@ -107,6 +115,12 @@ export default function StaffOrderFlow() {
   }
 
   function goToSlot() {
+    // Table déjà réservée en amont : sa capacité a déjà été retirée
+    // manuellement des créneaux, on ne la redécompte pas ici.
+    if (serviceType === RESERVED_SERVICE_TYPE) {
+      submitOrder(null);
+      return;
+    }
     if (pizzaCount === 0) {
       submitOrder(null);
       return;
@@ -118,6 +132,23 @@ export default function StaffOrderFlow() {
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
+      {screen === "service" && (
+        <ServiceTypeScreen
+          options={STAFF_SERVICE_OPTIONS}
+          onSelect={(type) => {
+            setServiceType(type);
+            if (type === "🥡 À emporter") {
+              setAperoMode(false);
+              setAperoUsed(false);
+              setActiveCat("pizza");
+              setScreen("order");
+            } else {
+              setScreen("apero-ask");
+            }
+          }}
+        />
+      )}
+
       {screen === "apero-ask" && (
         <AperoAskScreen
           onAnswer={(wantsApero) => {
@@ -168,6 +199,7 @@ export default function StaffOrderFlow() {
           pizzaCount={pizzaCount}
           serviceType={serviceType}
           setServiceType={setServiceType}
+          serviceTypeOptions={STAFF_SERVICE_VALUES}
           tableName={tableName}
           setTableName={setTableName}
           onBack={() => setScreen("order")}

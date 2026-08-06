@@ -1,11 +1,24 @@
 "use client";
 
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { lineUnitPrice } from "@/lib/business";
+import { lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
 
-const OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
+const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
-export default function CheckoutScreen({ cart, changeQty, total, pizzaCount, serviceType, setServiceType, tableName, setTableName, onBack, onConfirm }) {
+export default function CheckoutScreen({
+  cart,
+  changeQty,
+  total,
+  pizzaCount,
+  serviceType,
+  setServiceType,
+  tableName,
+  setTableName,
+  onBack,
+  onConfirm,
+  serviceTypeOptions,
+}) {
+  const options = serviceTypeOptions || DEFAULT_OPTIONS;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
@@ -49,14 +62,14 @@ export default function CheckoutScreen({ cart, changeQty, total, pizzaCount, ser
 
       <div className="mb-6">
         <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Type de commande</div>
-        <div className="flex gap-3">
-          {OPTIONS.map((opt) => {
+        <div className="flex flex-wrap gap-3">
+          {options.map((opt) => {
             const isSelected = serviceType === opt;
             return (
               <button
                 key={opt}
                 onClick={() => setServiceType(opt)}
-                className="tap-scale flex-1 rounded-xl py-4 font-bold border-2 flex items-center justify-center gap-2"
+                className="tap-scale flex-1 min-w-[160px] rounded-xl py-4 px-2 font-bold border-2 flex items-center justify-center gap-2 text-center"
                 style={isSelected ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
               >
                 {isSelected && <span>✓</span>}
@@ -65,16 +78,17 @@ export default function CheckoutScreen({ cart, changeQty, total, pizzaCount, ser
             );
           })}
         </div>
+        {serviceType === RESERVED_SERVICE_TYPE && <p className="text-[#8a7561] text-xs mt-3">{RESERVED_SERVICE_NOTE}</p>}
       </div>
 
       <div className="mb-8">
         <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
-          {serviceType === "🍽️ Sur place" ? "Numéro de table" : "Ton nom (pour t'appeler)"}
+          {serviceType !== "🥡 À emporter" ? "Numéro de table" : "Ton nom (pour t'appeler)"}
         </div>
         <input
           value={tableName}
           onChange={(e) => setTableName(e.target.value)}
-          placeholder={serviceType === "🍽️ Sur place" ? "Ex. 12" : "Ex. Julie"}
+          placeholder={serviceType !== "🥡 À emporter" ? "Ex. 12" : "Ex. Julie"}
           className="w-full rounded-xl px-4 py-4 text-lg outline-none"
           style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
         />
