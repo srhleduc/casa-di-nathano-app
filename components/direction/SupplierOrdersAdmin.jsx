@@ -7,9 +7,61 @@ import {
   insertSupplier,
   deleteSupplier,
   setIngredientSupplier,
+  insertIngredient,
 } from "@/lib/data";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
+
+function NewIngredientForm({ supplierId }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  async function create() {
+    if (!name.trim()) return;
+    try {
+      await insertIngredient({ name: name.trim(), unit: "g", costPerUnit: 0, supplierId: supplierId ?? null });
+      setName("");
+      setOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Échec de la création de l'ingrédient.");
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="tap-scale rounded-xl py-2 px-4 font-bold border-2 border-[#3a2b1f] text-sm mb-5">
+        + Nouvel ingrédient
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-[#C0392B] p-4 mb-5 flex flex-wrap gap-3 items-end">
+      <div>
+        <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Nom de l'ingrédient</div>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && create()}
+          placeholder="Ex. Farine complète"
+          className="rounded-lg px-3 py-2 w-64"
+          style={inputStyle}
+          autoFocus
+        />
+      </div>
+      <button onClick={create} className="tap-scale rounded-xl py-2 px-5 font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+        Créer
+      </button>
+      <button onClick={() => setOpen(false)} className="tap-scale rounded-xl py-2 px-4 font-bold border-2 border-[#3a2b1f]">
+        Annuler
+      </button>
+      <div className="text-xs text-[#5a4a3a] w-full">
+        Créé sans coût pour l'instant — complète-le dans Coût de revient quand tu as le prix.
+      </div>
+    </div>
+  );
+}
 
 export default function SupplierOrdersAdmin() {
   const { ingredients } = useIngredients();
@@ -59,6 +111,7 @@ export default function SupplierOrdersAdmin() {
           ← Fournisseurs
         </button>
         <div className="font-bold text-xl mb-5">🚚 {selectedSupplier.name}</div>
+        <NewIngredientForm supplierId={selectedSupplier.id} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {items.map((ing) => (
             <div key={ing.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 flex items-center justify-between gap-3">
@@ -114,6 +167,7 @@ export default function SupplierOrdersAdmin() {
 
       <div className="font-bold mb-1">Ingrédients à répartir ({unassigned.length})</div>
       <div className="text-xs text-[#8a7561] mb-4">Clique sur un fournisseur pour rattacher l'ingrédient — il disparaît ensuite de cette liste et rejoint sa page fournisseur.</div>
+      <NewIngredientForm />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {unassigned
           .sort((a, b) => a.name.localeCompare(b.name))
