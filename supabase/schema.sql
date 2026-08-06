@@ -558,3 +558,10 @@ select cron.schedule(
         and (scheduled_for is null or scheduled_for < current_date);
   $$
 );
+
+-- Saisie d'un achat (quantité + prix payé) au lieu d'un coût par unité déjà
+-- calculé — colonnes purement pour pré-remplir le formulaire d'édition,
+-- cost_per_unit reste la valeur utilisée par tous les calculs.
+alter table ingredients add column if not exists purchase_qty numeric(10, 3);
+alter table ingredients add column if not exists purchase_unit text;
+alter table ingredients add column if not exists purchase_price numeric(10, 2);

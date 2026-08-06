@@ -27,6 +27,22 @@ const UNITS = [
   { key: "piece", label: "pièce" },
 ];
 
+// Conversion pour la saisie "quantité achetée + prix payé" : on n'oblige pas
+// à acheter dans l'unité de la recette (ex. recette en g, achat en kg).
+const UNIT_TO_BASE = { g: 1, kg: 1000, ml: 1, l: 1000, piece: 1 };
+function purchaseUnitChoices(recipeUnit) {
+  if (recipeUnit === "g" || recipeUnit === "kg") return ["g", "kg"];
+  if (recipeUnit === "ml" || recipeUnit === "l") return ["ml", "l"];
+  return ["piece"];
+}
+function computeCostPerUnit(purchaseQty, purchaseUnit, purchasePrice, recipeUnit) {
+  const qty = parseFloat(purchaseQty);
+  const price = parseFloat(purchasePrice);
+  if (!qty || qty <= 0 || !price || isNaN(price)) return null;
+  const qtyInRecipeUnit = qty * (UNIT_TO_BASE[purchaseUnit] / UNIT_TO_BASE[recipeUnit]);
+  return price / qtyInRecipeUnit;
+}
+
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
 function tabBtnClass(active) {
@@ -71,7 +87,7 @@ export default function CostPriceAdmin() {
   );
 }
 
-const EMPTY_INGREDIENT = { name: "", unit: "g", costPerUnit: "" };
+const EMPTY_INGREDIENT = { name: "", unit: "g", purchaseQty: "", purchaseUnit: "g", purchasePrice: "", costPerUnit: "" };
 
 function IngredientsPanel({ ingredients }) {
   const [editingId, setEditingId] = useState(null);
@@ -81,7 +97,14 @@ function IngredientsPanel({ ingredients }) {
 
   function startEdit(ing) {
     setEditingId(ing.id);
-    setForm({ name: ing.name, unit: ing.unit, costPerUnit: String(ing.costPerUnit) });
+    setForm({
+      name: ing.name,
+      unit: ing.unit,
+      purchaseQty: ing.purchaseQty !== null ? String(ing.purchaseQty) : "",
+      purchaseUnit: ing.purchaseUnit || ing.unit,
+      purchasePrice: ing.purchasePrice !== null ? String(ing.purchasePrice) : "",
+      costPerUnit: String(ing.costPerUnit),
+    });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function cancelEdit() {
@@ -89,9 +112,23 @@ function IngredientsPanel({ ingredients }) {
     setForm(EMPTY_INGREDIENT);
   }
 
+  function updatePurchase(patch) {
+    const next = { ...form, ...patch };
+    const computed = computeCostPerUnit(next.purchaseQty, next.purchaseUnit, next.purchasePrice, next.unit);
+    if (computed !== null) next.costPerUnit = String(computed);
+    setForm(next);
+  }
+
   async function save() {
     if (!form.name.trim() || form.costPerUnit === "") return;
-    const payload = { name: form.name.trim(), unit: form.unit, costPerUnit: parseFloat(form.costPerUnit) || 0 };
+    const payload = {
+      name: form.name.trim(),
+      unit: form.unit,
+      costPerUnit: parseFloat(form.costPerUnit) || 0,
+      purchaseQty: form.purchaseQty === "" ? null : parseFloat(form.purchaseQty),
+      purchaseUnit: form.purchaseQty === "" ? null : form.purchaseUnit,
+      purchasePrice: form.purchasePrice === "" ? null : parseFloat(form.purchasePrice),
+    };
     try {
       if (editingId) await updateIngredient(editingId, payload);
       else await insertIngredient(payload);
@@ -121,12 +158,15 @@ function IngredientsPanel({ ingredients }) {
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex. Mozzarella" className="rounded-lg px-3 py-3 w-56" style={inputStyle} />
           </div>
           <div>
-            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Unité</div>
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Unité recette (utilisée dans les pizzas)</div>
             <div className="flex gap-2">
               {UNITS.map((u) => (
                 <button
                   key={u.key}
-                  onClick={() => setForm({ ...form, unit: u.key })}
+                  onClick={() => {
+                    const choices = purchaseUnitChoices(u.key);
+                    updatePurchase({ unit: u.key, purchaseUnit: choices.includes(form.purchaseUnit) ? form.purchaseUnit : choices[0] });
+                  }}
                   className="tap-scale rounded-full px-3 py-2 text-sm font-bold border-2"
                   style={form.unit === u.key ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
                 >
@@ -135,16 +175,58 @@ function IngredientsPanel({ ingredients }) {
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="text-xs text-[#a88f78] uppercase font-bold mt-5 mb-2">Dernier achat (calcule le coût automatiquement)</div>
+        <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Coût par unité (€)</div>
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Quantité achetée</div>
+            <div className="flex gap-2">
+              <input
+                value={form.purchaseQty}
+                onChange={(e) => updatePurchase({ purchaseQty: e.target.value })}
+                type="number"
+                step="0.001"
+                placeholder="Ex. 2"
+                className="rounded-lg px-3 py-3 w-28"
+                style={inputStyle}
+              />
+              <div className="flex gap-1">
+                {purchaseUnitChoices(form.unit).map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => updatePurchase({ purchaseUnit: u })}
+                    className="tap-scale rounded-full px-3 py-2 text-sm font-bold border-2"
+                    style={form.purchaseUnit === u ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                  >
+                    {UNITS.find((x) => x.key === u)?.label || u}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Prix payé (€)</div>
+            <input
+              value={form.purchasePrice}
+              onChange={(e) => updatePurchase({ purchasePrice: e.target.value })}
+              type="number"
+              step="0.01"
+              placeholder="Ex. 12"
+              className="rounded-lg px-3 py-3 w-32"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">= Coût par {UNITS.find((u) => u.key === form.unit)?.label || form.unit}</div>
             <input
               value={form.costPerUnit}
               onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })}
               type="number"
               step="0.0001"
-              placeholder="Ex. 0.012"
-              className="rounded-lg px-3 py-3 w-40"
-              style={inputStyle}
+              placeholder="0.0000"
+              className="rounded-lg px-3 py-3 w-32 font-bold"
+              style={{ ...inputStyle, color: "#E8B23D" }}
             />
           </div>
           <button onClick={save} className="tap-scale rounded-xl py-3 px-6 font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
@@ -155,6 +237,10 @@ function IngredientsPanel({ ingredients }) {
               Annuler
             </button>
           )}
+        </div>
+        <div className="text-xs text-[#5a4a3a] mt-2">
+          Renseigne la quantité et le prix payé, le coût se calcule tout seul (conversion kg↔g et L↔ml automatique). Le champ "coût par
+          unité" reste modifiable directement si tu préfères le saisir toi-même.
         </div>
       </div>
 
