@@ -41,7 +41,7 @@ export default function KitchenBoard() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <LiveClock
-        className="inline-block display-font text-4xl font-bold tabular-nums mb-5 rounded-2xl px-6 py-3 border-2"
+        className="fixed top-20 right-6 z-30 display-font text-4xl font-bold tabular-nums rounded-2xl px-6 py-3 border-2"
         style={{ borderColor: "#3a2b1f", background: "#211712", color: "#E8B23D" }}
       />
 
