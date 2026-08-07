@@ -707,3 +707,12 @@ as $$
 $$;
 
 grant execute on function next_takeaway_number() to authenticated;
+
+-- Marqueurs de dismissal propres à chaque écran équipe — n'affectent pas le
+-- statut global de la commande (status), juste sa visibilité sur cet écran
+-- précis : "delivered" pour retirer une commande prête de l'écran Service
+-- une fois apportée à table (indépendamment du paiement, qui peut arriver
+-- bien plus tard), "drinks_served" pour la retirer de l'écran Boissons une
+-- fois les boissons servies.
+alter table orders add column if not exists delivered boolean not null default false;
+alter table orders add column if not exists drinks_served boolean not null default false;

@@ -28,6 +28,9 @@ export default function ServiceBoard() {
   function launchPizzas(order) {
     updateOrder(order.id, { aperoStatus: "released" }).catch((err) => console.error(err));
   }
+  function markDelivered(order) {
+    updateOrder(order.id, { delivered: true }).catch((err) => console.error(err));
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -55,7 +58,7 @@ export default function ServiceBoard() {
       )}
 
       {GROUPS.map((g) => {
-        const list = active.filter((o) => o.status === g.key);
+        const list = active.filter((o) => o.status === g.key && !(g.key === "pret_service" && o.delivered));
         if (list.length === 0) return null;
         return (
           <div key={g.key} className="mb-6">
@@ -67,11 +70,16 @@ export default function ServiceBoard() {
                 <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                  <ul className="text-sm text-[#c9b8a4]">
+                  <ul className="text-sm text-[#c9b8a4] mb-3">
                     {o.items.map((it, idx) => (
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
+                  {g.key === "pret_service" && (
+                    <button onClick={() => markDelivered(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                      ✅ Partie
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

@@ -39,6 +39,9 @@ export default function FinitionBoard() {
   function markDone(order) {
     updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
   }
+  function markPaid(order) {
+    updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -101,11 +104,14 @@ export default function FinitionBoard() {
               <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
                 <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <ul className="text-sm text-[#c9b8a4]">
+                <ul className="text-sm text-[#c9b8a4] mb-3">
                   {o.items.map((it, idx) => (
                     <ItemLine key={idx} it={it} />
                   ))}
                 </ul>
+                <button onClick={() => markPaid(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                  💰 Payée
+                </button>
               </div>
             ))}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots } from "@/lib/data";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
@@ -20,7 +20,11 @@ export default function BoissonBoard() {
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const withDrinks = active
     .map((o) => ({ ...o, drinkItems: o.items.filter((it) => DRINK_CATS.includes(it.cat)) }))
-    .filter((o) => o.drinkItems.length > 0);
+    .filter((o) => o.drinkItems.length > 0 && !o.drinksServed);
+
+  function markDrinksServed(order) {
+    updateOrder(order.id, { drinksServed: true }).catch((err) => console.error(err));
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -31,11 +35,14 @@ export default function BoissonBoard() {
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
             <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
             <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-            <ul className="text-sm text-[#c9b8a4]">
+            <ul className="text-sm text-[#c9b8a4] mb-3">
               {o.drinkItems.map((it, idx) => (
                 <ItemLine key={idx} it={it} />
               ))}
             </ul>
+            <button onClick={() => markDrinksServed(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+              ✅ Servie
+            </button>
           </div>
         ))}
       </div>
