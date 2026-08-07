@@ -57,6 +57,7 @@ export default function StaffOrderFlow() {
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
+  const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander
   const [aperoMode, setAperoMode] = useState(false); // vrai pendant la sélection de l'apéro
   const [aperoUsed, setAperoUsed] = useState(false); // vrai si cette commande a démarré par un apéro
 
@@ -154,8 +155,39 @@ export default function StaffOrderFlow() {
     setScreen("slot");
   }
 
+  const checkSlotChoice = checkPizzaCount > 0 ? computeSlotOptions(orders, slots, checkPizzaCount) : null;
+
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
+      {screen === "service" && (
+        <div className="px-6 py-4 border-b border-[#3a2b1f] flex items-center gap-4 flex-wrap">
+          <span className="text-sm font-bold text-[#a88f78]">📞 Vérifier une dispo avant de commander :</span>
+          <select
+            value={checkPizzaCount}
+            onChange={(e) => setCheckPizzaCount(Number(e.target.value))}
+            className="rounded-lg px-3 py-2 text-sm"
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          >
+            <option value={0}>Nb pizzas…</option>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n} pizza{n > 1 ? "s" : ""}
+              </option>
+            ))}
+          </select>
+          {checkSlotChoice && (
+            <span className="text-sm font-bold" style={{ color: "#E8B23D" }}>
+              {checkSlotChoice.mode === "none" && "😕 Aucune place disponible aujourd'hui"}
+              {checkSlotChoice.mode === "single" &&
+                checkSlotChoice.options[0] &&
+                `🕐 Créneau le plus proche : ${checkSlotChoice.options[0].label} (${checkSlotChoice.options[0].remaining} place${checkSlotChoice.options[0].remaining > 1 ? "s" : ""})`}
+              {checkSlotChoice.mode === "split" &&
+                `🕐 À répartir : ${checkSlotChoice.plan.map((p) => `${p.qty}×${p.label}`).join(" + ")}`}
+            </span>
+          )}
+        </div>
+      )}
+
       {screen === "service" && (
         <ServiceTypeScreen
           options={availableServiceOptions}
