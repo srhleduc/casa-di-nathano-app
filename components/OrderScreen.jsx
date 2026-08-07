@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS } from "@/lib/menu";
+import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 
 export default function OrderScreen({
@@ -10,6 +10,7 @@ export default function OrderScreen({
   addItem,
   onPizzaTap,
   onGlaceTap,
+  onPanuzzoTap,
   changeQty,
   total,
   itemCount,
@@ -28,7 +29,10 @@ export default function OrderScreen({
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
-  const visibleCategories = aperoMode ? CATEGORIES.filter((c) => APERO_CATS.includes(c.key)) : CATEGORIES;
+  // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
+  const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
+  const baseCategories = isPanuzzoTime ? CATEGORIES : CATEGORIES.filter((c) => c.key !== "panuzzo");
+  const visibleCategories = aperoMode ? baseCategories.filter((c) => APERO_CATS.includes(c.key)) : baseCategories;
 
   function isDessertOut(name) {
     const group = DESSERT_STOCK_GROUPS.find((g) => g.itemNames.includes(name));
@@ -49,7 +53,8 @@ export default function OrderScreen({
       !(ruptures || []).includes(m.id) &&
       !isDessertOut(m.name) &&
       !isPizzaOut(m.cat) &&
-      !(isTakeaway && m.dineInOnly)
+      !(isTakeaway && m.dineInOnly) &&
+      !(m.cat === "panuzzo" && !isPanuzzoTime)
   );
 
   return (
@@ -107,6 +112,7 @@ export default function OrderScreen({
                 key={item.id}
                 onClick={() => {
                   if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
+                  else if (item.cat === "panuzzo" && onPanuzzoTap) onPanuzzoTap(item);
                   else if (needsFlavor) onGlaceTap(item);
                   else addItem(item);
                 }}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
+import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -10,6 +11,7 @@ import AperoAskScreen from "../AperoAskScreen";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
+import PanuzzoModal from "../PanuzzoModal";
 import CheckoutScreen from "../CheckoutScreen";
 import SlotScreen from "../SlotScreen";
 import StatusScreen from "../StatusScreen";
@@ -50,6 +52,7 @@ export default function StaffOrderFlow() {
   const [tableName, setTableName] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
+  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [aperoMode, setAperoMode] = useState(false); // vrai pendant la sélection de l'apéro
@@ -84,6 +87,12 @@ export default function StaffOrderFlow() {
     });
     setCustomizing(null);
   }
+  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
+    addItem({ ...sandwich, price: FORMULE_PRICE }, "Formule");
+    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
+    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
+    setPanuzzoOrdering(null);
+  }
   function changeQty(id, note, modifiers, delta) {
     const sig = cartSignature(id, note, modifiers);
     setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
@@ -97,6 +106,7 @@ export default function StaffOrderFlow() {
     setSelectedSlot(null);
     setAperoMode(false);
     setAperoUsed(false);
+    setPanuzzoOrdering(null);
     setScreen("service");
   }
 
@@ -177,6 +187,7 @@ export default function StaffOrderFlow() {
           addItem={addItem}
           onPizzaTap={setCustomizing}
           onGlaceTap={setFlavoring}
+          onPanuzzoTap={setPanuzzoOrdering}
           changeQty={changeQty}
           total={total}
           itemCount={itemCount}
@@ -242,6 +253,22 @@ export default function StaffOrderFlow() {
             addItem(flavoring, note);
             setFlavoring(null);
           }}
+        />
+      )}
+      {panuzzoOrdering && (
+        <PanuzzoModal
+          item={panuzzoOrdering}
+          menu={menuItems}
+          dessertStock={dessertStock}
+          orders={orders}
+          ruptures={ruptures}
+          serviceType={serviceType}
+          onClose={() => setPanuzzoOrdering(null)}
+          onAddSolo={(item) => {
+            addItem(item);
+            setPanuzzoOrdering(null);
+          }}
+          onAddFormule={addFormule}
         />
       )}
     </div>

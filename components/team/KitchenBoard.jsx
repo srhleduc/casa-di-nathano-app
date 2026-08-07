@@ -14,7 +14,7 @@ export default function KitchenBoard() {
   // Une commande de la file du four doit avoir des pizzas "hors apéro" à faire,
   // et ne pas être en train d'attendre son apéro.
   function normalPizzaItems(o) {
-    return o.items.filter((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase !== "apero");
+    return o.items.filter((it) => (it.cat === "pizza" || it.cat === "panuzzo" || it.cat === "supplement" || it.cat === "sans") && it.phase !== "apero");
   }
   function isNormalQueueOrder(o) {
     return !["waiting", "served_by_kitchen"].includes(o.aperoStatus) && normalPizzaItems(o).length > 0;

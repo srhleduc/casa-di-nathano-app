@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
+import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -11,6 +12,7 @@ import AperoAskScreen from "./AperoAskScreen";
 import OrderScreen from "./OrderScreen";
 import PizzaCustomizeModal from "./PizzaCustomizeModal";
 import FlavorModal from "./FlavorModal";
+import PanuzzoModal from "./PanuzzoModal";
 import CheckoutScreen from "./CheckoutScreen";
 import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
@@ -39,6 +41,7 @@ export default function Kiosk() {
   const [tableName, setTableName] = useState("");
   const [customizing, setCustomizing] = useState(null); // pizza en cours de personnalisation
   const [flavoring, setFlavoring] = useState(null); // glace en cours de choix de parfum
+  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null); // panuzzo en cours (seul ou formule)
   const [aperoMode, setAperoMode] = useState(false); // vrai tant que le client n'a pas validé son apéro
   const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
   const [selectedSlot, setSelectedSlot] = useState(null); // créneau choisi si mode "single"
@@ -77,6 +80,12 @@ export default function Kiosk() {
     });
     setCustomizing(null);
   }
+  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
+    addItem({ ...sandwich, price: FORMULE_PRICE }, "Formule");
+    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
+    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
+    setPanuzzoOrdering(null);
+  }
   function changeQty(id, note, modifiers, delta) {
     const sig = cartSignature(id, note, modifiers);
     setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
@@ -89,6 +98,7 @@ export default function Kiosk() {
     setSlotChoice(null);
     setSelectedSlot(null);
     setAperoMode(false);
+    setPanuzzoOrdering(null);
     setScreen("welcome");
   }
 
@@ -195,6 +205,7 @@ export default function Kiosk() {
           restaurantName={restaurant.name}
           showPhotos={true}
           serviceType={serviceType}
+          onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {
             setAperoMode(false);
             setActiveCat("pizza");
@@ -214,6 +225,23 @@ export default function Kiosk() {
             addItem(flavoring, note);
             setFlavoring(null);
           }}
+        />
+      )}
+
+      {panuzzoOrdering && (
+        <PanuzzoModal
+          item={panuzzoOrdering}
+          menu={menuItems}
+          dessertStock={dessertStock}
+          orders={orders}
+          ruptures={ruptures}
+          serviceType={serviceType}
+          onClose={() => setPanuzzoOrdering(null)}
+          onAddSolo={(item) => {
+            addItem(item);
+            setPanuzzoOrdering(null);
+          }}
+          onAddFormule={addFormule}
         />
       )}
 

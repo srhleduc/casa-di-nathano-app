@@ -652,3 +652,11 @@ select cron.schedule(
 alter table menu_items add column if not exists dine_in_only boolean not null default false;
 update menu_items set dine_in_only = true
   where id in ('dessert-gelato-dello-chef', 'dessert-glace-1-boule', 'dessert-glace-2-boules', 'dessert-glace-3-boules', 'dessert-paris-palerme');
+
+-- Formules du midi (panuzzo) — 3 sandwichs, catégorie partagée entre les
+-- deux restaurants comme le reste du menu.
+insert into menu_items (id, name, price, cat, ingredients) values
+  ('panuzzo-poisson', 'Panuzzo Poisson', 9.70, 'panuzzo', '["Saumon","Stracciatella","Roquette","Huile citronnée"]'::jsonb),
+  ('panuzzo-viande', 'Panuzzo Viande', 9.70, 'panuzzo', '["Mortadelle","Stracciatella","Roquette","Copeaux de parmesan"]'::jsonb),
+  ('panuzzo-vegetarien', 'Panuzzo Végétarien', 9.70, 'panuzzo', '["Tomates séchées","Stracciatella","Roquette","Copeaux de parmesan","Pickles oignons rouges","Poivrons gouttes"]'::jsonb)
+on conflict (id) do nothing;
