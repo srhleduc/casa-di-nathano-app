@@ -185,7 +185,12 @@ export default function ScheduledOrderFlow({ onDone }) {
       )}
 
       {screen === "done" && (
-        <StatusScreen title="Commande programmée !" subtitle={`Elle basculera automatiquement le ${formatFrenchDate(scheduledFor)} à ${scheduledTime}.`} success onDone={onDone} />
+        <StatusScreen
+          title="Commande programmée !"
+          subtitle={`Elle apparaîtra automatiquement sur les écrans dès minuit le ${formatFrenchDate(scheduledFor)}, à la bonne place selon son horaire (${scheduledTime}).`}
+          success
+          onDone={onDone}
+        />
       )}
 
       {customizing && (
