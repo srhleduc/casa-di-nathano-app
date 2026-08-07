@@ -26,6 +26,7 @@ export default function OrderScreen({
   showPhotos,
   restaurantName,
   serviceType,
+  topBanner,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -68,6 +69,8 @@ export default function OrderScreen({
           Annuler la commande
         </button>
       </div>
+
+      {topBanner}
 
       {aperoMode && (
         <div className="mx-6 mt-4 rounded-2xl px-5 py-4 flex items-center justify-between" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
