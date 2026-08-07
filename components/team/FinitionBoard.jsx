@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
 import ElapsedBadge from "../ElapsedBadge";
@@ -27,6 +27,11 @@ export default function FinitionBoard() {
     const noPizzaAtAll = o.pizzaCount === 0;
     return prepPending || needsGarnish || noPizzaAtAll;
   });
+  // À emporter, terminées côté Finition : elles restent visibles ici (pour que
+  // l'équipe sache ce qui attend d'être remis au client) jusqu'à ce que Caisse
+  // les marque payées — contrairement au sur place, qui quitte cet écran dès
+  // "Terminé → Service".
+  const readyTakeaway = active.filter((o) => o.status === "pret_service" && o.serviceType === TAKEAWAY_SERVICE_TYPE);
 
   function markPrepDone(order) {
     updateOrder(order.id, { prepServed: true }).catch((err) => console.error(err));
@@ -86,6 +91,26 @@ export default function FinitionBoard() {
           );
         })}
       </div>
+
+      {readyTakeaway.length > 0 && (
+        <div className="mt-8 pt-6 border-t border-[#3a2b1f]">
+          <div className="font-bold mb-1">📦 À emporter — prêtes, en attente de retrait ({readyTakeaway.length})</div>
+          <p className="text-[#a88f78] mb-4 text-sm">Disparaissent d'ici une fois marquées payées en Caisse.</p>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {sortOrdersByTime(readyTakeaway).map((o) => (
+              <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
+                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
+                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
+                <ul className="text-sm text-[#c9b8a4]">
+                  {o.items.map((it, idx) => (
+                    <ItemLine key={idx} it={it} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {editingOrder && (
         <EditOrderModal
