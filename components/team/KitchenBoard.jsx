@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadgeStyle } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadgeStyle, formatSlotAllocations } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
@@ -101,12 +101,10 @@ export default function KitchenBoard() {
                   ✏️
                 </button>
               </div>
-              {o.slotAllocations && o.slotAllocations.length > 0 && (
-                <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
-                  🕐 {o.slotAllocations.map((a) => `${a.qty}×${a.label}`).join(" + ")}
-                </span>
-              )}
             </div>
+            {o.slotAllocations && o.slotAllocations.length > 0 && (
+              <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {formatSlotAllocations(o.slotAllocations)}</div>
+            )}
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="display-font text-xl font-bold">{o.name}</div>
               <ElapsedBadge since={o.createdAt} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { serviceTypeBadgeStyle } from "@/lib/business";
+import { serviceTypeBadgeStyle, formatSlotAllocations } from "@/lib/business";
 
 export default function OrderCardHeader({ order, onEdit }) {
   return (
@@ -27,7 +27,7 @@ export default function OrderCardHeader({ order, onEdit }) {
       </div>
       {order.slotAllocations && order.slotAllocations.length > 0 ? (
         <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
-          🕐 {order.slotAllocations.map((a) => `${a.qty}×${a.label}`).join(" + ")}
+          🕐 {formatSlotAllocations(order.slotAllocations)}
         </span>
       ) : order.scheduledTime ? (
         <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>

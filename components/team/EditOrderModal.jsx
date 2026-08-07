@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { updateOrder } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -229,7 +229,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                   {selectedSlot
                     ? `🕐 ${selectedSlot.label}`
                     : order.slotAllocations && order.slotAllocations.length > 0
-                    ? `🕐 ${order.slotAllocations.map((a) => `${a.qty}×${a.label}`).join(" + ")}`
+                    ? `🕐 ${formatSlotAllocations(order.slotAllocations)}`
                     : "Aucun créneau"}
                 </span>
                 <button onClick={() => setView("slot")} className="tap-scale text-xs font-bold rounded-full px-4 py-2 border-2 border-[#3a2b1f]">
