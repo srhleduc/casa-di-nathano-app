@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS } from "@/lib/business";
 import { useRuptures, useMenu, useTestMode, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -90,7 +90,7 @@ export default function ScheduledOrderFlow({ onDone }) {
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
       {screen === "date" && (
-        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+        <div className="flex-1 flex flex-col items-center px-8 py-8 overflow-y-auto text-center">
           <span className="text-6xl mb-6">📅</span>
           <h2 className="display-font text-3xl font-semibold mb-6">Pour quel jour ?</h2>
           <input
@@ -98,17 +98,38 @@ export default function ScheduledOrderFlow({ onDone }) {
             value={scheduledFor}
             min={todayStr()}
             onChange={(e) => setScheduledFor(e.target.value)}
-            className="rounded-xl px-4 py-4 text-lg mb-4"
-            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-          />
-          <div className="text-sm text-[#a88f78] uppercase font-bold mb-2">À quelle heure ?</div>
-          <input
-            type="time"
-            value={scheduledTime}
-            onChange={(e) => setScheduledTime(e.target.value)}
             className="rounded-xl px-4 py-4 text-lg mb-8"
             style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           />
+
+          <div className="text-sm text-[#a88f78] uppercase font-bold mb-2">☀️ Service midi</div>
+          <div className="flex flex-wrap gap-2 justify-center mb-6 max-w-xl">
+            {MIDI_SLOT_LABELS.map((l) => (
+              <button
+                key={l}
+                onClick={() => setScheduledTime(l)}
+                className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+                style={scheduledTime === l ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <div className="text-sm text-[#a88f78] uppercase font-bold mb-2">🌙 Service soir</div>
+          <div className="flex flex-wrap gap-2 justify-center mb-8 max-w-xl">
+            {SOIR_SLOT_LABELS.map((l) => (
+              <button
+                key={l}
+                onClick={() => setScheduledTime(l)}
+                className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+                style={scheduledTime === l ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
           <div className="flex gap-4">
             <button onClick={onDone} className="tap-scale rounded-full px-8 py-4 font-bold border-2 border-[#3a2b1f]">
               Annuler
