@@ -20,6 +20,7 @@ import TimingStatsAdmin from "./team/TimingStatsAdmin";
 import MenuAdmin from "./team/MenuAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import TablePlanAdmin from "./team/TablePlanAdmin";
+import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 
 const ZONE_LABELS = { cuisine: " · En cuisine", salle: " · En salle", logistique: " · Logistique service" };
 
@@ -151,6 +152,7 @@ export default function TeamSpace({ onExit }) {
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
             <button onClick={() => setTab("slots")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "slots" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱️ Créneaux du jour</button>
+            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔀 Types de service</button>
             <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🚫 Ruptures</button>
             <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Desserts du jour</button>
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
@@ -160,6 +162,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Plan de table</button>
           </div>
           {tab === "slots" && <SlotsAdmin />}
+          {tab === "services" && <ServiceTypesAdmin />}
           {tab === "ruptures" && <RupturesAdmin />}
           {tab === "desserts" && <DessertStockAdmin />}
           {tab === "patons" && <PizzaStockAdmin />}

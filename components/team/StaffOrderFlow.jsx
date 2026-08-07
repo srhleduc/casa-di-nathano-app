@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
@@ -21,7 +21,6 @@ const STAFF_SERVICE_OPTIONS = [
   { value: "🥡 À emporter", label: "À emporter", desc: "Le client repart avec sa commande" },
   { value: RESERVED_SERVICE_TYPE, label: "Sur place déjà réservé", desc: RESERVED_SERVICE_NOTE },
 ];
-const STAFF_SERVICE_VALUES = STAFF_SERVICE_OPTIONS.map((o) => o.value);
 
 async function submitWithRetry(order, attempt = 1) {
   try {
@@ -43,6 +42,7 @@ export default function StaffOrderFlow() {
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
   const { testMode } = useTestMode();
+  const { serviceTypeSettings } = useServiceTypeSettings();
   const restaurant = useRestaurant();
 
   const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
@@ -61,6 +61,14 @@ export default function StaffOrderFlow() {
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
   const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+
+  const SERVICE_ENABLED_BY_VALUE = {
+    "🍽️ Sur place": serviceTypeSettings.dineInEnabled,
+    "🥡 À emporter": serviceTypeSettings.takeawayEnabled,
+    [RESERVED_SERVICE_TYPE]: serviceTypeSettings.reservedEnabled,
+  };
+  const availableServiceOptions = STAFF_SERVICE_OPTIONS.filter((o) => SERVICE_ENABLED_BY_VALUE[o.value]);
+  const availableServiceValues = availableServiceOptions.map((o) => o.value);
 
   function addItem(item, note) {
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
@@ -147,7 +155,7 @@ export default function StaffOrderFlow() {
     <div className="flex-1 flex flex-col relative overflow-hidden">
       {screen === "service" && (
         <ServiceTypeScreen
-          options={STAFF_SERVICE_OPTIONS}
+          options={availableServiceOptions}
           onSelect={(type) => {
             setServiceType(type);
             if (type === "🥡 À emporter") {
@@ -216,7 +224,7 @@ export default function StaffOrderFlow() {
           pizzaCount={pizzaCount}
           serviceType={serviceType}
           setServiceType={setServiceType}
-          serviceTypeOptions={STAFF_SERVICE_VALUES}
+          serviceTypeOptions={availableServiceValues}
           tableName={tableName}
           setTableName={setTableName}
           onBack={() => setScreen("order")}

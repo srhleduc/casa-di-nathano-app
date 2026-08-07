@@ -665,3 +665,8 @@ on conflict (id) do nothing;
 -- d'ingrédient) — mis en avant spécifiquement pour la 4 Formaggi côté code.
 update menu_items set name = 'Supplément base tomate' where id = 'supplement-supp-tomate';
 update menu_items set name = 'Supplément base crème' where id = 'supplement-supp-creme';
+
+-- Activer/désactiver les types de service depuis Logistique — par restaurant.
+alter table team_config add column if not exists service_dine_in_enabled boolean not null default true;
+alter table team_config add column if not exists service_takeaway_enabled boolean not null default true;
+alter table team_config add column if not exists service_reserved_enabled boolean not null default true;

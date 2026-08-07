@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -52,7 +52,13 @@ export default function Kiosk() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const { serviceTypeSettings } = useServiceTypeSettings();
   const restaurant = useRestaurant();
+
+  const clientServiceOptions = [
+    { value: "🍽️ Sur place", label: "Sur place", desc: "Je m'installe en salle", enabled: serviceTypeSettings.dineInEnabled },
+    { value: "🥡 À emporter", label: "À emporter", desc: "Je repars avec ma commande", enabled: serviceTypeSettings.takeawayEnabled },
+  ].filter((o) => o.enabled);
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -156,6 +162,7 @@ export default function Kiosk() {
 
       {screen === "service" && (
         <ServiceTypeScreen
+          options={clientServiceOptions}
           onSelect={(type) => {
             setServiceType(type);
             if (type === "🍽️ Sur place") setScreen("apero-ask");
