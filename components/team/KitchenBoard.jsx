@@ -6,6 +6,7 @@ import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadg
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
+import LiveClock from "../LiveClock";
 import EditOrderModal from "./EditOrderModal";
 
 export default function KitchenBoard() {
@@ -39,6 +40,11 @@ export default function KitchenBoard() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
+      <LiveClock
+        className="inline-block display-font text-4xl font-bold tabular-nums mb-5 rounded-2xl px-6 py-3 border-2"
+        style={{ borderColor: "#3a2b1f", background: "#211712", color: "#E8B23D" }}
+      />
+
       {aperoWaiting.length > 0 && (
         <div className="mb-6">
           <div className="font-bold mb-3">🍸 Apéro à préparer ({aperoWaiting.length})</div>
