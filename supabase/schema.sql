@@ -167,6 +167,7 @@ alter publication supabase_realtime add table pizza_ingredients;
 alter publication supabase_realtime add table suppliers;
 alter publication supabase_realtime add table daily_sales;
 alter publication supabase_realtime add table consumption_actuals;
+alter publication supabase_realtime add table team_config;
 
 -- ---------------------------------------------------------------------
 -- Storage — bucket public pour les photos produits
@@ -609,3 +610,36 @@ alter table ingredients add column if not exists supplier_id uuid references sup
 -- fichier — à compléter manuellement, comme tous les antipasti/salades/
 -- desserts/boissons/cocktails (aucune donnée source disponible pour eux).
 -- (Exécuté une fois manuellement, rien à rejouer ici — mentionné pour la trace.)
+
+-- =====================================================================
+-- CRÉNEAUX AUTOMATIQUES (midi + soir) — ouverts chaque nuit sans action de
+-- l'équipe. Les capacités par défaut (dernière valeur utilisée avec le
+-- bouton "Générer" de Logistique → Créneaux du jour) sont mémorisées par
+-- restaurant, pour que la génération automatique sache quoi utiliser.
+-- =====================================================================
+
+alter table team_config add column if not exists midi_capacity integer not null default 6;
+alter table team_config add column if not exists soir_capacity integer not null default 6;
+
+-- Met à jour la remise à zéro nocturne (même nom de job → remplace la
+-- précédente définition) pour régénérer, juste après le nettoyage, les
+-- créneaux midi (12h-14h) et soir (18h-22h30) de chaque restaurant avec
+-- leur capacité par défaut — plus besoin de cliquer "Générer" chaque jour,
+-- et les créneaux du soir sont donc déjà ouverts pendant tout le service
+-- de midi pour les clients qui réservent à l'avance.
+select cron.schedule(
+  'casa-di-nathano-daily-reset',
+  '0 4 * * *',
+  'insert into daily_sales (restaurant_id, date, menu_item_id, qty) select o.restaurant_id, date(o.created_at), item->>''id'', sum(coalesce((item->>''qty'')::int, 1)) from orders o, jsonb_array_elements(o.items) item where date(o.created_at) < current_date and (o.scheduled_for is null or o.scheduled_for < current_date) and o.is_test = false group by o.restaurant_id, date(o.created_at), item->>''id'' on conflict (restaurant_id, date, menu_item_id) do update set qty = daily_sales.qty + excluded.qty;
+   delete from ruptures;
+   update dessert_stock set qty = 0;
+   delete from slots;
+   delete from orders where date(created_at) < current_date and (scheduled_for is null or scheduled_for < current_date);
+   insert into slots (restaurant_id, label, capacity)
+     select tc.restaurant_id, to_char(t, ''HH24:MI''), tc.midi_capacity
+     from team_config tc, generate_series(timestamp ''2000-01-01 12:00'', timestamp ''2000-01-01 14:00'', interval ''10 minutes'') t
+     union all
+     select tc.restaurant_id, to_char(t, ''HH24:MI''), tc.soir_capacity
+     from team_config tc, generate_series(timestamp ''2000-01-01 18:00'', timestamp ''2000-01-01 22:30'', interval ''10 minutes'') t
+     on conflict (restaurant_id, label) do update set capacity = excluded.capacity;'
+);

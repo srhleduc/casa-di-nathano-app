@@ -1,15 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots, useSlotDefaults, setSlotDefaults } from "@/lib/data";
 import { parseMinutes } from "@/lib/business";
+
+// Les créneaux midi/soir sont maintenant ouverts automatiquement chaque nuit
+// (voir supabase/schema.sql, tâche "casa-di-nathano-daily-reset") — les
+// boutons "Générer" restent utiles pour régénérer/ajuster en cours de
+// journée, et mémorisent la capacité utilisée comme nouveau défaut pour la
+// prochaine génération automatique.
+const MIDI_SOIR_CUTOFF_MINUTES = 16 * 60; // tout avant 16h = midi, après = soir
+function isMidiSlot(label) {
+  const mins = parseMinutes(label);
+  return mins !== null && mins < MIDI_SOIR_CUTOFF_MINUTES;
+}
 
 export default function SlotsAdmin() {
   const { slots, reload } = useSlots();
+  const { slotDefaults, loading: defaultsLoading } = useSlotDefaults();
   const [label, setLabel] = useState("");
   const [capacity, setCapacity] = useState("6");
   const [capMidi, setCapMidi] = useState("6");
   const [capSoir, setCapSoir] = useState("6");
+  const [defaultsInitialized, setDefaultsInitialized] = useState(false);
+  const [service, setService] = useState("midi"); // "midi" | "soir"
+
+  useEffect(() => {
+    if (!defaultsLoading && !defaultsInitialized) {
+      setCapMidi(String(slotDefaults.midiCapacity));
+      setCapSoir(String(slotDefaults.soirCapacity));
+      setDefaultsInitialized(true);
+    }
+  }, [defaultsLoading, defaultsInitialized, slotDefaults]);
 
   function addSlot() {
     if (!label.match(/^\d{1,2}[:h]\d{2}$/)) return;
@@ -37,16 +59,32 @@ export default function SlotsAdmin() {
     }
     bulkUpsertSlots(out).catch((err) => console.error(err));
   }
+  function generateMidi() {
+    const cap = parseInt(capMidi, 10) || 0;
+    bulkGenerate("12:00", "14:00", 10, cap);
+    setSlotDefaults({ midiCapacity: cap }).catch((err) => console.error(err));
+  }
+  function generateSoir() {
+    const cap = parseInt(capSoir, 10) || 0;
+    bulkGenerate("18:00", "22:30", 10, cap);
+    setSlotDefaults({ soirCapacity: cap }).catch((err) => console.error(err));
+  }
+
+  const visibleSlots = slots.filter((s) => (service === "midi" ? isMidiSlot(s.label) : !isMidiSlot(s.label)));
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="text-xs text-[#8a7561] mb-4">
+        🌙 Les créneaux midi et soir s'ouvrent automatiquement chaque nuit (capacité = dernière valeur utilisée ci-dessous) — les boutons
+        "Générer" servent à régénérer/ajuster en cours de journée si besoin.
+      </div>
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
           <div className="font-bold mb-2">☀️ Service midi (12h–14h, ttes les 10 min)</div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capMidi} onChange={(e) => setCapMidi(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
-            <button onClick={() => bulkGenerate("12:00", "14:00", 10, parseInt(capMidi, 10) || 0)} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            <button onClick={generateMidi} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
               Générer
             </button>
           </div>
@@ -56,7 +94,7 @@ export default function SlotsAdmin() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capSoir} onChange={(e) => setCapSoir(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
-            <button onClick={() => bulkGenerate("18:00", "22:30", 10, parseInt(capSoir, 10) || 0)} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            <button onClick={generateSoir} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
               Générer
             </button>
           </div>
@@ -83,8 +121,23 @@ export default function SlotsAdmin() {
         </button>
       </div>
 
+      <div className="flex gap-3 mb-4">
+        <button
+          onClick={() => setService("midi")}
+          className={`tap-scale rounded-full px-5 py-2 font-bold border-2 ${service === "midi" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}
+        >
+          ☀️ Service midi
+        </button>
+        <button
+          onClick={() => setService("soir")}
+          className={`tap-scale rounded-full px-5 py-2 font-bold border-2 ${service === "soir" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}
+        >
+          🌙 Service soir
+        </button>
+      </div>
+
       <div className="grid grid-cols-4 gap-3">
-        {slots
+        {visibleSlots
           .slice()
           .sort((a, b) => (parseMinutes(a.label) ?? 0) - (parseMinutes(b.label) ?? 0))
           .map((s) => (
