@@ -623,7 +623,7 @@ alter table team_config add column if not exists soir_capacity integer not null 
 
 -- Met à jour la remise à zéro nocturne (même nom de job → remplace la
 -- précédente définition) pour régénérer, juste après le nettoyage, les
--- créneaux midi (12h-14h) et soir (18h-22h30) de chaque restaurant avec
+-- créneaux midi (12h-15h) et soir (18h-minuit) de chaque restaurant avec
 -- leur capacité par défaut — plus besoin de cliquer "Générer" chaque jour,
 -- et les créneaux du soir sont donc déjà ouverts pendant tout le service
 -- de midi pour les clients qui réservent à l'avance.
@@ -637,9 +637,12 @@ select cron.schedule(
    delete from orders where date(created_at) < current_date and (scheduled_for is null or scheduled_for < current_date);
    insert into slots (restaurant_id, label, capacity)
      select tc.restaurant_id, to_char(t, ''HH24:MI''), tc.midi_capacity
-     from team_config tc, generate_series(timestamp ''2000-01-01 12:00'', timestamp ''2000-01-01 14:00'', interval ''10 minutes'') t
+     from team_config tc, generate_series(timestamp ''2000-01-01 12:00'', timestamp ''2000-01-01 15:00'', interval ''10 minutes'') t
      union all
      select tc.restaurant_id, to_char(t, ''HH24:MI''), tc.soir_capacity
-     from team_config tc, generate_series(timestamp ''2000-01-01 18:00'', timestamp ''2000-01-01 22:30'', interval ''10 minutes'') t
+     from team_config tc, generate_series(timestamp ''2000-01-01 18:00'', timestamp ''2000-01-01 23:50'', interval ''10 minutes'') t
+     union all
+     select tc.restaurant_id, ''24:00'', tc.soir_capacity
+     from team_config tc
      on conflict (restaurant_id, label) do update set capacity = excluded.capacity;'
 );

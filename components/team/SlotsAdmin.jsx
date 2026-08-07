@@ -45,28 +45,30 @@ export default function SlotsAdmin() {
   function updateCapacity(id, val) {
     updateSlotCapacity(id, parseInt(val, 10) || 0).catch((err) => console.error(err));
   }
+  // Calcule en minutes totales (pas en heures/minutes séparées) pour que la
+  // plage du soir puisse aller jusqu'à minuit inclus (24:00) sans bricolage
+  // de dépassement d'heure.
   function bulkGenerate(start, end, step, cap) {
     const out = [];
-    let [h, m] = start.split(":").map(Number);
+    const [sh, sm] = start.split(":").map(Number);
     const [eh, em] = end.split(":").map(Number);
-    while (h < eh || (h === eh && m <= em)) {
+    const totalStart = sh * 60 + sm;
+    const totalEnd = eh * 60 + em;
+    for (let t = totalStart; t <= totalEnd; t += step) {
+      const h = Math.floor(t / 60);
+      const m = t % 60;
       out.push({ label: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`, capacity: cap });
-      m += step;
-      if (m >= 60) {
-        m -= 60;
-        h += 1;
-      }
     }
     bulkUpsertSlots(out).catch((err) => console.error(err));
   }
   function generateMidi() {
     const cap = parseInt(capMidi, 10) || 0;
-    bulkGenerate("12:00", "14:00", 10, cap);
+    bulkGenerate("12:00", "15:00", 10, cap);
     setSlotDefaults({ midiCapacity: cap }).catch((err) => console.error(err));
   }
   function generateSoir() {
     const cap = parseInt(capSoir, 10) || 0;
-    bulkGenerate("18:00", "22:30", 10, cap);
+    bulkGenerate("18:00", "24:00", 10, cap);
     setSlotDefaults({ soirCapacity: cap }).catch((err) => console.error(err));
   }
 
@@ -80,7 +82,7 @@ export default function SlotsAdmin() {
       </div>
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
-          <div className="font-bold mb-2">☀️ Service midi (12h–14h, ttes les 10 min)</div>
+          <div className="font-bold mb-2">☀️ Service midi (12h–15h, ttes les 10 min)</div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capMidi} onChange={(e) => setCapMidi(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
@@ -90,7 +92,7 @@ export default function SlotsAdmin() {
           </div>
         </div>
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
-          <div className="font-bold mb-2">🌙 Service soir (18h–22h30, ttes les 10 min)</div>
+          <div className="font-bold mb-2">🌙 Service soir (18h–minuit, ttes les 10 min)</div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capSoir} onChange={(e) => setCapSoir(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
