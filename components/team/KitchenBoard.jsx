@@ -1,7 +1,7 @@
 "use client";
 
 import { useOrders, updateOrder } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, serviceTypeBadgeStyle } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadgeStyle } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
@@ -20,7 +20,7 @@ export default function KitchenBoard() {
     return !["waiting", "served_by_kitchen"].includes(o.aperoStatus) && normalPizzaItems(o).length > 0;
   }
 
-  const queue = sortOrdersByTime(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
+  const queue = sortKitchenQueue(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
 
   function sendToFinition(order) {
     updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
