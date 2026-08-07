@@ -22,13 +22,14 @@ import StatusScreen from "./StatusScreen";
 
 async function submitWithRetry(order, attempt = 1) {
   try {
-    await insertOrder(order);
+    return await insertOrder(order);
   } catch (err) {
     if (attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(order, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
+    return null;
   }
 }
 
@@ -62,6 +63,7 @@ export default function TakeawayOrder() {
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [confirmedNumber, setConfirmedNumber] = useState(null);
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -115,6 +117,7 @@ export default function TakeawayOrder() {
     setSlotChoice(null);
     setSelectedSlot(null);
     setPanuzzoOrdering(null);
+    setConfirmedNumber(null);
     setScreen("welcome");
   }
 
@@ -129,7 +132,7 @@ export default function TakeawayOrder() {
       status: "attente",
     };
     setScreen("done");
-    submitWithRetry(newOrder);
+    submitWithRetry(newOrder).then(setConfirmedNumber);
   }
 
   function goToSlot() {
@@ -265,7 +268,9 @@ export default function TakeawayOrder() {
         />
       )}
 
-      {screen === "done" && <StatusScreen title="Commande envoyée !" subtitle={doneMessage()} success onDone={resetAll} />}
+      {screen === "done" && (
+        <StatusScreen title="Commande envoyée !" subtitle={doneMessage()} success onDone={resetAll} bigNumber={confirmedNumber} />
+      )}
     </div>
   );
 }

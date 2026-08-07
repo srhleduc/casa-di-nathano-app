@@ -24,13 +24,14 @@ const STAFF_SERVICE_OPTIONS = [
 
 async function submitWithRetry(order, attempt = 1) {
   try {
-    await insertOrder(order);
+    return await insertOrder(order);
   } catch (err) {
     if (attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(order, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
+    return null;
   }
 }
 
@@ -55,6 +56,7 @@ export default function StaffOrderFlow() {
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [aperoMode, setAperoMode] = useState(false); // vrai pendant la sélection de l'apéro
   const [aperoUsed, setAperoUsed] = useState(false); // vrai si cette commande a démarré par un apéro
 
@@ -115,6 +117,7 @@ export default function StaffOrderFlow() {
     setAperoMode(false);
     setAperoUsed(false);
     setPanuzzoOrdering(null);
+    setConfirmedNumber(null);
     setScreen("service");
   }
 
@@ -132,7 +135,7 @@ export default function StaffOrderFlow() {
       isTest: testMode.enabled,
     };
     setScreen("done");
-    submitWithRetry(newOrder);
+    submitWithRetry(newOrder).then(setConfirmedNumber);
   }
 
   function goToSlot() {
@@ -248,7 +251,9 @@ export default function StaffOrderFlow() {
         />
       )}
 
-      {screen === "done" && <StatusScreen title="Commande enregistrée !" subtitle="Elle est partie en cuisine." success onDone={resetAll} />}
+      {screen === "done" && (
+        <StatusScreen title="Commande enregistrée !" subtitle="Elle est partie en cuisine." success onDone={resetAll} bigNumber={confirmedNumber} />
+      )}
 
       {customizing && (
         <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />

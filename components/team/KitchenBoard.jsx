@@ -84,6 +84,11 @@ export default function KitchenBoard() {
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
               <div className="flex items-center gap-2">
+                {o.takeawayNumber != null && (
+                  <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                    N°{o.takeawayNumber}
+                  </span>
+                )}
                 <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(o.serviceType)}>
                   {o.serviceType}
                 </span>

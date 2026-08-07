@@ -21,13 +21,14 @@ import TeamSpace from "./TeamSpace";
 
 async function submitWithRetry(order, attempt = 1) {
   try {
-    await insertOrder(order);
+    return await insertOrder(order);
   } catch (err) {
     if (attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(order, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
+    return null;
   }
 }
 
@@ -45,6 +46,7 @@ export default function Kiosk() {
   const [aperoMode, setAperoMode] = useState(false); // vrai tant que le client n'a pas validé son apéro
   const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
   const [selectedSlot, setSelectedSlot] = useState(null); // créneau choisi si mode "single"
+  const [confirmedNumber, setConfirmedNumber] = useState(null); // numéro de commande à emporter, une fois connu
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -105,6 +107,7 @@ export default function Kiosk() {
     setSelectedSlot(null);
     setAperoMode(false);
     setPanuzzoOrdering(null);
+    setConfirmedNumber(null);
     setScreen("welcome");
   }
 
@@ -119,7 +122,7 @@ export default function Kiosk() {
       status: "attente",
     };
     setScreen("done");
-    submitWithRetry(newOrder);
+    submitWithRetry(newOrder).then(setConfirmedNumber);
   }
 
   function goToSlot() {
@@ -283,7 +286,9 @@ export default function Kiosk() {
         />
       )}
 
-      {screen === "done" && <StatusScreen title="Commande envoyée !" subtitle={onSiteDoneMessage()} success onDone={resetAll} />}
+      {screen === "done" && (
+        <StatusScreen title="Commande envoyée !" subtitle={onSiteDoneMessage()} success onDone={resetAll} bigNumber={confirmedNumber} />
+      )}
     </div>
   );
 }

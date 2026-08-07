@@ -633,6 +633,7 @@ select cron.schedule(
   'insert into daily_sales (restaurant_id, date, menu_item_id, qty) select o.restaurant_id, date(o.created_at), item->>''id'', sum(coalesce((item->>''qty'')::int, 1)) from orders o, jsonb_array_elements(o.items) item where date(o.created_at) < current_date and (o.scheduled_for is null or o.scheduled_for < current_date) and o.is_test = false group by o.restaurant_id, date(o.created_at), item->>''id'' on conflict (restaurant_id, date, menu_item_id) do update set qty = daily_sales.qty + excluded.qty;
    delete from ruptures;
    update dessert_stock set qty = 0;
+   update team_config set takeaway_order_counter = 0;
    delete from slots;
    delete from orders where date(created_at) < current_date and (scheduled_for is null or scheduled_for < current_date);
    insert into slots (restaurant_id, label, capacity)
@@ -682,3 +683,27 @@ update restaurants set phone = '06 30 05 93 58' where id = 'quimperle';
 
 -- Bouton d'arrêt d'urgence côté Caisse — par restaurant.
 alter table team_config add column if not exists takeaway_link_suspended boolean not null default false;
+
+-- =====================================================================
+-- NUMÉRO DE COMMANDE À EMPORTER (1 à 99, boucle, remis à zéro chaque nuit)
+-- =====================================================================
+
+alter table team_config add column if not exists takeaway_order_counter integer not null default 0;
+alter table orders add column if not exists takeaway_number integer;
+
+-- Incrémentation atomique (évite toute course si deux commandes à emporter
+-- arrivent au même moment) — restreinte au restaurant du compte appelant
+-- via my_restaurant_id(), jamais un restaurant_id fourni par le client.
+create or replace function next_takeaway_number()
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  update team_config
+  set takeaway_order_counter = (takeaway_order_counter % 99) + 1
+  where restaurant_id = my_restaurant_id()
+  returning takeaway_order_counter;
+$$;
+
+grant execute on function next_takeaway_number() to authenticated;
