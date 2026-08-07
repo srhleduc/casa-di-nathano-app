@@ -231,6 +231,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                     ? `🕐 ${selectedSlot.label}`
                     : order.slotAllocations && order.slotAllocations.length > 0
                     ? `🕐 ${formatSlotAllocations(order.slotAllocations)}`
+                    : order.scheduledTime
+                    ? `🕐 ${order.scheduledTime}`
                     : "Aucun créneau"}
                 </span>
                 <button onClick={() => setView("slot")} className="tap-scale text-xs font-bold rounded-full px-4 py-2 border-2 border-[#3a2b1f]">

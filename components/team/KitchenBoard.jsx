@@ -63,9 +63,11 @@ export default function KitchenBoard() {
             </button>
           </div>
         </div>
-        {o.slotAllocations && o.slotAllocations.length > 0 && (
+        {o.slotAllocations && o.slotAllocations.length > 0 ? (
           <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {formatSlotAllocations(o.slotAllocations)}</div>
-        )}
+        ) : o.scheduledTime ? (
+          <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {o.scheduledTime}</div>
+        ) : null}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="display-font text-xl font-bold">{o.name}</div>
           <ElapsedBadge since={o.createdAt} />
