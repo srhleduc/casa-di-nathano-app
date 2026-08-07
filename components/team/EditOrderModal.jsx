@@ -13,6 +13,7 @@ const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: 
 
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
   const [view, setView] = useState("summary"); // summary | add | slot
+  const [activeCat, setActiveCat] = useState("pizza");
   const [items, setItems] = useState(order.items);
   const [selectedSlot, setSelectedSlot] = useState(
     order.slotAllocations && order.slotAllocations.length === 1 ? { id: order.slotAllocations[0].slotId, label: order.slotAllocations[0].label } : null
@@ -74,8 +75,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
       <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
         <div className="flex-1 md:m-8 md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "#1a120b", color: "#f5ebdd" }}>
           <OrderScreen
-            activeCat="pizza"
-            setActiveCat={() => {}}
+            activeCat={activeCat}
+            setActiveCat={setActiveCat}
             cart={items}
             addItem={addItem}
             onPizzaTap={setCustomizing}
