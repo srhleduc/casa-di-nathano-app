@@ -660,3 +660,8 @@ insert into menu_items (id, name, price, cat, ingredients) values
   ('panuzzo-viande', 'Panuzzo Viande', 9.70, 'panuzzo', '["Mortadelle","Stracciatella","Roquette","Copeaux de parmesan"]'::jsonb),
   ('panuzzo-vegetarien', 'Panuzzo Végétarien', 9.70, 'panuzzo', '["Tomates séchées","Stracciatella","Roquette","Copeaux de parmesan","Pickles oignons rouges","Poivrons gouttes"]'::jsonb)
 on conflict (id) do nothing;
+
+-- Clarifie deux suppléments ambigus (base de la pizza, pas juste un ajout
+-- d'ingrédient) — mis en avant spécifiquement pour la 4 Formaggi côté code.
+update menu_items set name = 'Supplément base tomate' where id = 'supplement-supp-tomate';
+update menu_items set name = 'Supplément base crème' where id = 'supplement-supp-creme';

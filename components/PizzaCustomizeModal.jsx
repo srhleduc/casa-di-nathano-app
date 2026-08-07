@@ -4,6 +4,11 @@ import { useState } from "react";
 import { eur } from "@/lib/menu";
 
 const FEATURED_NAMES = ["Supplément Anchois", "Supplément Cœur de Burrata", "Supplément Mozzarella di Buffala", "Supplément Salade"];
+// Mis en avant en plus des suppléments génériques ci-dessus, uniquement
+// pour certaines pizzas où ils sont particulièrement pertinents.
+const EXTRA_FEATURED_BY_PIZZA = {
+  "4 Formaggi": ["Supplément base tomate", "Supplément base crème"],
+};
 
 export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm }) {
   const [mode, setMode] = useState("detail"); // detail | remove | add
@@ -13,8 +18,9 @@ export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm })
 
   const recipe = pizza.ingredients || [];
   const allSupplements = (menu || []).filter((m) => m.cat === "supplement");
-  const featuredSupplements = FEATURED_NAMES.map((n) => allSupplements.find((s) => s.name === n)).filter(Boolean);
-  const otherSupplements = allSupplements.filter((s) => !FEATURED_NAMES.includes(s.name));
+  const featuredNames = [...FEATURED_NAMES, ...(EXTRA_FEATURED_BY_PIZZA[pizza.name] || [])];
+  const featuredSupplements = featuredNames.map((n) => allSupplements.find((s) => s.name === n)).filter(Boolean);
+  const otherSupplements = allSupplements.filter((s) => !featuredNames.includes(s.name));
 
   function toggleRemoved(name) {
     setRemovedNames((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
