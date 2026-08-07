@@ -55,7 +55,7 @@ export default function StaffOrderFlow() {
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander
   const [aperoMode, setAperoMode] = useState(false); // vrai pendant la sélection de l'apéro
@@ -114,7 +114,7 @@ export default function StaffOrderFlow() {
     setServiceType("🍽️ Sur place");
     setActiveCat("boisson");
     setSlotChoice(null);
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setAperoMode(false);
     setAperoUsed(false);
     setPanuzzoOrdering(null);
@@ -150,7 +150,7 @@ export default function StaffOrderFlow() {
       submitOrder(null);
       return;
     }
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setSlotChoice(computeSlotOptions(orders, slots, pizzaCount));
     setScreen("slot");
   }
@@ -181,7 +181,8 @@ export default function StaffOrderFlow() {
               checkSlotChoice.options[0] &&
               `🕐 Créneau le plus proche : ${checkSlotChoice.options[0].label} (${checkSlotChoice.options[0].remaining} place${checkSlotChoice.options[0].remaining > 1 ? "s" : ""})`}
             {checkSlotChoice.mode === "split" &&
-              `🕐 À répartir : ${checkSlotChoice.plan.map((p) => `${p.qty}×${p.label}`).join(" + ")}`}
+              checkSlotChoice.plans[0] &&
+              `🕐 Créneau le plus proche : ${checkSlotChoice.plans[0][checkSlotChoice.plans[0].length - 1].label}`}
           </span>
         )}
       </div>
@@ -273,15 +274,11 @@ export default function StaffOrderFlow() {
         <SlotScreen
           pizzaCount={pizzaCount}
           slotChoice={slotChoice}
-          selectedSlot={selectedSlot}
-          setSelectedSlot={setSelectedSlot}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
-          onConfirm={() => {
-            const finalPlan =
-              slotChoice.mode === "split" ? slotChoice.plan : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : null;
-            submitOrder(finalPlan);
-          }}
+          onConfirm={() => submitOrder(selectedOption?.plan || null)}
         />
       )}
 

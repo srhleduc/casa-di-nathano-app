@@ -45,7 +45,7 @@ export default function Kiosk() {
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null); // panuzzo en cours (seul ou formule)
   const [aperoMode, setAperoMode] = useState(false); // vrai tant que le client n'a pas validé son apéro
   const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
-  const [selectedSlot, setSelectedSlot] = useState(null); // créneau choisi si mode "single"
+  const [selectedOption, setSelectedOption] = useState(null); // option choisie (créneau simple ou réparti)
   const [confirmedNumber, setConfirmedNumber] = useState(null); // numéro de commande à emporter, une fois connu
 
   const { orders } = useOrders();
@@ -104,7 +104,7 @@ export default function Kiosk() {
     setServiceType("🍽️ Sur place");
     setActiveCat("pizza");
     setSlotChoice(null);
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setAperoMode(false);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
@@ -133,19 +133,19 @@ export default function Kiosk() {
     const choice = computeSlotOptions(orders, slots, pizzaCount);
     if (serviceType === "🍽️ Sur place" && choice.mode !== "none") {
       const finalPlan =
-        choice.mode === "split" ? choice.plan : [{ slotId: choice.options[0].id, label: choice.options[0].label, qty: pizzaCount }];
+        choice.mode === "split" ? choice.plans[0] : [{ slotId: choice.options[0].id, label: choice.options[0].label, qty: pizzaCount }];
       setSlotChoice(choice);
       submitOrder(finalPlan);
       return;
     }
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setSlotChoice(choice);
     setScreen("slot");
   }
 
   function onSiteDoneMessage() {
     if (serviceType === "🍽️ Sur place" && slotChoice && slotChoice.mode !== "none") {
-      const label = slotChoice.mode === "split" ? slotChoice.plan[0].label : slotChoice.options[0].label;
+      const label = slotChoice.mode === "split" ? slotChoice.plans[0][0].label : slotChoice.options[0].label;
       const mins = minutesFromNow(label);
       return mins !== null
         ? `Votre commande sera lancée dans les ${Math.max(5, Math.ceil(mins / 5) * 5)} prochaines minutes (vers ${label}).`
@@ -274,15 +274,11 @@ export default function Kiosk() {
         <SlotScreen
           pizzaCount={pizzaCount}
           slotChoice={slotChoice}
-          selectedSlot={selectedSlot}
-          setSelectedSlot={setSelectedSlot}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
-          onConfirm={() => {
-            const finalPlan =
-              slotChoice.mode === "split" ? slotChoice.plan : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : null;
-            submitOrder(finalPlan);
-          }}
+          onConfirm={() => submitOrder(selectedOption?.plan || null)}
         />
       )}
 

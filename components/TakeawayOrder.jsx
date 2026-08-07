@@ -62,7 +62,7 @@ export default function TakeawayOrder() {
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
 
   const { orders } = useOrders();
@@ -115,7 +115,7 @@ export default function TakeawayOrder() {
     setTableName("");
     setActiveCat("pizza");
     setSlotChoice(null);
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
     setScreen("welcome");
@@ -141,7 +141,7 @@ export default function TakeawayOrder() {
       return;
     }
     const choice = computeSlotOptions(orders, slots, pizzaCount);
-    setSelectedSlot(null);
+    setSelectedOption(null);
     setSlotChoice(choice);
     setScreen("slot");
   }
@@ -256,15 +256,11 @@ export default function TakeawayOrder() {
         <SlotScreen
           pizzaCount={pizzaCount}
           slotChoice={slotChoice}
-          selectedSlot={selectedSlot}
-          setSelectedSlot={setSelectedSlot}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
-          onConfirm={() => {
-            const finalPlan =
-              slotChoice.mode === "split" ? slotChoice.plan : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : null;
-            submitOrder(finalPlan);
-          }}
+          onConfirm={() => submitOrder(selectedOption?.plan || null)}
         />
       )}
 
