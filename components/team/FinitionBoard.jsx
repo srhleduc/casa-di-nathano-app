@@ -1,13 +1,21 @@
 "use client";
 
-import { useOrders, updateOrder } from "@/lib/data";
+import { useState } from "react";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
 import ElapsedBadge from "../ElapsedBadge";
+import EditOrderModal from "./EditOrderModal";
 
 export default function FinitionBoard() {
   const { orders } = useOrders();
+  const { menuItems } = useMenu();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
+  const { slots } = useSlots();
+  const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   // Concerné par Finition : les planches/salades pas encore marquées prêtes, les commandes
   // qui viennent de sortir du four (garniture après-cuisson), ou celles sans pizza du tout.
@@ -39,7 +47,7 @@ export default function FinitionBoard() {
           const canFinishService = needsGarnish || o.pizzaCount === 0;
           return (
             <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-              <OrderCardHeader order={o} />
+              <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="display-font text-lg font-bold">{o.name}</div>
                 <ElapsedBadge since={o.ovenDoneAt || o.createdAt} />
@@ -78,6 +86,19 @@ export default function FinitionBoard() {
           );
         })}
       </div>
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          menu={menuItems}
+          orders={orders}
+          slots={slots}
+          ruptures={ruptures}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          onClose={() => setEditingOrder(null)}
+        />
+      )}
     </div>
   );
 }

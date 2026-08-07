@@ -1,13 +1,21 @@
 "use client";
 
-import { useOrders, updateOrder } from "@/lib/data";
+import { useState } from "react";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadgeStyle } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
+import EditOrderModal from "./EditOrderModal";
 
 export default function KitchenBoard() {
   const { orders } = useOrders();
+  const { menuItems } = useMenu();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
+  const { slots } = useSlots();
+  const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
 
@@ -43,11 +51,16 @@ export default function KitchenBoard() {
                     <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a2c14", color: "#E8B23D" }}>
                       ⏳ Attente apéro
                     </span>
-                    {o.isTest && (
-                      <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
-                        🧪 TEST
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {o.isTest && (
+                        <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
+                          🧪 TEST
+                        </span>
+                      )}
+                      <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
+                        ✏️
+                      </button>
+                    </div>
                   </div>
                   <div className="display-font text-xl font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4] mb-3">
@@ -79,6 +92,9 @@ export default function KitchenBoard() {
                     🧪 TEST
                   </span>
                 )}
+                <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
+                  ✏️
+                </button>
               </div>
               {o.slotAllocations && o.slotAllocations.length > 0 && (
                 <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
@@ -102,6 +118,19 @@ export default function KitchenBoard() {
           </div>
         ))}
       </div>
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          menu={menuItems}
+          orders={orders}
+          slots={slots}
+          ruptures={ruptures}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          onClose={() => setEditingOrder(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,14 +1,22 @@
 "use client";
 
-import { useOrders } from "@/lib/data";
+import { useState } from "react";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import EditOrderModal from "./EditOrderModal";
 
 const DRINK_CATS = ["boisson", "biere", "vin", "cocktail"];
 
 export default function BoissonBoard() {
   const { orders } = useOrders();
+  const { menuItems } = useMenu();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
+  const { slots } = useSlots();
+  const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const withDrinks = active
     .map((o) => ({ ...o, drinkItems: o.items.filter((it) => DRINK_CATS.includes(it.cat)) }))
@@ -21,7 +29,7 @@ export default function BoissonBoard() {
       <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(withDrinks).map((o) => (
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-            <OrderCardHeader order={o} />
+            <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
             <div className="display-font text-lg font-bold mb-2">{o.name}</div>
             <ul className="text-sm text-[#c9b8a4]">
               {o.drinkItems.map((it, idx) => (
@@ -31,6 +39,19 @@ export default function BoissonBoard() {
           </div>
         ))}
       </div>
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          menu={menuItems}
+          orders={orders}
+          slots={slots}
+          ruptures={ruptures}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          onClose={() => setEditingOrder(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import EditOrderModal from "./EditOrderModal";
 
 export default function CaisseBoard() {
   const { orders } = useOrders();
+  const { menuItems } = useMenu();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
+  const { slots } = useSlots();
+  const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const paidToday = orders.filter((o) => o.status === "servie" && isOrderActiveToday(o));
   // Le chiffre du jour n'inclut jamais les commandes du mode test.
@@ -110,7 +117,7 @@ export default function CaisseBoard() {
           <div className="flex gap-4 overflow-x-auto pb-2">
             {sortOrdersByTime(active).map((o) => (
               <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-                <OrderCardHeader order={o} />
+                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <ul className="text-sm text-[#c9b8a4] mb-3">
                   {o.items.map((it, idx) => (
@@ -127,6 +134,19 @@ export default function CaisseBoard() {
             ))}
           </div>
         </>
+      )}
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          menu={menuItems}
+          orders={orders}
+          slots={slots}
+          ruptures={ruptures}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          onClose={() => setEditingOrder(null)}
+        />
       )}
     </div>
   );
