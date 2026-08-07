@@ -646,3 +646,9 @@ select cron.schedule(
      from team_config tc
      on conflict (restaurant_id, label) do update set capacity = excluded.capacity;'
 );
+
+-- Produits disponibles uniquement sur place (glaces, Paris Palerme) —
+-- masqués de la borne/équipe quand "À emporter" est sélectionné.
+alter table menu_items add column if not exists dine_in_only boolean not null default false;
+update menu_items set dine_in_only = true
+  where id in ('dessert-gelato-dello-chef', 'dessert-glace-1-boule', 'dessert-glace-2-boules', 'dessert-glace-3-boules', 'dessert-paris-palerme');

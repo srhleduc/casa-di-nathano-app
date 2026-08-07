@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS } from "@/lib/menu";
-import { remainingForDessertGroup, remainingPizzaStock } from "@/lib/business";
+import { remainingForDessertGroup, remainingPizzaStock, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 
 export default function OrderScreen({
   activeCat,
@@ -24,6 +24,7 @@ export default function OrderScreen({
   menu,
   showPhotos,
   restaurantName,
+  serviceType,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -40,7 +41,16 @@ export default function OrderScreen({
     return cat === "pizza" && pizzaStockOut;
   }
 
-  const items = fullMenu.filter((m) => m.cat === activeCat && !(ruptures || []).includes(m.id) && !isDessertOut(m.name) && !isPizzaOut(m.cat));
+  const isTakeaway = serviceType === TAKEAWAY_SERVICE_TYPE;
+
+  const items = fullMenu.filter(
+    (m) =>
+      m.cat === activeCat &&
+      !(ruptures || []).includes(m.id) &&
+      !isDessertOut(m.name) &&
+      !isPizzaOut(m.cat) &&
+      !(isTakeaway && m.dineInOnly)
+  );
 
   return (
     <div className="flex-1 flex flex-col">

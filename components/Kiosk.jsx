@@ -194,6 +194,7 @@ export default function Kiosk() {
           menu={menuItems}
           restaurantName={restaurant.name}
           showPhotos={true}
+          serviceType={serviceType}
           onFinishApero={() => {
             setAperoMode(false);
             setActiveCat("pizza");

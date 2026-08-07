@@ -11,7 +11,7 @@ function ingredientNamesFromMenu(menuItems) {
     .sort();
 }
 
-const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "" };
+const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false };
 
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
@@ -34,6 +34,7 @@ export default function MenuAdmin({ canEdit = false }) {
       price: String(item.price),
       ingredients: item.ingredients || [],
       photoUrl: item.photoUrl || "",
+      dineInOnly: item.dineInOnly || false,
     });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -69,6 +70,7 @@ export default function MenuAdmin({ canEdit = false }) {
       cat: form.cat,
       ingredients: form.cat === "pizza" ? form.ingredients : undefined,
       photoUrl: form.photoUrl.trim() || null,
+      dineInOnly: form.dineInOnly,
     };
     try {
       if (editingId) {
@@ -122,6 +124,7 @@ export default function MenuAdmin({ canEdit = false }) {
                 {eur(item.price)}
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
+                {item.dineInOnly ? " · 🍽️ sur place" : ""}
               </div>
             </div>
           ))}
@@ -160,6 +163,17 @@ export default function MenuAdmin({ canEdit = false }) {
         <div className="mb-4">
           <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Prix (€)</div>
           <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" step="0.1" placeholder="Ex. 15.5" className="w-40 rounded-lg px-3 py-3" style={inputStyle} />
+        </div>
+
+        <div className="mb-4">
+          <button
+            onClick={() => setForm({ ...form, dineInOnly: !form.dineInOnly })}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={form.dineInOnly ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            {form.dineInOnly ? "✓ " : ""}🍽️ Disponible sur place uniquement
+          </button>
+          <div className="text-xs text-[#5a4a3a] mt-1">Masqué de la borne/équipe quand le client ou la table choisit "À emporter".</div>
         </div>
 
         {form.cat === "pizza" && (
@@ -235,6 +249,7 @@ export default function MenuAdmin({ canEdit = false }) {
                 {eur(item.price)}
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
+                {item.dineInOnly ? " · 🍽️ sur place" : ""}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
