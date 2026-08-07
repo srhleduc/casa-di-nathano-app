@@ -11,7 +11,7 @@ export default function LiveClock({ className, style }) {
     return () => clearInterval(id);
   }, []);
 
-  const label = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+  const label = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
   return (
     <span className={className} style={style}>
