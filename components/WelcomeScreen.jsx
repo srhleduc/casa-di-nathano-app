@@ -17,9 +17,11 @@ export default function WelcomeScreen({ onStart, onTeam, restaurantName }) {
         </button>
         <p className="text-[#8a7561] text-sm mt-8 tracking-wide uppercase">Paiement en caisse après validation</p>
       </div>
-      <button onClick={onTeam} className="absolute bottom-6 right-6 text-[#5a4a3a] text-xs tap-scale">
-        Espace équipe
-      </button>
+      {onTeam && (
+        <button onClick={onTeam} className="absolute bottom-6 right-6 text-[#5a4a3a] text-xs tap-scale">
+          Espace équipe
+        </button>
+      )}
     </div>
   );
 }

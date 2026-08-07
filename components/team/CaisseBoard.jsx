@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, updateOrder, deleteOrders } from "@/lib/data";
+import { useOrders, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
@@ -19,6 +19,11 @@ export default function CaisseBoard() {
 
   const [cancelMode, setCancelMode] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
+  const { suspended } = useTakeawayLinkStatus();
+
+  function toggleTakeawayLink() {
+    setTakeawayLinkSuspended(!suspended).catch((err) => console.error(err));
+  }
 
   function markPaid(order) {
     updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
@@ -44,16 +49,31 @@ export default function CaisseBoard() {
         </div>
       </div>
 
-      <button
-        onClick={() => {
-          setCancelMode(!cancelMode);
-          setConfirmingId(null);
-        }}
-        className="tap-scale rounded-full px-5 py-3 text-sm font-bold border-2 mb-6"
-        style={cancelMode ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
-      >
-        {cancelMode ? "← Retour à la caisse" : "🗑️ Annuler une commande"}
-      </button>
+      <div className="flex flex-wrap gap-3 mb-6">
+        <button
+          onClick={() => {
+            setCancelMode(!cancelMode);
+            setConfirmingId(null);
+          }}
+          className="tap-scale rounded-full px-5 py-3 text-sm font-bold border-2"
+          style={cancelMode ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+        >
+          {cancelMode ? "← Retour à la caisse" : "🗑️ Annuler une commande"}
+        </button>
+        <button
+          onClick={toggleTakeawayLink}
+          className="tap-scale rounded-full px-5 py-3 text-sm font-bold border-2"
+          style={suspended ? { borderColor: "#C0392B", background: "#2c1c14", color: "#e88a8a" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+        >
+          {suspended ? "▶️ Réactiver le click and collect" : "⏸️ Suspendre le click and collect"}
+        </button>
+      </div>
+      {suspended && (
+        <div className="rounded-2xl px-5 py-3 mb-6 text-sm font-bold" style={{ background: "#2c1c14", border: "1px solid #C0392B", color: "#e88a8a" }}>
+          ⏸️ Le lien de commande en ligne (/commande) est actuellement suspendu — les clients qui scannent le QR code voient un message les
+          invitant à appeler.
+        </div>
+      )}
 
       {cancelMode ? (
         <>

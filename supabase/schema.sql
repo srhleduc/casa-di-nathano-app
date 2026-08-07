@@ -670,3 +670,15 @@ update menu_items set name = 'Supplément base crème' where id = 'supplement-su
 alter table team_config add column if not exists service_dine_in_enabled boolean not null default true;
 alter table team_config add column if not exists service_takeaway_enabled boolean not null default true;
 alter table team_config add column if not exists service_reserved_enabled boolean not null default true;
+
+-- =====================================================================
+-- LIEN DE COMMANDE À EMPORTER PAR QR CODE (/commande)
+-- =====================================================================
+
+-- Numéro affiché quand le click and collect est suspendu.
+alter table restaurants add column if not exists phone text;
+update restaurants set phone = '06 33 67 62 13' where id = 'riec';
+update restaurants set phone = '06 30 05 93 58' where id = 'quimperle';
+
+-- Bouton d'arrêt d'urgence côté Caisse — par restaurant.
+alter table team_config add column if not exists takeaway_link_suspended boolean not null default false;
