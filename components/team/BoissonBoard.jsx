@@ -7,7 +7,7 @@ import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
 import EditOrderModal from "./EditOrderModal";
 
-const DRINK_CATS = ["boisson", "biere", "vin", "cocktail"];
+const DRINK_CATS = ["boisson", "biere", "vin", "cocktail", "cafe"];
 
 export default function BoissonBoard() {
   const { orders } = useOrders();
