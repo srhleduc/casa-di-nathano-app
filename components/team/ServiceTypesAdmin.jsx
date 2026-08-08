@@ -4,7 +4,6 @@ import { useServiceTypeSettings, setServiceTypeEnabled } from "@/lib/data";
 
 const TYPES = [
   { key: "dineIn", label: "🍽️ Sur place", desc: "Clients à la borne et prise de commande serveuses" },
-  { key: "reserved", label: "🍽️ Sur place déjà réservé", desc: "Prise de commande serveuses uniquement" },
   { key: "takeaway", label: "🥡 À emporter", desc: "Clients à la borne et prise de commande serveuses" },
 ];
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -14,7 +14,6 @@ const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: 
 const SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", enabledKey: "dineInEnabled" },
   { value: TAKEAWAY_SERVICE_TYPE, enabledKey: "takeawayEnabled" },
-  { value: RESERVED_SERVICE_TYPE, enabledKey: "reservedEnabled" },
 ];
 
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
@@ -82,7 +81,15 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   }
 
   async function save() {
-    const finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
+    let finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
+    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType !== TAKEAWAY_SERVICE_TYPE) {
+      // Sur place sans créneau existant (nouvelles pizzas ajoutées, ou
+      // bascule depuis à emporter) : on réserve automatiquement le créneau
+      // le plus proche, comme à la prise de commande.
+      const otherOrders = orders.filter((o) => o.id !== order.id);
+      const choice = computeSlotOptions(otherOrders, slots, pizzaCount);
+      finalSlotAllocations = earliestSlotPlan(choice, pizzaCount) || [];
+    }
     const wasTakeaway = order.serviceType === TAKEAWAY_SERVICE_TYPE;
     const isTakeawayNow = serviceType === TAKEAWAY_SERVICE_TYPE;
     setSaving(true);
@@ -231,8 +238,6 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                 );
               })}
             </div>
-            {serviceType === RESERVED_SERVICE_TYPE && <p className="text-[#8a7561] text-xs mb-4">{RESERVED_SERVICE_NOTE}</p>}
-
             <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">
               {serviceType !== TAKEAWAY_SERVICE_TYPE ? "Numéro de table" : "Nom du client"}
             </div>

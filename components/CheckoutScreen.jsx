@@ -1,7 +1,7 @@
 "use client";
 
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
+import { lineUnitPrice } from "@/lib/business";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -78,7 +78,6 @@ export default function CheckoutScreen({
             );
           })}
         </div>
-        {serviceType === RESERVED_SERVICE_TYPE && <p className="text-[#8a7561] text-xs mt-3">{RESERVED_SERVICE_NOTE}</p>}
       </div>
 
       <div className="mb-8">

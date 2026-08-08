@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, lineUnitPrice, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, lineUnitPrice, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -18,8 +18,7 @@ import StatusScreen from "../StatusScreen";
 
 const STAFF_SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", label: "Sur place", desc: "La table s'installe en salle" },
-  { value: "🥡 À emporter", label: "À emporter", desc: "Le client repart avec sa commande" },
-  { value: RESERVED_SERVICE_TYPE, label: "Sur place déjà réservé", desc: RESERVED_SERVICE_NOTE },
+  { value: TAKEAWAY_SERVICE_TYPE, label: "À emporter", desc: "Le client repart avec sa commande" },
 ];
 
 async function submitWithRetry(order, attempt = 1) {
@@ -67,8 +66,7 @@ export default function StaffOrderFlow() {
 
   const SERVICE_ENABLED_BY_VALUE = {
     "🍽️ Sur place": serviceTypeSettings.dineInEnabled,
-    "🥡 À emporter": serviceTypeSettings.takeawayEnabled,
-    [RESERVED_SERVICE_TYPE]: serviceTypeSettings.reservedEnabled,
+    [TAKEAWAY_SERVICE_TYPE]: serviceTypeSettings.takeawayEnabled,
   };
   const availableServiceOptions = STAFF_SERVICE_OPTIONS.filter((o) => SERVICE_ENABLED_BY_VALUE[o.value]);
   const availableServiceValues = availableServiceOptions.map((o) => o.value);
@@ -140,14 +138,15 @@ export default function StaffOrderFlow() {
   }
 
   function goToSlot() {
-    // Table déjà réservée en amont : sa capacité a déjà été retirée
-    // manuellement des créneaux, on ne la redécompte pas ici.
-    if (serviceType === RESERVED_SERVICE_TYPE) {
+    if (pizzaCount === 0) {
       submitOrder(null);
       return;
     }
-    if (pizzaCount === 0) {
-      submitOrder(null);
+    if (serviceType !== TAKEAWAY_SERVICE_TYPE) {
+      // Sur place : le client est déjà à table, inutile de lui communiquer
+      // un horaire — on réserve directement le créneau le plus proche.
+      const choice = computeSlotOptions(orders, slots, pizzaCount);
+      submitOrder(earliestSlotPlan(choice, pizzaCount));
       return;
     }
     setSelectedOption(null);
