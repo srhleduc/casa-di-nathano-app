@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateOrder } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
 import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations } from "@/lib/business";
@@ -22,6 +22,19 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Sur mobile, si la page équipe derrière la modale reste défilable, le
+  // geste de glissement tactile est parfois capté par la page plutôt que par
+  // la liste de produits — la barre de défilement de la modale existe mais
+  // ne répond plus. On bloque donc le défilement de la page tant que la
+  // modale est ouverte.
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
 
   const pizzaCount = items.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0);
   const total = items.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0);
