@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateOrder, useServiceTypeSettings } from "@/lib/data";
+import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
 import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
@@ -83,9 +83,17 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   async function save() {
     const finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
+    const wasTakeaway = order.serviceType === TAKEAWAY_SERVICE_TYPE;
+    const isTakeawayNow = serviceType === TAKEAWAY_SERVICE_TYPE;
     setSaving(true);
     try {
-      await updateOrder(order.id, { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" });
+      const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" };
+      if (isTakeawayNow && !wasTakeaway && order.takeawayNumber == null) {
+        patch.takeawayNumber = await assignTakeawayNumber();
+      } else if (!isTakeawayNow && wasTakeaway) {
+        patch.takeawayNumber = null;
+      }
+      await updateOrder(order.id, patch);
       onClose();
     } catch (err) {
       console.error(err);
