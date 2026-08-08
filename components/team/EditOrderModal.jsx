@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateOrder } from "@/lib/data";
+import { updateOrder, useServiceTypeSettings } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, RESERVED_SERVICE_TYPE, RESERVED_SERVICE_NOTE, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -11,10 +11,19 @@ import PanuzzoModal from "../PanuzzoModal";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
+const SERVICE_OPTIONS = [
+  { value: "🍽️ Sur place", enabledKey: "dineInEnabled" },
+  { value: TAKEAWAY_SERVICE_TYPE, enabledKey: "takeawayEnabled" },
+  { value: RESERVED_SERVICE_TYPE, enabledKey: "reservedEnabled" },
+];
+
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
+  const { serviceTypeSettings } = useServiceTypeSettings();
   const [view, setView] = useState("summary"); // summary | add | slot
   const [activeCat, setActiveCat] = useState("pizza");
   const [items, setItems] = useState(order.items);
+  const [serviceType, setServiceType] = useState(order.serviceType);
+  const [name, setName] = useState(order.name);
   const [selectedSlot, setSelectedSlot] = useState(
     order.slotAllocations && order.slotAllocations.length === 1 ? { id: order.slotAllocations[0].slotId, label: order.slotAllocations[0].label } : null
   );
@@ -22,6 +31,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const availableServiceOptions = SERVICE_OPTIONS.filter((o) => serviceTypeSettings[o.enabledKey] || o.value === order.serviceType);
 
   // Sur mobile, si la page équipe derrière la modale reste défilable, le
   // geste de glissement tactile est parfois capté par la page plutôt que par
@@ -74,7 +85,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     const finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
     setSaving(true);
     try {
-      await updateOrder(order.id, { items, slotAllocations: finalSlotAllocations, total, pizzaCount });
+      await updateOrder(order.id, { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" });
       onClose();
     } catch (err) {
       console.error(err);
@@ -105,8 +116,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           dessertStock={dessertStock}
           pizzaStock={pizzaStock}
           menu={menu}
-          restaurantName={order.name}
-          serviceType={order.serviceType}
+          restaurantName={name || order.name}
+          serviceType={serviceType}
           onFinishApero={() => {}}
         />
         {customizing && (
@@ -187,13 +198,45 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
       <div className="pizza-modal w-full md:max-w-2xl md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "#1a120b", color: "#f5ebdd", height: "min(90vh, 720px)" }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
-          <span className="display-font text-2xl font-bold">Modifier « {order.name} »</span>
+          <span className="display-font text-2xl font-bold">Modifier « {name || order.name} »</span>
           <button onClick={onClose} className="tap-scale w-9 h-9 rounded-full bg-[#241811] text-[#c9b8a4] font-bold">
             ✕
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="mb-6">
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Type de commande</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {availableServiceOptions.map((o) => {
+                const isSelected = serviceType === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    onClick={() => setServiceType(o.value)}
+                    className="tap-scale flex-1 min-w-[140px] rounded-xl py-3 px-2 font-bold border-2 text-center text-sm"
+                    style={isSelected ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
+                  >
+                    {isSelected && "✓ "}
+                    {o.value}
+                  </button>
+                );
+              })}
+            </div>
+            {serviceType === RESERVED_SERVICE_TYPE && <p className="text-[#8a7561] text-xs mb-4">{RESERVED_SERVICE_NOTE}</p>}
+
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">
+              {serviceType !== TAKEAWAY_SERVICE_TYPE ? "Numéro de table" : "Nom du client"}
+            </div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={serviceType !== TAKEAWAY_SERVICE_TYPE ? "Ex. 12" : "Ex. Julie"}
+              className="w-full rounded-xl px-4 py-3 outline-none"
+              style={inputStyle}
+            />
+          </div>
+
           <div className="flex flex-col gap-3 mb-5">
             {items.map((i) => (
               <div
