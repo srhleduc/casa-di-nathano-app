@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortItemsForDisplay } from "@/lib/business";
-import ItemLine from "../ItemLine";
+import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import OrderCardHeader from "../OrderCardHeader";
+import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
 const GROUPS = [
@@ -46,11 +46,7 @@ export default function ServiceBoard() {
               <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                 <OrderCardHeader order={o} onDelete={() => cancelOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <ul className="text-sm text-[#c9b8a4] mb-3">
-                  {sortItemsForDisplay(o.items.filter((it) => it.phase === "main")).map((it, idx) => (
-                    <ItemLine key={idx} it={it} />
-                  ))}
-                </ul>
+                <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" />
                 <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   🍕 Lancer les pizzas
                 </button>
@@ -73,11 +69,7 @@ export default function ServiceBoard() {
                 <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                  <ul className="text-sm text-[#c9b8a4] mb-3">
-                    {sortItemsForDisplay(o.items).map((it, idx) => (
-                      <ItemLine key={idx} it={it} />
-                    ))}
-                  </ul>
+                  <GroupedItemList items={o.items} className="mb-3" />
                   {g.key === "pret_service" && (
                     <button onClick={() => markDelivered(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                       ✅ Partie

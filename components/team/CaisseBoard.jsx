@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, sortItemsForDisplay, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { eur } from "@/lib/menu";
-import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
 export default function CaisseBoard() {
@@ -56,11 +56,7 @@ export default function CaisseBoard() {
       <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-        <ul className="text-sm text-[#c9b8a4] mb-3">
-          {sortItemsForDisplay(o.items).map((it, idx) => (
-            <ItemLine key={idx} it={it} />
-          ))}
-        </ul>
+        <GroupedItemList items={o.items} className="mb-3" />
         <div className="flex items-center justify-between">
           <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
           <button onClick={() => markPaid(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
