@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, sortItemsForDisplay, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
@@ -57,7 +57,7 @@ export default function CaisseBoard() {
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <ul className="text-sm text-[#c9b8a4] mb-3">
-          {o.items.map((it, idx) => (
+          {sortItemsForDisplay(o.items).map((it, idx) => (
             <ItemLine key={idx} it={it} />
           ))}
         </ul>

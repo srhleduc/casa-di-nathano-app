@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortItemsForDisplay } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
 import EditOrderModal from "./EditOrderModal";
@@ -47,11 +47,9 @@ export default function ServiceBoard() {
                 <OrderCardHeader order={o} onDelete={() => cancelOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <ul className="text-sm text-[#c9b8a4] mb-3">
-                  {o.items
-                    .filter((it) => it.phase === "main")
-                    .map((it, idx) => (
-                      <ItemLine key={idx} it={it} />
-                    ))}
+                  {sortItemsForDisplay(o.items.filter((it) => it.phase === "main")).map((it, idx) => (
+                    <ItemLine key={idx} it={it} />
+                  ))}
                 </ul>
                 <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   🍕 Lancer les pizzas
@@ -76,7 +74,7 @@ export default function ServiceBoard() {
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4] mb-3">
-                    {o.items.map((it, idx) => (
+                    {sortItemsForDisplay(o.items).map((it, idx) => (
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
