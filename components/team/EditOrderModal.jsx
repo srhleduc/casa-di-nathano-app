@@ -72,66 +72,64 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   if (view === "add") {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
-        <div className="flex-1 md:m-8 md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "#1a120b", color: "#f5ebdd" }}>
-          <OrderScreen
-            activeCat={activeCat}
-            setActiveCat={setActiveCat}
-            cart={items}
-            addItem={addItem}
-            onPizzaTap={setCustomizing}
-            onGlaceTap={setFlavoring}
-            onPanuzzoTap={setPanuzzoOrdering}
-            changeQty={changeQty}
-            total={total}
-            itemCount={items.reduce((s, i) => s + i.qty, 0)}
-            onCancel={() => setView("summary")}
-            onCheckout={() => setView("summary")}
-            aperoMode={false}
-            ruptures={ruptures}
-            orders={orders}
-            dessertStock={dessertStock}
-            pizzaStock={pizzaStock}
+      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden" style={{ background: "#1a120b", color: "#f5ebdd" }}>
+        <OrderScreen
+          activeCat={activeCat}
+          setActiveCat={setActiveCat}
+          cart={items}
+          addItem={addItem}
+          onPizzaTap={setCustomizing}
+          onGlaceTap={setFlavoring}
+          onPanuzzoTap={setPanuzzoOrdering}
+          changeQty={changeQty}
+          total={total}
+          itemCount={items.reduce((s, i) => s + i.qty, 0)}
+          onCancel={() => setView("summary")}
+          onCheckout={() => setView("summary")}
+          aperoMode={false}
+          ruptures={ruptures}
+          orders={orders}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          menu={menu}
+          restaurantName={order.name}
+          serviceType={order.serviceType}
+          onFinishApero={() => {}}
+        />
+        {customizing && (
+          <PizzaCustomizeModal
+            pizza={customizing}
             menu={menu}
-            restaurantName={order.name}
-            serviceType={order.serviceType}
-            onFinishApero={() => {}}
+            onClose={() => setCustomizing(null)}
+            onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)}
           />
-          {customizing && (
-            <PizzaCustomizeModal
-              pizza={customizing}
-              menu={menu}
-              onClose={() => setCustomizing(null)}
-              onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)}
-            />
-          )}
-          {flavoring && (
-            <FlavorModal
-              item={flavoring}
-              onClose={() => setFlavoring(null)}
-              onConfirm={(note) => {
-                addItem(flavoring, note);
-                setFlavoring(null);
-              }}
-            />
-          )}
-          {panuzzoOrdering && (
-            <PanuzzoModal
-              item={panuzzoOrdering}
-              menu={menu}
-              dessertStock={dessertStock}
-              orders={orders}
-              ruptures={ruptures}
-              serviceType={order.serviceType}
-              onClose={() => setPanuzzoOrdering(null)}
-              onAddSolo={(item) => {
-                addItem(item);
-                setPanuzzoOrdering(null);
-              }}
-              onAddFormule={addFormule}
-            />
-          )}
-        </div>
+        )}
+        {flavoring && (
+          <FlavorModal
+            item={flavoring}
+            onClose={() => setFlavoring(null)}
+            onConfirm={(note) => {
+              addItem(flavoring, note);
+              setFlavoring(null);
+            }}
+          />
+        )}
+        {panuzzoOrdering && (
+          <PanuzzoModal
+            item={panuzzoOrdering}
+            menu={menu}
+            dessertStock={dessertStock}
+            orders={orders}
+            ruptures={ruptures}
+            serviceType={order.serviceType}
+            onClose={() => setPanuzzoOrdering(null)}
+            onAddSolo={(item) => {
+              addItem(item);
+              setPanuzzoOrdering(null);
+            }}
+            onAddFormule={addFormule}
+          />
+        )}
       </div>
     );
   }
