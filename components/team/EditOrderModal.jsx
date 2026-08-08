@@ -85,7 +85,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   if (view === "add") {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden" style={{ background: "#1a120b", color: "#f5ebdd" }}>
+      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden" style={{ background: "#1a120b", color: "#f5ebdd", height: "100vh" }}>
         <OrderScreen
           activeCat={activeCat}
           setActiveCat={setActiveCat}
