@@ -672,6 +672,14 @@ alter table team_config add column if not exists service_dine_in_enabled boolean
 alter table team_config add column if not exists service_takeaway_enabled boolean not null default true;
 alter table team_config add column if not exists service_reserved_enabled boolean not null default true;
 
+-- Nouvelle catégorie "Café/Thés" (cat = 'cafe' côté lib/menu.js).
+insert into menu_items (id, name, price, cat) values
+  ('cafe-allonge', 'Café allongé', 2.40, 'cafe'),
+  ('cafe-expresso', 'Expresso', 2.40, 'cafe'),
+  ('cafe-double-expresso', 'Double expresso', 2.40, 'cafe'),
+  ('the', 'Thé', 2.40, 'cafe')
+on conflict (id) do nothing;
+
 -- =====================================================================
 -- LIEN DE COMMANDE À EMPORTER PAR QR CODE (/commande)
 -- =====================================================================
