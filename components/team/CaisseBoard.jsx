@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
@@ -47,6 +47,29 @@ export default function CaisseBoard() {
   }
 
   const cancellable = sortOrdersByTime([...active, ...paidToday]);
+  const activeQueue = sortKitchenQueue(active);
+  const activeTakeaway = activeQueue.filter((o) => o.serviceType === TAKEAWAY_SERVICE_TYPE);
+  const activeDineIn = activeQueue.filter((o) => o.serviceType !== TAKEAWAY_SERVICE_TYPE);
+
+  function renderActiveCard(o) {
+    return (
+      <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+        <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
+        <div className="display-font text-lg font-bold mb-2">{o.name}</div>
+        <ul className="text-sm text-[#c9b8a4] mb-3">
+          {o.items.map((it, idx) => (
+            <ItemLine key={idx} it={it} />
+          ))}
+        </ul>
+        <div className="flex items-center justify-between">
+          <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
+          <button onClick={() => markPaid(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            💰 Marquer payée
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -119,25 +142,21 @@ export default function CaisseBoard() {
       ) : (
         <>
           {active.length === 0 && <p className="text-[#8a7561]">Aucune commande en attente de règlement.</p>}
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {sortOrdersByTime(active).map((o) => (
-              <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
-                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <ul className="text-sm text-[#c9b8a4] mb-3">
-                  {o.items.map((it, idx) => (
-                    <ItemLine key={idx} it={it} />
-                  ))}
-                </ul>
-                <div className="flex items-center justify-between">
-                  <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
-                  <button onClick={() => markPaid(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
-                    💰 Marquer payée
-                  </button>
-                </div>
+          {active.length > 0 && (
+            <>
+              <div className="font-bold mb-3">🥡 À emporter ({activeTakeaway.length})</div>
+              <div className="flex gap-4 overflow-x-auto pb-2 mb-6">
+                {activeTakeaway.map(renderActiveCard)}
+                {activeTakeaway.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
               </div>
-            ))}
-          </div>
+
+              <div className="font-bold mb-3">🍽️ Sur place ({activeDineIn.length})</div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {activeDineIn.map(renderActiveCard)}
+                {activeDineIn.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
+              </div>
+            </>
+          )}
         </>
       )}
 
