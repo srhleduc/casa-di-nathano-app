@@ -2,9 +2,9 @@
 
 import { serviceTypeBadgeStyle, formatSlotAllocations } from "@/lib/business";
 
-export default function OrderCardHeader({ order, onEdit }) {
+export default function OrderCardHeader({ order, onEdit, onDelete, showTime = true }) {
   return (
-    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+    <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
       <div className="flex items-center gap-2">
         {order.takeawayNumber != null && (
           <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#C0392B", color: "#fff5ea" }}>
@@ -25,15 +25,28 @@ export default function OrderCardHeader({ order, onEdit }) {
           </button>
         )}
       </div>
-      {order.slotAllocations && order.slotAllocations.length > 0 ? (
-        <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
-          🕐 {formatSlotAllocations(order.slotAllocations)}
-        </span>
-      ) : order.scheduledTime ? (
-        <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
-          🕐 {order.scheduledTime}
-        </span>
-      ) : null}
+      <div className="flex items-center gap-2">
+        {showTime &&
+          (order.slotAllocations && order.slotAllocations.length > 0 ? (
+            <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
+              🕐 {formatSlotAllocations(order.slotAllocations)}
+            </span>
+          ) : order.scheduledTime ? (
+            <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
+              🕐 {order.scheduledTime}
+            </span>
+          ) : null)}
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            aria-label="Annuler la commande"
+            className="tap-scale w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: "#4a2020", color: "#e88a8a" }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
@@ -25,6 +25,10 @@ export default function BoissonBoard() {
   function markDrinksServed(order) {
     updateOrder(order.id, { drinksServed: true }).catch((err) => console.error(err));
   }
+  function cancelOrder(order) {
+    if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
+    deleteOrders([order.id]).catch((err) => console.error(err));
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -33,7 +37,7 @@ export default function BoissonBoard() {
       <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(withDrinks).map((o) => (
           <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-            <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} />
+            <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
             <div className="display-font text-lg font-bold mb-2">{o.name}</div>
             <ul className="text-sm text-[#c9b8a4] mb-3">
               {o.drinkItems.map((it, idx) => (

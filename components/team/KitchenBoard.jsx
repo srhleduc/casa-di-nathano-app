@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, serviceTypeBadgeStyle, formatSlotAllocations, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, formatSlotAllocations, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
 import LiveClock from "../LiveClock";
+import OrderCardHeader from "../OrderCardHeader";
 import EditOrderModal from "./EditOrderModal";
 
 export default function KitchenBoard() {
@@ -39,30 +40,15 @@ export default function KitchenBoard() {
   function markAperoServed(order) {
     updateOrder(order.id, { aperoStatus: "served_by_kitchen" }).catch((err) => console.error(err));
   }
+  function cancelOrder(order) {
+    if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
+    deleteOrders([order.id]).catch((err) => console.error(err));
+  }
 
   function renderOrderCard(o) {
     return (
       <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            {o.takeawayNumber != null && (
-              <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#C0392B", color: "#fff5ea" }}>
-                N°{o.takeawayNumber}
-              </span>
-            )}
-            <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(o.serviceType)}>
-              {o.serviceType}
-            </span>
-            {o.isTest && (
-              <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
-                🧪 TEST
-              </span>
-            )}
-            <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
-              ✏️
-            </button>
-          </div>
-        </div>
+        <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} showTime={false} />
         {o.slotAllocations && o.slotAllocations.length > 0 ? (
           <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {formatSlotAllocations(o.slotAllocations)}</div>
         ) : o.scheduledTime ? (
@@ -112,6 +98,14 @@ export default function KitchenBoard() {
                       )}
                       <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
                         ✏️
+                      </button>
+                      <button
+                        onClick={() => cancelOrder(o)}
+                        aria-label="Annuler la commande"
+                        className="tap-scale w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: "#4a2020", color: "#e88a8a" }}
+                      >
+                        ✕
                       </button>
                     </div>
                   </div>
