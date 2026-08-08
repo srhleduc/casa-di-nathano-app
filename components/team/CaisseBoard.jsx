@@ -118,7 +118,8 @@ export default function CaisseBoard() {
               <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                 <OrderCardHeader order={o} />
                 <div className="display-font text-lg font-bold mb-1">{o.name}</div>
-                <div className="text-xs text-[#a88f78] mb-3">{o.status === "servie" ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
+                <div className="text-xs text-[#a88f78] mb-2">{o.status === "servie" ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
+                <GroupedItemList items={o.items} className="mb-3" />
                 <div className="flex items-center justify-between">
                   <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
                   {confirmingId === o.id ? (
