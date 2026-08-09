@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, isTakeawayLike } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
 import GroupedItemList from "../GroupedItemList";
@@ -49,7 +49,9 @@ export default function CaisseBoard() {
   const cancellable = sortOrdersByTime([...active, ...paidToday]);
   const activeQueue = sortKitchenQueue(active);
   const activeTakeaway = activeQueue.filter((o) => isTakeawayLike(o.serviceType));
-  const activeDineIn = activeQueue.filter((o) => !isTakeawayLike(o.serviceType));
+  // Sur place trié par numéro/nom de table plutôt que par créneau, pour
+  // retrouver une table au coup d'œil, comme sur l'écran Service.
+  const activeDineIn = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType)));
 
   function renderActiveCard(o) {
     return (
