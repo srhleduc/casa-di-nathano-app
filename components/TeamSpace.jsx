@@ -22,10 +22,15 @@ import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import TablePlanAdmin from "./team/TablePlanAdmin";
 import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 
-const ZONE_LABELS = { equipe: " · Écrans équipe", "avant-service": " · À checker avant le service", logistique: " · Logistique service" };
+const ZONE_LABELS = {
+  equipe: " · Écrans équipe",
+  commandes: " · Commandes/Service",
+  "avant-service": " · À checker avant le service",
+  logistique: " · Logistique service",
+};
 
 export default function TeamSpace({ onExit }) {
-  const [zone, setZone] = useState(null); // null | "equipe" | "avant-service" | "logistique"
+  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "logistique"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
@@ -104,7 +109,12 @@ export default function TeamSpace({ onExit }) {
           <button onClick={() => goZone("equipe", "kitchen")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">🧑‍🍳</span>
             <span className="display-font text-3xl font-bold">Écrans équipe</span>
-            <span className="text-[#a88f78]">Four · Finition · Boissons · Prise de commande · Service · Caisse</span>
+            <span className="text-[#a88f78]">Four · Finition · Boissons · Caisse</span>
+          </button>
+          <button onClick={() => goZone("commandes", "staff-order")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+            <span className="text-5xl mb-2">📞</span>
+            <span className="display-font text-3xl font-bold">Commandes/Service</span>
+            <span className="text-[#a88f78]">Prise de commande · Service · Programmées</span>
           </button>
           <button onClick={() => goZone("avant-service", "slots")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">✅</span>
@@ -125,17 +135,24 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("kitchen")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kitchen" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔥 Four</button>
             <button onClick={() => setTab("finition")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "finition" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥗 Finition</button>
             <button onClick={() => setTab("boisson")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "boisson" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥤 Boissons</button>
-            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
-            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
-            <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
           </div>
           {tab === "kitchen" && <KitchenBoard />}
           {tab === "finition" && <FinitionBoard />}
           {tab === "boisson" && <BoissonBoard />}
+          {tab === "caisse" && <CaisseBoard />}
+        </>
+      )}
+
+      {zone === "commandes" && (
+        <>
+          <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
+            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
+            <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
+          </div>
           {tab === "staff-order" && <StaffOrderFlow />}
           {tab === "service" && <ServiceBoard />}
-          {tab === "caisse" && <CaisseBoard />}
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
         </>
