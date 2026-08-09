@@ -1,7 +1,7 @@
 "use client";
 
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { lineUnitPrice } from "@/lib/business";
+import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -98,7 +98,7 @@ export default function CheckoutScreen({
         <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
       </div>
       <button onClick={onConfirm} disabled={cart.length === 0} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
-        {pizzaCount > 0 ? "Choisir mon créneau →" : "Valider ma commande →"}
+        {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE ? "Choisir mon créneau →" : "Valider ma commande →"}
       </button>
       <p className="text-center text-[#8a7561] text-sm mt-4">Le règlement se fait en caisse, après validation.</p>
     </div>
