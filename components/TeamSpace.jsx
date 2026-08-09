@@ -115,7 +115,7 @@ export default function TeamSpace({ onExit }) {
           <button onClick={() => goZone("commandes", "staff-order")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">📞</span>
             <span className="display-font text-3xl font-bold">Commandes/Service</span>
-            <span className="text-[#a88f78]">Prise de commande · Service · Programmées</span>
+            <span className="text-[#a88f78]">Prise de commande · Service · Programmées · Caisse</span>
           </button>
           <button onClick={() => goZone("avant-service", "slots")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">✅</span>
@@ -153,11 +153,13 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
             <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
+            <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
           </div>
           {tab === "staff-order" && <StaffOrderFlow />}
           {tab === "service" && <ServiceBoard />}
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
+          {tab === "caisse" && <CaisseBoard />}
         </>
       )}
 
