@@ -18,12 +18,16 @@ export default function BoissonBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
+  // Le statut "servi" se marque par article, pas par commande — si de
+  // nouvelles boissons sont ajoutées après un premier "Servie", seules elles
+  // doivent réapparaître ici (ex. apéro déjà servi, boissons ajoutées ensuite).
   const withDrinks = active
-    .map((o) => ({ ...o, drinkItems: o.items.filter((it) => DRINK_CATS.includes(it.cat)) }))
-    .filter((o) => o.drinkItems.length > 0 && !o.drinksServed);
+    .map((o) => ({ ...o, drinkItems: o.items.filter((it) => DRINK_CATS.includes(it.cat) && !it.served) }))
+    .filter((o) => o.drinkItems.length > 0);
 
   function markDrinksServed(order) {
-    updateOrder(order.id, { drinksServed: true }).catch((err) => console.error(err));
+    const updatedItems = order.items.map((it) => (DRINK_CATS.includes(it.cat) && !it.served ? { ...it, served: true } : it));
+    updateOrder(order.id, { items: updatedItems }).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;

@@ -82,7 +82,7 @@ export default function FinitionBoard() {
                   <div className="text-xs text-[#E8B23D] uppercase font-bold mb-1">🔥 Sortie du four — à garnir</div>
                   <ul className="text-sm text-[#c9b8a4]">
                     {o.items
-                      .filter((it) => it.cat === "pizza")
+                      .filter((it) => it.cat === "pizza" && it.phase !== "apero")
                       .map((it, idx) => (
                         <ItemLine key={idx} it={it} />
                       ))}

@@ -49,9 +49,13 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const pizzaCount = items.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0);
   const total = items.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0);
 
+  // Un article déjà marqué "servi" (boisson pointée sur l'écran Boissons,
+  // pizza déjà envoyée en cuisine...) forme une ligne à part : on ne
+  // fusionne jamais un ajout dedans, sinon la nouvelle quantité hériterait
+  // du statut "déjà servi" et disparaîtrait des écrans équipe.
   function addItem(item, note) {
     setItems((prev) => {
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      const existing = prev.find((i) => !i.served && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
       return [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
     });
@@ -63,7 +67,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     ];
     setItems((prev) => {
       const sig = cartSignature(pizzaItem.id, null, modifiers);
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === sig);
+      const existing = prev.find((i) => !i.served && cartSignature(i.id, i.note, i.modifiers) === sig);
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
       return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers }];
     });
@@ -77,7 +81,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   }
   function changeQty(id, note, modifiers, delta) {
     const sig = cartSignature(id, note, modifiers);
-    setItems((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+    setItems((prev) => prev.map((i) => (!i.served && cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
   }
 
   async function save() {
@@ -95,6 +99,11 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     setSaving(true);
     try {
       const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" };
+      if (order.aperoStatus === "served_by_kitchen") {
+        // L'apéro a déjà été préparé et servi — cette commande continue
+        // maintenant normalement, plus rien à retenir avant le four.
+        patch.aperoStatus = "released";
+      }
       if (isTakeawayNow && !wasTakeaway && order.takeawayNumber == null) {
         patch.takeawayNumber = await assignTakeawayNumber();
       } else if (!isTakeawayNow && wasTakeaway) {
@@ -251,13 +260,21 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           </div>
 
           <div className="flex flex-col gap-3 mb-5">
-            {items.map((i) => (
+            {items.map((i, idx) => (
               <div
-                key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",")}
-                className="flex items-center justify-between rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3"
+                key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",") + "-" + (i.served ? "servi" : "pending") + "-" + idx}
+                className="flex items-center justify-between rounded-xl border px-4 py-3"
+                style={i.served ? { borderColor: "#204a3a", background: "#1a2620" } : { borderColor: "#3a2b1f", background: "#211712" }}
               >
                 <div>
-                  <div className="font-bold">{i.name}</div>
+                  <div className="font-bold flex items-center gap-2">
+                    {i.name}
+                    {i.served && (
+                      <span className="text-xs font-bold rounded-full px-2 py-0.5" style={{ background: "#204a3a", color: "#a8e8c8" }}>
+                        ✅ Servi
+                      </span>
+                    )}
+                  </div>
                   {i.note && (
                     <div className="text-xs text-[#E8B23D] pl-3">
                       ↳ {flavorConfigFor(i.name)?.icon || "🍨"} {i.note}
@@ -271,15 +288,19 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                   ))}
                   <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
-                    −
-                  </button>
-                  <span className="w-6 text-center font-bold">{i.qty}</span>
-                  <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
-                    +
-                  </button>
-                </div>
+                {i.served ? (
+                  <span className="w-9 text-center font-bold text-[#a88f78]">×{i.qty}</span>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                      −
+                    </button>
+                    <span className="w-6 text-center font-bold">{i.qty}</span>
+                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                      +
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {items.length === 0 && <p className="text-[#8a7561]">Plus aucun article — ajoutes-en, ou annule cette commande depuis Caisse.</p>}

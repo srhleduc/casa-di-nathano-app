@@ -44,7 +44,7 @@ export default function ServiceBoard() {
           <div className="flex gap-4 overflow-x-auto pb-2">
             {sortOrdersByTime(aperoReady).map((o) => (
               <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
-                <OrderCardHeader order={o} onDelete={() => cancelOrder(o)} />
+                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" />
                 <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
