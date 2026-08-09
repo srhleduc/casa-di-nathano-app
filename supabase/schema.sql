@@ -729,3 +729,34 @@ alter table orders add column if not exists drinks_served boolean not null defau
 insert into menu_items (id, name, price, cat) values
   ('cidre', 'Cidre', 5.00, 'biere')
 on conflict (id) do nothing;
+
+-- La clé primaire de dessert_stock était `key` seul, alors que restaurant_id
+-- a été ajouté après coup sans resserrer la contrainte : deux restaurants
+-- utilisant le même nom de dessert (ex: 'pannacotta') partagent en réalité
+-- la même ligne et s'écrasent silencieusement l'un l'autre à chaque
+-- enregistrement. Bascule vers une clé composite (restaurant_id, key), comme
+-- déjà fait pour table_plan/team_config/pizza_stock/test_mode.
+alter table dessert_stock drop constraint if exists dessert_stock_pkey;
+alter table dessert_stock add primary key (restaurant_id, key);
+
+-- Complète les lignes manquantes : chaque dessert déjà suivi (par n'importe
+-- quel restaurant) doit exister pour tous les restaurants, à 0 par défaut —
+-- sans quoi un restaurant qui n'a jamais encore rempli une case n'aurait
+-- simplement aucune ligne pour ce dessert. N'écrase aucune valeur existante.
+insert into dessert_stock (restaurant_id, key, qty)
+  select r.id, k.key, 0
+  from restaurants r
+  cross join (select distinct key from dessert_stock) k
+on conflict (restaurant_id, key) do nothing;
+
+-- Panna Cotta et Tiramisu sont préparés dans des contenants différents (donc
+-- en quantités différentes) selon "sur place" ou "à emporter" : le stock du
+-- jour se comptait jusqu'ici sur une seule case en pratique réservée au
+-- format à emporter. Ajoute les 3 cases "sur place" manquantes (une par
+-- restaurant) ; le Paris Palerme reste une case unique, déjà réservé au sur
+-- place puisqu'il n'est jamais proposé à emporter (dine_in_only).
+insert into dessert_stock (restaurant_id, key, qty)
+  select r.id, k, 0
+  from restaurants r
+  cross join (values ('pannacotta_sur_place'), ('tiramisu_cafe_sur_place'), ('tiramisu_speculoos_sur_place')) as t(k)
+on conflict (restaurant_id, key) do nothing;

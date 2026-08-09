@@ -11,19 +11,19 @@ import {
   formuleDessertSupplement,
   DESSERT_STOCK_GROUPS,
 } from "@/lib/menu";
-import { remainingForDessertGroup, isTakeawayLike } from "@/lib/business";
+import { remainingForDessertGroup, isTakeawayLike, dessertStockGroupFor } from "@/lib/business";
 
 export default function PanuzzoModal({ item, menu, dessertStock, orders, ruptures, serviceType, onClose, onAddSolo, onAddFormule }) {
   const [step, setStep] = useState("choice"); // "choice" | "drink" | "dessert"
   const [drink, setDrink] = useState(null);
 
+  const isTakeaway = isTakeawayLike(serviceType);
+
   function isDessertOut(name) {
-    const group = DESSERT_STOCK_GROUPS.find((g) => g.itemNames.includes(name));
+    const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return false;
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
-
-  const isTakeaway = isTakeawayLike(serviceType);
 
   const drinks = (menu || []).filter((m) => isFormuleEligibleDrink(m) && !(ruptures || []).includes(m.id));
   const drinksIncluded = drinks.filter((d) => d.price <= FORMULE_DRINK_INCLUDED_MAX);

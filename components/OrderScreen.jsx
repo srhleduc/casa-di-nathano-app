@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
-import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike } from "@/lib/business";
+import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor } from "@/lib/business";
 
 export default function OrderScreen({
   activeCat,
@@ -35,8 +35,10 @@ export default function OrderScreen({
   const baseCategories = isPanuzzoTime ? CATEGORIES : CATEGORIES.filter((c) => c.key !== "panuzzo");
   const visibleCategories = aperoMode ? baseCategories.filter((c) => APERO_CATS.includes(c.key)) : baseCategories;
 
+  const isTakeaway = isTakeawayLike(serviceType);
+
   function isDessertOut(name) {
-    const group = DESSERT_STOCK_GROUPS.find((g) => g.itemNames.includes(name));
+    const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return false;
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
@@ -45,8 +47,6 @@ export default function OrderScreen({
   function isPizzaOut(cat) {
     return cat === "pizza" && pizzaStockOut;
   }
-
-  const isTakeaway = isTakeawayLike(serviceType);
 
   const items = fullMenu.filter(
     (m) =>
