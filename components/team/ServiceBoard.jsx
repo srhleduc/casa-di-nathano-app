@@ -40,18 +40,27 @@ export default function ServiceBoard() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       {aperoReady.length > 0 && (
         <div className="mb-6">
-          <div className="font-bold mb-3">🍸 Apéro servi — prêt à lancer les pizzas ({aperoReady.length})</div>
+          <div className="font-bold mb-3">🍸 Apéro servi ({aperoReady.length})</div>
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {sortOrdersByTime(aperoReady).map((o) => (
-              <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
-                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
-                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" />
-                <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
-                  🍕 Lancer les pizzas
-                </button>
-              </div>
-            ))}
+            {sortOrdersByTime(aperoReady).map((o) => {
+              const hasMainFood = o.items.some((it) => (it.cat === "pizza" || it.cat === "panuzzo" || it.cat === "salade") && it.phase !== "apero");
+              return (
+                <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
+                  <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
+                  <div className="display-font text-lg font-bold mb-2">{o.name}</div>
+                  <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" />
+                  {hasMainFood ? (
+                    <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                      🍕 Lancer les pizzas
+                    </button>
+                  ) : (
+                    <button onClick={() => setEditingOrder(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                      🍕 Compléter ma commande
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
