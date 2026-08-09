@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, formatSlotAllocations, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
@@ -31,8 +31,8 @@ export default function KitchenBoard() {
   }
 
   const queue = sortKitchenQueue(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
-  const takeawayQueue = queue.filter((o) => o.serviceType === TAKEAWAY_SERVICE_TYPE);
-  const dineInQueue = queue.filter((o) => o.serviceType !== TAKEAWAY_SERVICE_TYPE);
+  const takeawayQueue = queue.filter((o) => isTakeawayLike(o.serviceType));
+  const dineInQueue = queue.filter((o) => !isTakeawayLike(o.serviceType));
 
   function sendToFinition(order) {
     updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));

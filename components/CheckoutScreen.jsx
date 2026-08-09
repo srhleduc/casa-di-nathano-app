@@ -1,7 +1,7 @@
 "use client";
 
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -82,12 +82,12 @@ export default function CheckoutScreen({
 
       <div className="mb-8">
         <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
-          {serviceType !== "🥡 À emporter" ? "Numéro de table" : "Ton nom (pour t'appeler)"}
+          {!isTakeawayLike(serviceType) ? "Numéro de table" : "Ton nom (pour t'appeler)"}
         </div>
         <input
           value={tableName}
           onChange={(e) => setTableName(e.target.value)}
-          placeholder={serviceType !== "🥡 À emporter" ? "Ex. 12" : "Ex. Julie"}
+          placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
           className="w-full rounded-xl px-4 py-4 text-lg outline-none"
           style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
         />

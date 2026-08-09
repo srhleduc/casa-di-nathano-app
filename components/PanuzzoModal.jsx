@@ -11,7 +11,7 @@ import {
   formuleDessertSupplement,
   DESSERT_STOCK_GROUPS,
 } from "@/lib/menu";
-import { remainingForDessertGroup, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { remainingForDessertGroup, isTakeawayLike } from "@/lib/business";
 
 export default function PanuzzoModal({ item, menu, dessertStock, orders, ruptures, serviceType, onClose, onAddSolo, onAddFormule }) {
   const [step, setStep] = useState("choice"); // "choice" | "drink" | "dessert"
@@ -23,7 +23,7 @@ export default function PanuzzoModal({ item, menu, dessertStock, orders, rupture
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
 
-  const isTakeaway = serviceType === TAKEAWAY_SERVICE_TYPE;
+  const isTakeaway = isTakeawayLike(serviceType);
 
   const drinks = (menu || []).filter((m) => isFormuleEligibleDrink(m) && !(ruptures || []).includes(m.id));
   const drinksIncluded = drinks.filter((d) => d.price <= FORMULE_DRINK_INCLUDED_MAX);

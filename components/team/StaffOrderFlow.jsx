@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, lineUnitPrice, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -19,6 +19,7 @@ import StatusScreen from "../StatusScreen";
 const STAFF_SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", label: "Sur place", desc: "La table s'installe en salle" },
   { value: TAKEAWAY_SERVICE_TYPE, label: "À emporter", desc: "Le client repart avec sa commande" },
+  { value: IMMEDIATE_TAKEAWAY_SERVICE_TYPE, label: "À emporter tout de suite", desc: "Client de passage — pas de créneau, ça part dès que possible" },
 ];
 
 async function submitWithRetry(order, attempt = 1) {
@@ -67,6 +68,7 @@ export default function StaffOrderFlow() {
   const SERVICE_ENABLED_BY_VALUE = {
     "🍽️ Sur place": serviceTypeSettings.dineInEnabled,
     [TAKEAWAY_SERVICE_TYPE]: serviceTypeSettings.takeawayEnabled,
+    [IMMEDIATE_TAKEAWAY_SERVICE_TYPE]: serviceTypeSettings.takeawayEnabled,
   };
   const availableServiceOptions = STAFF_SERVICE_OPTIONS.filter((o) => SERVICE_ENABLED_BY_VALUE[o.value]);
   const availableServiceValues = availableServiceOptions.map((o) => o.value);
@@ -146,7 +148,9 @@ export default function StaffOrderFlow() {
   }
 
   function goToSlot() {
-    if (pizzaCount === 0) {
+    if (pizzaCount === 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE) {
+      // Client de passage : aucun créneau, ni choisi ni réservé — la pizza
+      // part dès que le four a la place, sans décompter les créneaux du jour.
       submitOrder(null);
       return;
     }
@@ -202,7 +206,7 @@ export default function StaffOrderFlow() {
           options={availableServiceOptions}
           onSelect={(type) => {
             setServiceType(type);
-            if (type === "🥡 À emporter") {
+            if (type !== "🍽️ Sur place") {
               setAperoMode(false);
               setAperoUsed(false);
               setActiveCat("pizza");

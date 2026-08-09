@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
 import { eur, flavorConfigFor } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -14,6 +14,7 @@ const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: 
 const SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", enabledKey: "dineInEnabled" },
   { value: TAKEAWAY_SERVICE_TYPE, enabledKey: "takeawayEnabled" },
+  { value: IMMEDIATE_TAKEAWAY_SERVICE_TYPE, enabledKey: "takeawayEnabled" },
 ];
 
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
@@ -90,8 +91,15 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   }
 
   async function save() {
-    let finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
-    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType !== TAKEAWAY_SERVICE_TYPE) {
+    // "À emporter tout de suite" ne réserve jamais de créneau, quel que soit
+    // ce que la commande avait avant (ex. bascule depuis sur place).
+    let finalSlotAllocations =
+      pizzaCount <= 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE
+        ? []
+        : selectedSlot
+        ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }]
+        : order.slotAllocations || [];
+    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType === "🍽️ Sur place") {
       // Sur place sans créneau existant (nouvelles pizzas ajoutées, ou
       // bascule depuis à emporter) : on réserve automatiquement le créneau
       // le plus proche, comme à la prise de commande.
@@ -99,8 +107,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
       const choice = computeSlotOptions(otherOrders, slots, pizzaCount);
       finalSlotAllocations = earliestSlotPlan(choice, pizzaCount) || [];
     }
-    const wasTakeaway = order.serviceType === TAKEAWAY_SERVICE_TYPE;
-    const isTakeawayNow = serviceType === TAKEAWAY_SERVICE_TYPE;
+    const wasTakeaway = isTakeawayLike(order.serviceType);
+    const isTakeawayNow = isTakeawayLike(serviceType);
     setSaving(true);
     try {
       const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" };
@@ -253,12 +261,12 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
               })}
             </div>
             <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">
-              {serviceType !== TAKEAWAY_SERVICE_TYPE ? "Numéro de table" : "Nom du client"}
+              {!isTakeawayLike(serviceType) ? "Numéro de table" : "Nom du client"}
             </div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={serviceType !== TAKEAWAY_SERVICE_TYPE ? "Ex. 12" : "Ex. Julie"}
+              placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
               className="w-full rounded-xl px-4 py-3 outline-none"
               style={inputStyle}
             />
@@ -320,7 +328,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
             + Ajouter un article
           </button>
 
-          {pizzaCount > 0 && (
+          {pizzaCount > 0 && serviceType !== IMMEDIATE_TAKEAWAY_SERVICE_TYPE && (
             <div className="mb-6">
               <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Créneau</div>
               <div className="flex items-center justify-between rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3">

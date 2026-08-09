@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, isTakeawayLike } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
 import ElapsedBadge from "../ElapsedBadge";
@@ -31,7 +31,7 @@ export default function FinitionBoard() {
   // l'équipe sache ce qui attend d'être remis au client) jusqu'à ce que Caisse
   // les marque payées — contrairement au sur place, qui quitte cet écran dès
   // "Terminé → Service".
-  const readyTakeaway = active.filter((o) => o.status === "pret_service" && o.serviceType === TAKEAWAY_SERVICE_TYPE);
+  const readyTakeaway = active.filter((o) => o.status === "pret_service" && isTakeawayLike(o.serviceType));
 
   function markPrepDone(order) {
     const updatedItems = order.items.map((it) =>

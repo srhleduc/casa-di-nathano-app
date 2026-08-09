@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
-import { remainingForDessertGroup, remainingPizzaStock, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike } from "@/lib/business";
 
 export default function OrderScreen({
   activeCat,
@@ -46,7 +46,7 @@ export default function OrderScreen({
     return cat === "pizza" && pizzaStockOut;
   }
 
-  const isTakeaway = serviceType === TAKEAWAY_SERVICE_TYPE;
+  const isTakeaway = isTakeawayLike(serviceType);
 
   const items = fullMenu.filter(
     (m) =>
