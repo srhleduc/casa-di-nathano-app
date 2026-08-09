@@ -201,6 +201,11 @@ export default function StaffOrderFlow() {
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
+      {testMode.enabled && (
+        <div className="px-6 py-3 text-center text-sm font-bold shrink-0" style={{ background: "#f0c860", color: "#1a120b" }}>
+          🧪 MODE TEST ACTIF — cette commande ne sera pas comptabilisée dans le chiffre du jour et sera supprimée à la désactivation
+        </div>
+      )}
       {screen === "service" && (
         <ServiceTypeScreen
           options={availableServiceOptions}
