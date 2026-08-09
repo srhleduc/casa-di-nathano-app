@@ -7,12 +7,14 @@ export default function FlavorModal({ item, onClose, onConfirm }) {
   const { flavors, need } = flavorConfigFor(item.name);
   const [picked, setPicked] = useState([]);
 
-  function toggle(f) {
-    setPicked((prev) => {
-      if (prev.includes(f)) return prev.filter((x) => x !== f);
-      if (prev.length >= need) return [...prev.slice(1), f]; // remplace le plus ancien choix une fois le quota atteint
-      return [...prev, f];
-    });
+  // Chaque tap ajoute une boule (plusieurs boules du même parfum sont
+  // possibles) ; une fois le quota atteint, le choix le plus ancien est
+  // remplacé. Pour corriger un choix précis, on le retire de "Ta sélection".
+  function add(f) {
+    setPicked((prev) => (prev.length >= need ? [...prev.slice(1), f] : [...prev, f]));
+  }
+  function removeAt(idx) {
+    setPicked((prev) => prev.filter((_, i) => i !== idx));
   }
 
   return (
@@ -27,23 +29,28 @@ export default function FlavorModal({ item, onClose, onConfirm }) {
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <p className="text-[#a88f78] mb-4">
-            Choisis {need} parfum{need > 1 ? "s" : ""} ({picked.length}/{need})
+            Choisis {need} parfum{need > 1 ? "s" : ""} ({picked.length}/{need}) — plusieurs boules du même parfum possibles
           </p>
+
+          {picked.length > 0 && (
+            <div className="mb-5 pb-5 border-b border-[#3a2b1f]">
+              <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Ta sélection (touche pour retirer)</div>
+              <div className="flex flex-wrap gap-2">
+                {picked.map((f, idx) => (
+                  <button key={idx} onClick={() => removeAt(idx)} className="chip tap-scale" style={{ background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" }}>
+                    {f} ✕
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
-            {flavors.map((f) => {
-              const isOn = picked.includes(f);
-              return (
-                <button
-                  key={f}
-                  onClick={() => toggle(f)}
-                  className="chip tap-scale"
-                  style={isOn ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { color: "#c9b8a4" }}
-                >
-                  {isOn ? "✓ " : ""}
-                  {f}
-                </button>
-              );
-            })}
+            {flavors.map((f) => (
+              <button key={f} onClick={() => add(f)} className="chip tap-scale" style={{ color: "#c9b8a4" }}>
+                + {f}
+              </button>
+            ))}
           </div>
         </div>
 
