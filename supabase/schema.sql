@@ -724,3 +724,8 @@ grant execute on function next_takeaway_number() to authenticated;
 -- fois les boissons servies.
 alter table orders add column if not exists delivered boolean not null default false;
 alter table orders add column if not exists drinks_served boolean not null default false;
+
+-- Cidre, ajouté à la catégorie "Bières" (cat = 'biere').
+insert into menu_items (id, name, price, cat) values
+  ('cidre', 'Cidre', 5.00, 'biere')
+on conflict (id) do nothing;
