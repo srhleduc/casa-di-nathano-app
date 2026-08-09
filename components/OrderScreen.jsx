@@ -126,25 +126,33 @@ export default function OrderScreen({
               if (last) changeQty(last.id, last.note, last.modifiers, -1);
             }
             return (
-              <div key={item.id} className="relative rounded-2xl border border-[#3a2b1f] bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden">
-                <button onClick={handleTap} className="tap-scale text-left flex flex-col flex-1 justify-between">
-                  {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
-                  <div className="p-5 flex flex-col flex-1 justify-between">
-                    <span className="font-bold text-lg leading-snug pr-8">{item.name}</span>
-                    <span className="display-font italic text-[#E8B23D] text-lg mt-2">{item.price === 0 ? "Offert" : eur(item.price)}</span>
+              <div
+                key={item.id}
+                onClick={handleTap}
+                className="tap-scale cursor-pointer text-left rounded-2xl border border-[#3a2b1f] bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden"
+              >
+                {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
+                <div className="p-5 flex flex-col flex-1 justify-between">
+                  <span className="font-bold text-lg leading-snug">{item.name}</span>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <span className="display-font italic text-[#E8B23D] text-lg">{item.price === 0 ? "Offert" : eur(item.price)}</span>
+                    {inCart > 0 && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 rounded-full pl-1 pr-1 py-1 border border-[#3a2b1f] shrink-0"
+                        style={{ background: "#1a120b" }}
+                      >
+                        <button onClick={handleDecrement} className="tap-scale w-7 h-7 rounded-full bg-[#3a2b1f] text-white text-base font-bold flex items-center justify-center">
+                          −
+                        </button>
+                        <span className="text-sm font-bold w-5 text-center">{inCart}</span>
+                        <button onClick={handleTap} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
+                          +
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </button>
-                {inCart > 0 && (
-                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full pl-1 pr-1 py-1 border border-[#3a2b1f]" style={{ background: "#1a120bf2" }}>
-                    <button onClick={handleDecrement} className="tap-scale w-7 h-7 rounded-full bg-[#3a2b1f] text-white text-base font-bold flex items-center justify-center">
-                      −
-                    </button>
-                    <span className="text-sm font-bold w-5 text-center">{inCart}</span>
-                    <button onClick={handleTap} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
-                      +
-                    </button>
-                  </div>
-                )}
+                </div>
               </div>
             );
           })}
