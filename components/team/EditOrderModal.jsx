@@ -83,6 +83,11 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     const sig = cartSignature(id, note, modifiers);
     setItems((prev) => prev.map((i) => (!i.served && cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
   }
+  // Reprendre un article déjà servi (le client en veut un autre) — repart
+  // sur une ligne neuve non servie, sans modificateurs ni note conservés.
+  function reorderItem(i) {
+    addItem({ id: i.id, name: i.name, price: i.price, cat: i.cat });
+  }
 
   async function save() {
     let finalSlotAllocations = pizzaCount <= 0 ? [] : selectedSlot ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }] : order.slotAllocations || [];
@@ -289,7 +294,12 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                   <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
                 </div>
                 {i.served ? (
-                  <span className="w-9 text-center font-bold text-[#a88f78]">×{i.qty}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-center font-bold text-[#a88f78]">×{i.qty}</span>
+                    <button onClick={() => reorderItem(i)} className="tap-scale text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
+                      +1
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">

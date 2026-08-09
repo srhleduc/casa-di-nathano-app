@@ -38,7 +38,10 @@ export default function KitchenBoard() {
     updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
   }
   function markAperoServed(order) {
-    updateOrder(order.id, { aperoStatus: "served_by_kitchen" }).catch((err) => console.error(err));
+    const updatedItems = order.items.map((it) =>
+      (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero" && !it.served ? { ...it, served: true } : it
+    );
+    updateOrder(order.id, { aperoStatus: "served_by_kitchen", items: updatedItems }).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;

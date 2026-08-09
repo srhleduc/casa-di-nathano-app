@@ -22,7 +22,7 @@ export default function FinitionBoard() {
   // Une commande passée en "pret_service" a fini son passage en Finition, quoi qu'il arrive.
   const toHandle = active.filter((o) => {
     if (o.status === "pret_service") return false;
-    const prepPending = o.items.some((it) => it.cat === "antipasti" || it.cat === "salade") && !o.prepServed;
+    const prepPending = o.items.some((it) => (it.cat === "antipasti" || it.cat === "salade") && !it.served);
     const needsGarnish = o.status === "prete";
     const noPizzaAtAll = o.pizzaCount === 0;
     return prepPending || needsGarnish || noPizzaAtAll;
@@ -34,10 +34,14 @@ export default function FinitionBoard() {
   const readyTakeaway = active.filter((o) => o.status === "pret_service" && o.serviceType === TAKEAWAY_SERVICE_TYPE);
 
   function markPrepDone(order) {
-    updateOrder(order.id, { prepServed: true }).catch((err) => console.error(err));
+    const updatedItems = order.items.map((it) =>
+      (it.cat === "antipasti" || it.cat === "salade") && !it.served ? { ...it, served: true } : it
+    );
+    updateOrder(order.id, { items: updatedItems }).catch((err) => console.error(err));
   }
   function markDone(order) {
-    updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
+    const updatedItems = order.items.map((it) => (it.cat === "pizza" && it.phase !== "apero" && !it.served ? { ...it, served: true } : it));
+    updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString(), items: updatedItems }).catch((err) => console.error(err));
   }
   function markPaid(order) {
     updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
@@ -53,8 +57,8 @@ export default function FinitionBoard() {
       {toHandle.length === 0 && <p className="text-[#8a7561]">Rien à préparer pour l'instant.</p>}
       <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(toHandle).map((o) => {
-          const prepItems = o.items.filter((it) => it.cat === "antipasti" || it.cat === "salade");
-          const prepPending = prepItems.length > 0 && !o.prepServed;
+          const prepItems = o.items.filter((it) => (it.cat === "antipasti" || it.cat === "salade") && !it.served);
+          const prepPending = prepItems.length > 0;
           const needsGarnish = o.status === "prete";
           const canFinishService = needsGarnish || o.pizzaCount === 0;
           return (
