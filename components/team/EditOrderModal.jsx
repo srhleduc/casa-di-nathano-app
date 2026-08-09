@@ -328,7 +328,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
             + Ajouter un article
           </button>
 
-          {pizzaCount > 0 && serviceType !== IMMEDIATE_TAKEAWAY_SERVICE_TYPE && (
+          {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE && (
             <div className="mb-6">
               <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Créneau</div>
               <div className="flex items-center justify-between rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3">
