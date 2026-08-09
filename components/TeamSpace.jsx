@@ -7,6 +7,7 @@ import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 import KitchenBoard from "./team/KitchenBoard";
 import FinitionBoard from "./team/FinitionBoard";
 import BoissonBoard from "./team/BoissonBoard";
+import DessertCafeBoard from "./team/DessertCafeBoard";
 import StaffOrderFlow from "./team/StaffOrderFlow";
 import ServiceBoard from "./team/ServiceBoard";
 import CaisseBoard from "./team/CaisseBoard";
@@ -109,7 +110,7 @@ export default function TeamSpace({ onExit }) {
           <button onClick={() => goZone("equipe", "kitchen")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">🧑‍🍳</span>
             <span className="display-font text-3xl font-bold">Écrans équipe</span>
-            <span className="text-[#a88f78]">Four · Finition · Boissons · Caisse</span>
+            <span className="text-[#a88f78]">Four · Finition · Boissons · Dessert/Café · Caisse</span>
           </button>
           <button onClick={() => goZone("commandes", "staff-order")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">📞</span>
@@ -135,11 +136,13 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("kitchen")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kitchen" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔥 Four</button>
             <button onClick={() => setTab("finition")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "finition" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥗 Finition</button>
             <button onClick={() => setTab("boisson")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "boisson" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥤 Boissons</button>
+            <button onClick={() => setTab("dessert-cafe")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "dessert-cafe" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Dessert/Café</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
           </div>
           {tab === "kitchen" && <KitchenBoard />}
           {tab === "finition" && <FinitionBoard />}
           {tab === "boisson" && <BoissonBoard />}
+          {tab === "dessert-cafe" && <DessertCafeBoard />}
           {tab === "caisse" && <CaisseBoard />}
         </>
       )}
