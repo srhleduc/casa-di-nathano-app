@@ -110,28 +110,42 @@ export default function OrderScreen({
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
             const needsFlavor = flavorConfigFor(item.name) !== null;
+            function handleTap() {
+              if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
+              else if (item.cat === "panuzzo" && onPanuzzoTap) onPanuzzoTap(item);
+              else if (needsFlavor) onGlaceTap(item);
+              else addItem(item);
+            }
+            // Retire la dernière ligne de panier correspondant à ce produit,
+            // quels que soient sa note/ses modificateurs — permet de corriger
+            // un mauvais clic ou un client qui change d'avis sans repasser
+            // par le panier.
+            function handleDecrement() {
+              const matches = cart.filter((i) => i.id === item.id);
+              const last = matches[matches.length - 1];
+              if (last) changeQty(last.id, last.note, last.modifiers, -1);
+            }
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
-                  else if (item.cat === "panuzzo" && onPanuzzoTap) onPanuzzoTap(item);
-                  else if (needsFlavor) onGlaceTap(item);
-                  else addItem(item);
-                }}
-                className="tap-scale relative text-left rounded-2xl border border-[#3a2b1f] bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden"
-              >
+              <div key={item.id} className="relative rounded-2xl border border-[#3a2b1f] bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden">
+                <button onClick={handleTap} className="tap-scale text-left flex flex-col flex-1 justify-between">
+                  {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
+                  <div className="p-5 flex flex-col flex-1 justify-between">
+                    <span className="font-bold text-lg leading-snug pr-8">{item.name}</span>
+                    <span className="display-font italic text-[#E8B23D] text-lg mt-2">{item.price === 0 ? "Offert" : eur(item.price)}</span>
+                  </div>
+                </button>
                 {inCart > 0 && (
-                  <span className="absolute top-2 right-2 z-10 bg-[#C0392B] text-white text-sm font-bold rounded-full w-8 h-8 flex items-center justify-center">
-                    {inCart}
-                  </span>
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full pl-1 pr-1 py-1 border border-[#3a2b1f]" style={{ background: "#1a120bf2" }}>
+                    <button onClick={handleDecrement} className="tap-scale w-7 h-7 rounded-full bg-[#3a2b1f] text-white text-base font-bold flex items-center justify-center">
+                      −
+                    </button>
+                    <span className="text-sm font-bold w-5 text-center">{inCart}</span>
+                    <button onClick={handleTap} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
+                      +
+                    </button>
+                  </div>
                 )}
-                {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
-                <div className="p-5 flex flex-col flex-1 justify-between">
-                  <span className="font-bold text-lg leading-snug">{item.name}</span>
-                  <span className="display-font italic text-[#E8B23D] text-lg mt-2">{item.price === 0 ? "Offert" : eur(item.price)}</span>
-                </div>
-              </button>
+              </div>
             );
           })}
         </div>
