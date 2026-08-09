@@ -122,6 +122,14 @@ export default function StaffOrderFlow() {
 
   function submitOrder(finalPlan) {
     const hasMainPizza = cart.some((i) => i.cat === "pizza" && i.phase === "main");
+    // Une planche (et sa focaccia auto-ajoutée) doit passer par le circuit
+    // "apéro à préparer" du four même si aucune pizza principale n'a encore
+    // été choisie (table qui commande l'apéro d'abord, les pizzas ensuite) —
+    // sinon ces articles ne sont ni dans la file normale (phase "apero" les
+    // en exclut) ni dans la file d'attente apéro (aperoStatus resterait null).
+    const hasAperoKitchenItems = cart.some(
+      (i) => i.phase === "apero" && (i.cat === "pizza" || i.cat === "panuzzo" || i.cat === "supplement" || i.cat === "sans")
+    );
     const newOrder = {
       items: cart.map(({ id, name, price, cat, qty, note, phase, modifiers }) => ({ id, name, price, cat, qty, note, phase, modifiers })),
       serviceType,
@@ -130,7 +138,7 @@ export default function StaffOrderFlow() {
       pizzaCount,
       total,
       status: "attente",
-      aperoStatus: aperoUsed && hasMainPizza ? "waiting" : null,
+      aperoStatus: aperoUsed && (hasMainPizza || hasAperoKitchenItems) ? "waiting" : null,
       isTest: testMode.enabled,
     };
     setScreen("done");
