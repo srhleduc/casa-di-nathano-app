@@ -5,6 +5,7 @@ import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlo
 import { isOrderActiveToday, sortOrdersByTime, isTakeawayLike } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import ElapsedBadge from "../ElapsedBadge";
 import EditOrderModal from "./EditOrderModal";
 
@@ -98,6 +99,7 @@ export default function FinitionBoard() {
                   ✅ Terminé → Service
                 </button>
               )}
+              <OrderNote note={o.note} />
             </div>
           );
         })}
@@ -120,6 +122,7 @@ export default function FinitionBoard() {
                 <button onClick={() => markPaid(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   💰 Payée
                 </button>
+                <OrderNote note={o.note} />
               </div>
             ))}
           </div>

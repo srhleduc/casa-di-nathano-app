@@ -5,6 +5,7 @@ import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlo
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import EditOrderModal from "./EditOrderModal";
 
 const DRINK_CATS = ["boisson", "biere", "vin", "cocktail"];
@@ -51,6 +52,7 @@ export default function BoissonBoard() {
             <button onClick={() => markDrinksServed(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
               ✅ Servie
             </button>
+            <OrderNote note={o.note} />
           </div>
         ))}
       </div>

@@ -24,6 +24,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [items, setItems] = useState(order.items);
   const [serviceType, setServiceType] = useState(order.serviceType);
   const [name, setName] = useState(order.name);
+  const [note, setNote] = useState(order.note || "");
   const [selectedSlot, setSelectedSlot] = useState(
     order.slotAllocations && order.slotAllocations.length === 1 ? { id: order.slotAllocations[0].slotId, label: order.slotAllocations[0].label } : null
   );
@@ -111,7 +112,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     const isTakeawayNow = isTakeawayLike(serviceType);
     setSaving(true);
     try {
-      const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "" };
+      const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "", note: note.trim() || null };
       if (order.aperoStatus === "served_by_kitchen") {
         // L'apéro a déjà été préparé et servi — cette commande continue
         // maintenant normalement, plus rien à retenir avant le four.
@@ -268,6 +269,17 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
               onChange={(e) => setName(e.target.value)}
               placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
               className="w-full rounded-xl px-4 py-3 outline-none"
+              style={inputStyle}
+            />
+            <div className="text-xs uppercase font-bold mb-2 mt-4" style={{ color: "#ff5fa8" }}>
+              📝 Note pour l'équipe
+            </div>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ex. Allergie noix, client pressé, anniversaire…"
+              rows={2}
+              className="w-full rounded-xl px-4 py-3 outline-none resize-none"
               style={inputStyle}
             />
           </div>

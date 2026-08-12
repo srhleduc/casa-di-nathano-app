@@ -5,6 +5,7 @@ import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlo
 import { isOrderActiveToday, sortOrdersByTime } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import EditOrderModal from "./EditOrderModal";
 
 const DESSERT_CAFE_CATS = ["dessert", "cafe"];
@@ -51,6 +52,7 @@ export default function DessertCafeBoard() {
             <button onClick={() => markServed(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
               ✅ Servi
             </button>
+            <OrderNote note={o.note} />
           </div>
         ))}
       </div>

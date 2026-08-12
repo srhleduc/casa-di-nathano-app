@@ -14,6 +14,8 @@ export default function CheckoutScreen({
   setServiceType,
   tableName,
   setTableName,
+  note,
+  setNote,
   onBack,
   onConfirm,
   serviceTypeOptions,
@@ -92,6 +94,22 @@ export default function CheckoutScreen({
           style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
         />
       </div>
+
+      {setNote && (
+        <div className="mb-8">
+          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "#ff5fa8" }}>
+            📝 Note pour l'équipe (facultatif)
+          </div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Ex. Allergie noix, client pressé, anniversaire…"
+            rows={2}
+            className="w-full rounded-xl px-4 py-3 text-base outline-none resize-none"
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          />
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <span className="text-xl font-bold">Total</span>

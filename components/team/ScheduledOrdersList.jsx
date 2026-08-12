@@ -5,6 +5,7 @@ import { isOrderScheduledLater, formatFrenchDate } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 
 export default function ScheduledOrdersList({ onNew }) {
   const { orders } = useOrders();
@@ -47,6 +48,7 @@ export default function ScheduledOrdersList({ onNew }) {
                     ))}
                   </ul>
                   <div className="display-font font-bold text-[#E8B23D] mt-2">{eur(o.total)}</div>
+                  <OrderNote note={o.note} />
                 </div>
               ))}
           </div>

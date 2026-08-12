@@ -5,6 +5,7 @@ import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlo
 import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
@@ -65,6 +66,7 @@ export default function CaisseBoard() {
             💰 Marquer payée
           </button>
         </div>
+        <OrderNote note={o.note} />
       </div>
     );
   }
@@ -134,6 +136,7 @@ export default function CaisseBoard() {
                     </button>
                   )}
                 </div>
+                <OrderNote note={o.note} />
               </div>
             ))}
           </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime, sortByTableName, isTakeawayLike } from "@/lib/business";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
@@ -95,6 +96,7 @@ export default function ServiceBoard() {
                       🍕 Compléter ma commande
                     </button>
                   )}
+                  <OrderNote note={o.note} />
                 </div>
               );
             })}
@@ -121,6 +123,7 @@ export default function ServiceBoard() {
                       ✅ Partie
                     </button>
                   )}
+                  <OrderNote note={o.note} />
                 </div>
               ))}
             </div>

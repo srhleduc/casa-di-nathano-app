@@ -760,3 +760,8 @@ insert into dessert_stock (restaurant_id, key, qty)
   from restaurants r
   cross join (values ('pannacotta_sur_place'), ('tiramisu_cafe_sur_place'), ('tiramisu_speculoos_sur_place')) as t(k)
 on conflict (restaurant_id, key) do nothing;
+
+-- Note libre sur une commande (distincte des notes par article, ex. parfum de
+-- glace) — saisie par les serveuses à la prise de commande, sur place comme
+-- à emporter, et affichée en évidence sur les écrans équipe.
+alter table orders add column if not exists note text;

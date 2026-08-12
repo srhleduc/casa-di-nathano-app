@@ -36,6 +36,7 @@ export default function ScheduledOrderFlow({ onDone }) {
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
   const [tableName, setTableName] = useState("");
+  const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
 
@@ -75,6 +76,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers })),
       serviceType,
       name: tableName || "Commande programmée",
+      note: note.trim() || null,
       slotAllocations: [],
       pizzaCount,
       total,
@@ -184,6 +186,8 @@ export default function ScheduledOrderFlow({ onDone }) {
           setServiceType={setServiceType}
           tableName={tableName}
           setTableName={setTableName}
+          note={note}
+          setNote={setNote}
           onBack={() => setScreen("order")}
           onConfirm={submitOrder}
         />

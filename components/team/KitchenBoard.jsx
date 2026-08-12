@@ -8,6 +8,7 @@ import ItemLine from "../ItemLine";
 import ElapsedBadge from "../ElapsedBadge";
 import LiveClock from "../LiveClock";
 import OrderCardHeader from "../OrderCardHeader";
+import OrderNote from "../OrderNote";
 import EditOrderModal from "./EditOrderModal";
 
 export default function KitchenBoard() {
@@ -70,6 +71,7 @@ export default function KitchenBoard() {
         <button onClick={() => sendToFinition(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
           🔥 Four
         </button>
+        <OrderNote note={o.note} />
       </div>
     );
   }
@@ -121,6 +123,7 @@ export default function KitchenBoard() {
                   <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                     ✅ Apéro servi
                   </button>
+                  <OrderNote note={o.note} />
                 </div>
               );
             })}

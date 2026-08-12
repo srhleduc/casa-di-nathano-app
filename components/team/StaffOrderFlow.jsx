@@ -51,6 +51,7 @@ export default function StaffOrderFlow() {
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
   const [tableName, setTableName] = useState("");
+  const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
@@ -111,6 +112,7 @@ export default function StaffOrderFlow() {
   function resetAll() {
     setCart([]);
     setTableName("");
+    setNote("");
     setServiceType("🍽️ Sur place");
     setActiveCat("boisson");
     setSlotChoice(null);
@@ -136,6 +138,7 @@ export default function StaffOrderFlow() {
       items: cart.map(({ id, name, price, cat, qty, note, phase, modifiers }) => ({ id, name, price, cat, qty, note, phase, modifiers })),
       serviceType,
       name: tableName || "Commande équipe",
+      note: note.trim() || null,
       slotAllocations: finalPlan || [],
       pizzaCount,
       total,
@@ -281,6 +284,8 @@ export default function StaffOrderFlow() {
           serviceTypeOptions={availableServiceValues}
           tableName={tableName}
           setTableName={setTableName}
+          note={note}
+          setNote={setNote}
           onBack={() => setScreen("order")}
           onConfirm={goToSlot}
         />
