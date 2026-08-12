@@ -5,7 +5,7 @@ import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlo
 import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
-import ElapsedBadge from "../ElapsedBadge";
+import DeadlineBadge from "../DeadlineBadge";
 import LiveClock from "../LiveClock";
 import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
@@ -60,7 +60,7 @@ export default function KitchenBoard() {
         ) : null}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="display-font text-xl font-bold">{o.name}</div>
-          <ElapsedBadge since={o.createdAt} />
+          <DeadlineBadge order={o} />
         </div>
         <ul className="text-sm text-[#c9b8a4] mb-3">
           {normalPizzaItems(o).map((it, idx) => (
