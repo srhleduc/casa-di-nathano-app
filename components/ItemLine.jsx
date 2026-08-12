@@ -1,6 +1,6 @@
 "use client";
 
-import { flavorConfigFor } from "@/lib/menu";
+import { noteIcon } from "@/lib/menu";
 
 export default function ItemLine({ it }) {
   return (
@@ -10,7 +10,7 @@ export default function ItemLine({ it }) {
       </div>
       {it.note && (
         <div className="text-xs text-[#E8B23D] pl-4">
-          ↳ {flavorConfigFor(it.name)?.icon || "🍨"} {it.note}
+          ↳ {noteIcon(it.name, it.note)} {it.note}
         </div>
       )}
       {(it.modifiers || []).map((m, mi) => (

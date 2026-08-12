@@ -1,6 +1,6 @@
 "use client";
 
-import { eur, flavorConfigFor } from "@/lib/menu";
+import { eur, noteIcon } from "@/lib/menu";
 import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
@@ -38,7 +38,7 @@ export default function CheckoutScreen({
               <div className="font-bold">{i.name}</div>
               {i.note && (
                 <div className="text-xs text-[#E8B23D] pl-3">
-                  ↳ {flavorConfigFor(i.name)?.icon || "🍨"} {i.note}
+                  ↳ {noteIcon(i.name, i.note)} {i.note}
                 </div>
               )}
               {(i.modifiers || []).map((m, mi) => (

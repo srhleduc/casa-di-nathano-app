@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
-import { eur, flavorConfigFor } from "@/lib/menu";
+import { eur, noteIcon } from "@/lib/menu";
 import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
@@ -156,6 +156,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           menu={menu}
           restaurantName={name || order.name}
           serviceType={serviceType}
+          staffMode
           onFinishApero={() => {}}
         />
         {customizing && (
@@ -302,7 +303,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                   </div>
                   {i.note && (
                     <div className="text-xs text-[#E8B23D] pl-3">
-                      ↳ {flavorConfigFor(i.name)?.icon || "🍨"} {i.note}
+                      ↳ {noteIcon(i.name, i.note)} {i.note}
                     </div>
                   )}
                   {(i.modifiers || []).map((m, mi) => (

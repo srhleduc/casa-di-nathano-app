@@ -1,7 +1,7 @@
 "use client";
 
-import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
-import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor } from "@/lib/business";
+import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
 
 export default function OrderScreen({
   activeCat,
@@ -27,6 +27,7 @@ export default function OrderScreen({
   restaurantName,
   serviceType,
   topBanner,
+  staffMode,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -37,10 +38,19 @@ export default function OrderScreen({
 
   const isTakeaway = isTakeawayLike(serviceType);
 
-  function isDessertOut(name) {
+  // Dessert épuisé dans son format normal : `fallback` indique qu'une
+  // commande sur place peut tout de même être dépannée avec le format à
+  // emporter (jamais l'inverse) — réservé aux flux équipe (staffMode), pas à
+  // la borne/au click and collect client.
+  function dessertAvailability(name) {
     const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
-    if (!group) return false;
-    return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
+    if (!group) return { out: false, fallback: false };
+    if (remainingForDessertGroup(orders || [], dessertStock || {}, group) > 0) return { out: false, fallback: false };
+    if (staffMode && !isTakeaway && dessertHasSeparateFormats(DESSERT_STOCK_GROUPS, name)) {
+      const takeawayGroup = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, true);
+      if (remainingForDessertGroup(orders || [], dessertStock || {}, takeawayGroup) > 0) return { out: false, fallback: true };
+    }
+    return { out: true, fallback: false };
   }
 
   const pizzaStockOut = pizzaStock ? remainingPizzaStock(orders || [], pizzaStock) <= 0 : false;
@@ -52,7 +62,7 @@ export default function OrderScreen({
     (m) =>
       m.cat === activeCat &&
       !(ruptures || []).includes(m.id) &&
-      !isDessertOut(m.name) &&
+      !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
       !(isTakeaway && m.dineInOnly) &&
       !(m.cat === "panuzzo" && !isPanuzzoTime)
@@ -110,10 +120,12 @@ export default function OrderScreen({
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
             const needsFlavor = flavorConfigFor(item.name) !== null;
+            const isFallback = item.cat === "dessert" && dessertAvailability(item.name).fallback;
             function handleTap() {
               if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
               else if (item.cat === "panuzzo" && onPanuzzoTap) onPanuzzoTap(item);
               else if (needsFlavor) onGlaceTap(item);
+              else if (isFallback) addItem(item, DESSERT_TAKEAWAY_FALLBACK_NOTE);
               else addItem(item);
             }
             // Retire la dernière ligne de panier correspondant à ce produit,
@@ -129,11 +141,19 @@ export default function OrderScreen({
               <div
                 key={item.id}
                 onClick={handleTap}
-                className="tap-scale cursor-pointer text-left rounded-2xl border border-[#3a2b1f] bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden"
+                className={`tap-scale cursor-pointer text-left rounded-2xl bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden ${
+                  isFallback ? "border-2" : "border border-[#3a2b1f]"
+                }`}
+                style={isFallback ? { borderColor: "#ff5fa8" } : undefined}
               >
                 {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
                 <div className="p-5 flex flex-col flex-1 justify-between">
                   <span className="font-bold text-lg leading-snug">{item.name}</span>
+                  {isFallback && (
+                    <span className="text-xs font-bold mt-1" style={{ color: "#ff5fa8" }}>
+                      🥡 Dépannage à emporter — stock sur place épuisé
+                    </span>
+                  )}
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <span className="display-font italic text-[#E8B23D] text-lg">{item.price === 0 ? "Offert" : eur(item.price)}</span>
                     {inCart > 0 && (

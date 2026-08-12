@@ -266,6 +266,7 @@ export default function StaffOrderFlow() {
           restaurantName={restaurant.name}
           serviceType={serviceType}
           topBanner={availabilityBanner}
+          staffMode
           onFinishApero={() => {
             setAperoMode(false);
             setActiveCat("pizza");

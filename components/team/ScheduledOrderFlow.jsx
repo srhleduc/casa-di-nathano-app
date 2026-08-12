@@ -172,6 +172,7 @@ export default function ScheduledOrderFlow({ onDone }) {
           dessertStock={{}}
           menu={menuItems}
           restaurantName={restaurant.name}
+          staffMode
           onFinishApero={() => {}}
         />
       )}
