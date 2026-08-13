@@ -63,29 +63,29 @@ export default function FinitionBoard() {
           const needsGarnish = o.status === "prete";
           const canFinishService = needsGarnish || o.pizzaCount === 0;
           return (
-            <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+            <div key={o.id} className="w-96 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-5">
               <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="display-font text-lg font-bold">{o.name}</div>
+                <div className="display-font text-2xl font-bold">{o.name}</div>
                 <ElapsedBadge since={o.ovenDoneAt || o.createdAt} />
               </div>
               {prepPending && (
                 <div className="mb-2">
-                  <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Planches / salades</div>
-                  <ul className="text-sm text-[#c9b8a4] mb-2">
+                  <div className="text-sm text-[#a88f78] uppercase font-bold mb-1">Planches / salades</div>
+                  <ul className="text-lg text-[#c9b8a4] mb-2">
                     {prepItems.map((it, idx) => (
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
-                  <button onClick={() => markPrepDone(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                  <button onClick={() => markPrepDone(o)} className="tap-scale w-full rounded-xl py-4 text-base font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                     🥗 Planches / salades prêtes
                   </button>
                 </div>
               )}
               {needsGarnish && (
                 <div className="mb-2">
-                  <div className="text-xs text-[#E8B23D] uppercase font-bold mb-1">🔥 Sortie du four — à garnir</div>
-                  <ul className="text-sm text-[#c9b8a4]">
+                  <div className="text-sm text-[#E8B23D] uppercase font-bold mb-1">🔥 Sortie du four — à garnir</div>
+                  <ul className="text-lg text-[#c9b8a4]">
                     {o.items
                       .filter((it) => it.cat === "pizza" && it.phase !== "apero")
                       .map((it, idx) => (
@@ -95,7 +95,7 @@ export default function FinitionBoard() {
                 </div>
               )}
               {canFinishService && (
-                <button onClick={() => markDone(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold mt-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                <button onClick={() => markDone(o)} className="tap-scale w-full rounded-xl py-4 text-base font-bold mt-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   ✅ Terminé → Service
                 </button>
               )}
@@ -111,15 +111,15 @@ export default function FinitionBoard() {
           <p className="text-[#a88f78] mb-4 text-sm">Disparaissent d'ici une fois marquées payées en Caisse.</p>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {sortOrdersByTime(readyTakeaway).map((o) => (
-              <div key={o.id} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
+              <div key={o.id} className="w-96 shrink-0 rounded-xl border-2 p-5" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
                 <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
-                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <ul className="text-sm text-[#c9b8a4] mb-3">
+                <div className="display-font text-2xl font-bold mb-2">{o.name}</div>
+                <ul className="text-lg text-[#c9b8a4] mb-3">
                   {o.items.map((it, idx) => (
                     <ItemLine key={idx} it={it} />
                   ))}
                 </ul>
-                <button onClick={() => markPaid(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                <button onClick={() => markPaid(o)} className="tap-scale w-full rounded-xl py-4 text-base font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   💰 Payée
                 </button>
                 <OrderNote note={o.note} />
