@@ -19,6 +19,11 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
             🧪 TEST
           </span>
         )}
+        {order.slotForced && (
+          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a1c1c", color: "#ff6b6b" }}>
+            ⚠️ Créneau forcé
+          </span>
+        )}
         {onEdit && (
           <button onClick={onEdit} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
             ✏️

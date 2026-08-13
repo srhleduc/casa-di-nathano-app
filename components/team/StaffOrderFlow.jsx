@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -124,7 +124,7 @@ export default function StaffOrderFlow() {
     setScreen("service");
   }
 
-  function submitOrder(finalPlan) {
+  function submitOrder(finalPlan, forced) {
     const hasMainPizza = cart.some((i) => i.cat === "pizza" && i.phase === "main");
     // Une planche (et sa focaccia auto-ajoutée) doit passer par le circuit
     // "apéro à préparer" du four même si aucune pizza principale n'a encore
@@ -140,6 +140,7 @@ export default function StaffOrderFlow() {
       name: tableName || "Commande équipe",
       note: note.trim() || null,
       slotAllocations: finalPlan || [],
+      slotForced: !!forced,
       pizzaCount,
       total,
       status: "attente",
@@ -299,8 +300,9 @@ export default function StaffOrderFlow() {
           selectedOption={selectedOption}
           setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
+          staffForceOptions={allUpcomingSlotsForStaff(orders, slots, pizzaCount)}
           onBack={() => setScreen("checkout")}
-          onConfirm={() => submitOrder(selectedOption?.plan || null)}
+          onConfirm={(forced) => submitOrder(selectedOption?.plan || null, forced)}
         />
       )}
 

@@ -765,3 +765,9 @@ on conflict (restaurant_id, key) do nothing;
 -- glace) — saisie par les serveuses à la prise de commande, sur place comme
 -- à emporter, et affichée en évidence sur les écrans équipe.
 alter table orders add column if not exists note text;
+
+-- Vrai quand une serveuse a forcé un créneau déjà plein théoriquement (avec
+-- l'accord du pizzaiolo, qui sous-estime parfois sa capacité en début de
+-- service) — sert uniquement de trace visible côté équipe (badge sur les
+-- tickets), n'affecte pas le décompte de capacité en lui-même.
+alter table orders add column if not exists slot_forced boolean not null default false;
