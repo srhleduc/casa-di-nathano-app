@@ -93,14 +93,18 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   async function save() {
     // "À emporter tout de suite" ne réserve jamais de créneau, quel que soit
-    // ce que la commande avait avant (ex. bascule depuis sur place).
+    // ce que la commande avait avant (ex. bascule depuis sur place). Idem pour
+    // "Sur place" si le pizzaiolo a désactivé le décompte des créneaux pour ce
+    // type de service (voir SlotsAdmin) — le pâton reste décompté dans tous
+    // les cas via pizzaCount.
+    const dineInSkipsSlot = serviceType === "🍽️ Sur place" && serviceTypeSettings.dineInCountsTowardSlots === false;
     let finalSlotAllocations =
-      pizzaCount <= 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE
+      pizzaCount <= 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE || dineInSkipsSlot
         ? []
         : selectedSlot
         ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }]
         : order.slotAllocations || [];
-    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType === "🍽️ Sur place") {
+    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType === "🍽️ Sur place" && !dineInSkipsSlot) {
       // Sur place sans créneau existant (nouvelles pizzas ajoutées, ou
       // bascule depuis à emporter) : on réserve automatiquement le créneau
       // le plus proche, comme à la prise de commande.

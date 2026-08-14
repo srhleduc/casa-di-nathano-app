@@ -799,3 +799,11 @@ select cron.schedule(
      from team_config tc
      on conflict (restaurant_id, label) do update set capacity = excluded.capacity;'
 );
+
+-- Permet au pizzaiolo de decider si "Sur place" reserve un creneau four (donc
+-- decompte la capacite du creneau vise) ou part directement sans creneau,
+-- comme "A emporter tout de suite" (voir SlotsAdmin cote equipe). Dans tous
+-- les cas, le paton est decompte (remainingPizzaStock compte pizzaCount sur
+-- toutes les commandes actives, quel que soit le type de service) -- seul le
+-- decompte des creneaux du jour est concerne par ce reglage.
+alter table team_config add column if not exists dine_in_counts_toward_slots boolean not null default true;

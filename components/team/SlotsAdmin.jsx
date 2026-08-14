@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots, useSlotDefaults, setSlotDefaults } from "@/lib/data";
+import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots, useSlotDefaults, setSlotDefaults, useServiceTypeSettings, setDineInCountsTowardSlots } from "@/lib/data";
 import { parseMinutes } from "@/lib/business";
 
 // Les créneaux midi/soir sont maintenant ouverts automatiquement chaque nuit
@@ -18,6 +18,7 @@ function isMidiSlot(label) {
 export default function SlotsAdmin() {
   const { slots, reload } = useSlots();
   const { slotDefaults, loading: defaultsLoading } = useSlotDefaults();
+  const { serviceTypeSettings } = useServiceTypeSettings();
   const [label, setLabel] = useState("");
   const [capacity, setCapacity] = useState("6");
   const [capMidi, setCapMidi] = useState("6");
@@ -80,6 +81,28 @@ export default function SlotsAdmin() {
         🌙 Les créneaux midi et soir s'ouvrent automatiquement chaque nuit (capacité = dernière valeur utilisée ci-dessous) — les boutons
         "Générer" servent à régénérer/ajuster en cours de journée si besoin.
       </div>
+
+      <button
+        onClick={() => setDineInCountsTowardSlots(!serviceTypeSettings.dineInCountsTowardSlots).catch((err) => console.error(err))}
+        className="tap-scale w-full rounded-2xl border-2 p-5 text-left flex items-center justify-between gap-4 mb-6"
+        style={serviceTypeSettings.dineInCountsTowardSlots ? { borderColor: "#3a2b1f" } : { borderColor: "#C0392B", background: "#2c1c14" }}
+      >
+        <div>
+          <div className="font-bold text-lg mb-1">🍽️ Sur place décompte les créneaux</div>
+          <div className="text-[#a88f78] text-sm">
+            {serviceTypeSettings.dineInCountsTowardSlots
+              ? "Une commande sur place réserve automatiquement le créneau le plus proche, comme à emporter."
+              : "Le sur place part directement en cuisine sans réserver de créneau — le stock de pâtons du jour continue d'être décompté normalement."}
+          </div>
+        </div>
+        <span
+          className="text-xs font-bold rounded-full px-4 py-2 shrink-0"
+          style={serviceTypeSettings.dineInCountsTowardSlots ? { background: "#204a3a", color: "#a8e8c8" } : { background: "#4a2020", color: "#e8a8a8" }}
+        >
+          {serviceTypeSettings.dineInCountsTowardSlots ? "✓ Activé" : "✕ Désactivé"}
+        </span>
+      </button>
+
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
           <div className="font-bold mb-2">☀️ Service midi (12h–15h, ttes les 10 min)</div>

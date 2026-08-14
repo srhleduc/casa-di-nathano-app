@@ -126,7 +126,11 @@ export default function Kiosk() {
   }
 
   function goToSlot() {
-    if (pizzaCount === 0) {
+    // Le pizzaiolo peut désactiver le décompte des créneaux pour le sur place
+    // (voir SlotsAdmin) — la pizza part alors sans créneau réservé, mais
+    // décompte quand même le stock de pâtons.
+    const dineInSkipsSlot = serviceType === "🍽️ Sur place" && serviceTypeSettings.dineInCountsTowardSlots === false;
+    if (pizzaCount === 0 || dineInSkipsSlot) {
       submitOrder(null);
       return;
     }

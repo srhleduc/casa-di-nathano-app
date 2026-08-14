@@ -152,7 +152,11 @@ export default function StaffOrderFlow() {
   }
 
   function goToSlot() {
-    if (pizzaCount === 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE) {
+    // Le pizzaiolo peut désactiver le décompte des créneaux pour le sur place
+    // (voir SlotsAdmin) — dans ce cas la pizza part comme un client de passage,
+    // sans créneau réservé, mais décompte quand même le stock de pâtons.
+    const dineInSkipsSlot = serviceType === "🍽️ Sur place" && serviceTypeSettings.dineInCountsTowardSlots === false;
+    if (pizzaCount === 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE || dineInSkipsSlot) {
       // Client de passage : aucun créneau, ni choisi ni réservé — la pizza
       // part dès que le four a la place, sans décompter les créneaux du jour.
       submitOrder(null);
