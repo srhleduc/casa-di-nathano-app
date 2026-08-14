@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow } from "@/lib/business";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -134,7 +134,7 @@ export default function Kiosk() {
       submitOrder(null);
       return;
     }
-    const choice = computeSlotOptions(orders, slots, pizzaCount);
+    const choice = computeSlotOptions(orders, slots, pizzaCount, serviceType === "🍽️ Sur place" ? 0 : TAKEAWAY_SLOT_MARGIN_MINUTES);
     if (serviceType === "🍽️ Sur place" && choice.mode !== "none") {
       const finalPlan =
         choice.mode === "split" ? choice.plans[0] : [{ slotId: choice.options[0].id, label: choice.options[0].label, qty: pizzaCount }];

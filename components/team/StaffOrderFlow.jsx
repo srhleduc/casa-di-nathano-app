@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -170,11 +170,11 @@ export default function StaffOrderFlow() {
       return;
     }
     setSelectedOption(null);
-    setSlotChoice(computeSlotOptions(orders, slots, pizzaCount));
+    setSlotChoice(computeSlotOptions(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES));
     setScreen("slot");
   }
 
-  const checkSlotChoice = checkPizzaCount > 0 ? computeSlotOptions(orders, slots, checkPizzaCount) : null;
+  const checkSlotChoice = checkPizzaCount > 0 ? computeSlotOptions(orders, slots, checkPizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES) : null;
 
   const availabilityBanner =
     serviceType === "🥡 À emporter" ? (

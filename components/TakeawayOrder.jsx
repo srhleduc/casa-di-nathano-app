@@ -6,7 +6,7 @@
 // rendu ici, quelle que soit la manipulation d'URL tentée par un client.
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SERVICE_TYPE } from "@/lib/business";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTakeawayLinkStatus, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -140,7 +140,7 @@ export default function TakeawayOrder() {
       submitOrder(null);
       return;
     }
-    const choice = computeSlotOptions(orders, slots, pizzaCount);
+    const choice = computeSlotOptions(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES);
     setSelectedOption(null);
     setSlotChoice(choice);
     setScreen("slot");
