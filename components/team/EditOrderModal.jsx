@@ -11,6 +11,16 @@ import PanuzzoModal from "../PanuzzoModal";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
+// Catégories qui passent par le four et/ou la Finition (contrairement aux
+// boissons/desserts, qui se gèrent uniquement au niveau de l'article et
+// n'ont pas besoin de ce recalcul — voir BoissonBoard/DessertCafeBoard).
+const KITCHEN_PIPELINE_CATS = ["pizza", "panuzzo", "supplement", "sans", "antipasti", "salade"];
+function kitchenPendingQty(items) {
+  return items
+    .filter((i) => !i.served && i.phase !== "apero" && KITCHEN_PIPELINE_CATS.includes(i.cat))
+    .reduce((s, i) => s + i.qty, 0);
+}
+
 const SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", enabledKey: "dineInEnabled" },
   { value: TAKEAWAY_SERVICE_TYPE, enabledKey: "takeawayEnabled" },
@@ -117,6 +127,16 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     setSaving(true);
     try {
       const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "", note: note.trim() || null };
+      // Une commande déjà passée le four/la Finition ("prête", "prêt à
+      // servir" ou même déjà "servie") n'y repasse jamais tant que son
+      // statut ne bouge pas : si le client redemande une pizza en plein
+      // repas, le nouvel article ajouté ici resterait invisible de l'écran
+      // Four. On rouvre donc le circuit dès qu'on ajoute du nouveau à
+      // préparer sur une commande qui avait déjà dépassé cette étape.
+      if (!["attente", "preparation"].includes(order.status) && kitchenPendingQty(items) > kitchenPendingQty(order.items)) {
+        patch.status = "attente";
+        patch.delivered = false;
+      }
       if (order.aperoStatus === "served_by_kitchen") {
         // L'apéro a déjà été préparé et servi — cette commande continue
         // maintenant normalement, plus rien à retenir avant le four.
