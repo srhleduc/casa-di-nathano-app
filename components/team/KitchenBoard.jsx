@@ -21,7 +21,13 @@ export default function KitchenBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
-  const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
+  // Uniquement les apéros qui ont vraiment quelque chose à préparer en
+  // cuisine (focaccia, pizza...) — un apéro boissons seules n'a rien à faire
+  // ici, la confirmation "Apéro servi" est du ressort du service (voir
+  // ServiceBoard), pas du pizzaiolo qui n'a pas à surveiller les tables.
+  const aperoWaiting = active.filter(
+    (o) => o.aperoStatus === "waiting" && o.items.some((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero")
+  );
 
   // Une commande de la file du four doit avoir des pizzas "hors apéro" à faire,
   // et ne pas être en train d'attendre son apéro.
@@ -38,12 +44,6 @@ export default function KitchenBoard() {
 
   function sendToFinition(order) {
     updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
-  }
-  function markAperoServed(order) {
-    const updatedItems = order.items.map((it) =>
-      (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero" && !it.served ? { ...it, served: true } : it
-    );
-    updateOrder(order.id, { aperoStatus: "served_by_kitchen", items: updatedItems }).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
@@ -90,6 +90,7 @@ export default function KitchenBoard() {
       {aperoWaiting.length > 0 && (
         <div className="mb-6">
           <div className="font-bold mb-3">🍸 Apéro à préparer ({aperoWaiting.length})</div>
+          <p className="text-[#a88f78] text-xs mb-3 -mt-2">La confirmation "Apéro servi" se fait côté écran Service, une fois apporté à table.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sortOrdersByTime(aperoWaiting).map((o) => {
               const aperoItems = o.items.filter((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero");
@@ -124,9 +125,6 @@ export default function KitchenBoard() {
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
-                  <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
-                    ✅ Apéro servi
-                  </button>
                   <OrderNote note={o.note} />
                 </div>
               );

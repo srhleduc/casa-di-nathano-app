@@ -39,6 +39,7 @@ export default function ServiceBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
+  const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
   const aperoReady = active.filter((o) => o.aperoStatus === "served_by_kitchen");
   const tablePills = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType) && isVisibleOnBoard(o)));
 
@@ -48,6 +49,15 @@ export default function ServiceBoard() {
 
   function launchPizzas(order) {
     updateOrder(order.id, { aperoStatus: "released" }).catch((err) => console.error(err));
+  }
+  // Confirmation d'apéro apporté à table — du ressort du service, qui voit
+  // physiquement les boissons arriver, plutôt que du pizzaiolo (écran Four),
+  // qui n'a rien à surveiller quand l'apéro ne comporte que des boissons.
+  function markAperoServed(order) {
+    const updatedItems = order.items.map((it) =>
+      (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero" && !it.served ? { ...it, served: true } : it
+    );
+    updateOrder(order.id, { aperoStatus: "served_by_kitchen", items: updatedItems }).catch((err) => console.error(err));
   }
   function markDelivered(order) {
     updateOrder(order.id, { delivered: true }).catch((err) => console.error(err));
@@ -71,6 +81,25 @@ export default function ServiceBoard() {
                 <span>{statusDot(o)}</span>
                 <span>{o.name}</span>
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {aperoWaiting.length > 0 && (
+        <div className="mb-6">
+          <div className="font-bold mb-3">🍸 Apéro à servir ({aperoWaiting.length})</div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {sortOrdersByTime(aperoWaiting).map((o) => (
+              <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
+                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
+                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
+                <GroupedItemList items={o.items.filter((it) => it.phase === "apero")} className="mb-3" />
+                <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                  ✅ Apéro servi
+                </button>
+                <OrderNote note={o.note} />
+              </div>
             ))}
           </div>
         </div>
