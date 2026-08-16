@@ -38,11 +38,14 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
         }))
       : [];
 
-  // Côté équipe, quand aucun créneau seul n'a théoriquement la place (mode
-  // "split" ou "none"), on saute directement la liste forçable plutôt que
-  // d'afficher la répartition auto ou l'écran "aucune place" — la serveuse
-  // peut forcer un seul créneau à absorber toute la commande.
-  const hasSingleEarliest = mode === "single" && displayOptions.length > 0;
+  // La répartition automatique (mode "single" ou "split") reste proposée en
+  // priorité côté équipe, exactement comme côté client — une commande de 8
+  // pizzas sur des créneaux de 7 se répartit d'elle-même sur le créneau visé
+  // et le précédent, sans intervention. Seul le cas vraiment sans solution
+  // (mode "none", même en répartissant sur plusieurs créneaux) saute
+  // directement à la liste forçable, pour que la serveuse puisse forcer un
+  // seul créneau à absorber toute la commande avec l'accord du pizzaiolo.
+  const hasAutoPlan = (mode === "single" || mode === "split") && displayOptions.length > 0;
   const forceList = isStaff
     ? staffForceOptions.map((o) => ({
         key: `staff-${o.id}`,
@@ -53,8 +56,8 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
       }))
     : [];
 
-  const laterOptions = isStaff ? forceList : displayOptions.slice(1);
-  const skipToForceList = isStaff && !hasSingleEarliest;
+  const laterOptions = isStaff ? (hasAutoPlan ? [...displayOptions.slice(1), ...forceList] : forceList) : displayOptions.slice(1);
+  const skipToForceList = isStaff && !hasAutoPlan;
 
   useEffect(() => {
     if (skipToForceList) {
