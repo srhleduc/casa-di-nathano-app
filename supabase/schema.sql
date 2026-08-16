@@ -807,3 +807,13 @@ select cron.schedule(
 -- toutes les commandes actives, quel que soit le type de service) -- seul le
 -- decompte des creneaux du jour est concerne par ce reglage.
 alter table team_config add column if not exists dine_in_counts_toward_slots boolean not null default true;
+
+-- =====================================================================
+-- PAIEMENT ANTICIPE (CAISSE) -- decouple le paiement du statut de la
+-- commande, qui reste le seul signal utilise partout ailleurs (Four,
+-- Finition, Service, Boissons, Dessert/Cafe) pour savoir si une commande est
+-- encore active. Avant cette colonne, "Marquer payee" faisait les deux a la
+-- fois (paiement + status="servie"), empechant la caissiere d'encaisser une
+-- table pendant que sa commande est encore en preparation -- l'encaissement
+-- la faisait disparaitre a tort des ecrans equipe.
+alter table orders add column if not exists paid boolean not null default false;

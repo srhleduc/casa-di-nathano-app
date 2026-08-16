@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
+import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
@@ -19,10 +19,16 @@ export default function CaisseBoard() {
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const paidToday = orders.filter((o) => o.status === "servie" && isOrderActiveToday(o));
-  // Le chiffre du jour n'inclut jamais les commandes du mode test.
+  // Le chiffre du jour n'inclut jamais les commandes du mode test. "À
+  // encaisser" ne compte que ce qui reste vraiment à payer — une commande
+  // payée d'avance (bouton "Payée, non servie") ne doit plus y apparaître
+  // même si elle est encore en préparation. "Déjà encaissé" suit le
+  // paiement (isOrderPaid), pas le statut : l'argent est en caisse dès le
+  // clic, que la commande soit terminée ou non.
   const realActive = active.filter((o) => !o.isTest);
-  const realPaidToday = paidToday.filter((o) => !o.isTest);
-  const totalActive = realActive.reduce((s, o) => s + o.total, 0);
+  const unpaidActive = realActive.filter((o) => !isOrderPaid(o));
+  const realPaidToday = orders.filter((o) => isOrderActiveToday(o) && !o.isTest && isOrderPaid(o));
+  const totalActive = unpaidActive.reduce((s, o) => s + o.total, 0);
   const totalCollected = realPaidToday.reduce((s, o) => s + o.total, 0);
 
   const [cancelMode, setCancelMode] = useState(false);
@@ -33,7 +39,13 @@ export default function CaisseBoard() {
     setTakeawayLinkSuspended(!suspended).catch((err) => console.error(err));
   }
 
-  function markPaid(order) {
+  function markPaidUnserved(order) {
+    updateOrder(order.id, { paid: true }).catch((err) => console.error(err));
+  }
+  function markPaidAndServed(order) {
+    updateOrder(order.id, { paid: true, status: "servie" }).catch((err) => console.error(err));
+  }
+  function markServed(order) {
     updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
   }
 
@@ -60,12 +72,26 @@ export default function CaisseBoard() {
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" />
-        <div className="flex items-center justify-between">
-          <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
-          <button onClick={() => markPaid(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
-            💰 Marquer payée
-          </button>
-        </div>
+        <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
+        {o.paid ? (
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "#204a3a", color: "#a8e8c8" }}>
+              ✅ Payée
+            </span>
+            <button onClick={() => markServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+              ✅ Servie
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button onClick={() => markPaidUnserved(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
+              💰 Payée, non servie
+            </button>
+            <button onClick={() => markPaidAndServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+              💰 Payée et servie
+            </button>
+          </div>
+        )}
         <OrderNote note={o.note} />
       </div>
     );
@@ -75,7 +101,7 @@ export default function CaisseBoard() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="flex gap-4 mb-4">
         <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
-          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">À encaisser ({realActive.length})</div>
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">À encaisser ({unpaidActive.length})</div>
           <div className="display-font text-2xl font-bold">{eur(totalActive)}</div>
         </div>
         <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
@@ -122,7 +148,7 @@ export default function CaisseBoard() {
               <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                 <OrderCardHeader order={o} />
                 <div className="display-font text-lg font-bold mb-1">{o.name}</div>
-                <div className="text-xs text-[#a88f78] mb-2">{o.status === "servie" ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
+                <div className="text-xs text-[#a88f78] mb-2">{isOrderPaid(o) ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
                 <GroupedItemList items={o.items} className="mb-3" />
                 <div className="flex items-center justify-between">
                   <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
