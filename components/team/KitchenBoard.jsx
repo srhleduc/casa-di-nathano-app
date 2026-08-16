@@ -21,13 +21,7 @@ export default function KitchenBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
-  // Uniquement les apéros qui ont vraiment quelque chose à préparer en
-  // cuisine (focaccia, pizza...) — un apéro boissons seules n'a rien à faire
-  // ici, la confirmation "Apéro servi" est du ressort du service (voir
-  // ServiceBoard), pas du pizzaiolo qui n'a pas à surveiller les tables.
-  const aperoWaiting = active.filter(
-    (o) => o.aperoStatus === "waiting" && o.items.some((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero")
-  );
+  const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
 
   // Une commande de la file du four doit avoir des pizzas "hors apéro" à faire,
   // et ne pas être en train d'attendre son apéro.
@@ -94,6 +88,20 @@ export default function KitchenBoard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sortOrdersByTime(aperoWaiting).map((o) => {
               const aperoItems = o.items.filter((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero");
+              // Apéro boissons seules : rien à préparer en cuisine, mais on
+              // garde la table visible (juste le nom, pas de liste ni de
+              // bouton) pour que le pizzaiolo ne s'inquiète pas de voir
+              // arriver ses pizzas plus tard sans avoir rien vu passer.
+              if (aperoItems.length === 0) {
+                return (
+                  <div key={o.id} className="rounded-xl border-2 px-4 py-3 flex items-center justify-between gap-2" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
+                    <div className="display-font text-lg font-bold">{o.name}</div>
+                    <span className="text-xs font-bold rounded-full px-3 py-1 shrink-0" style={{ background: "#4a2c14", color: "#E8B23D" }}>
+                      🍸 Apéro en cours
+                    </span>
+                  </div>
+                );
+              }
               return (
                 <div key={o.id} className="rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                   <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
