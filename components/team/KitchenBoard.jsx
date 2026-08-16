@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortKitchenQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
+import { isOrderActiveToday, orderSortMinutes, sortKitchenQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import DeadlineBadge from "../DeadlineBadge";
@@ -21,7 +21,22 @@ export default function KitchenBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
-  const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
+  const APERO_KITCHEN_CATS = ["pizza", "supplement", "sans"];
+  // Trois cas pour une table en attente d'apéro : encore de la focaccia/pizza
+  // à préparer (carte complète + bouton), rien à préparer et jamais rien eu
+  // (boissons seules — juste le nom, pour ne pas surprendre plus tard),
+  // ou déjà préparé par le pizzaiolo (carte masquée : il a fait sa part, la
+  // confirmation "servi à table" revient à l'équipe de service, voir
+  // ServiceBoard, dont l'écran garde la commande jusqu'à ce geste).
+  const aperoWaiting = active
+    .filter((o) => o.aperoStatus === "waiting")
+    .map((o) => {
+      const pendingItems = o.items.filter((it) => APERO_KITCHEN_CATS.includes(it.cat) && it.phase === "apero" && !it.served);
+      const hadKitchenItems = o.items.some((it) => APERO_KITCHEN_CATS.includes(it.cat) && it.phase === "apero");
+      return { order: o, pendingItems, showMinimal: pendingItems.length === 0 && !hadKitchenItems };
+    })
+    .filter((x) => x.pendingItems.length > 0 || x.showMinimal)
+    .sort((a, b) => orderSortMinutes(a.order) - orderSortMinutes(b.order));
 
   // Une commande de la file du four doit avoir des pizzas "hors apéro" à faire,
   // et ne pas être en train d'attendre son apéro.
@@ -38,6 +53,15 @@ export default function KitchenBoard() {
 
   function sendToFinition(order) {
     updateOrder(order.id, { status: "prete", ovenDoneAt: new Date().toISOString() }).catch((err) => console.error(err));
+  }
+  // Marque la focaccia/pizza d'apéro préparée — n'affecte ni aperoStatus ni
+  // les boissons : la commande reste "en attente" côté Service tant que la
+  // serveuse n'a pas elle-même confirmé l'apéro servi à table.
+  function markAperoKitchenPrepared(order) {
+    const updatedItems = order.items.map((it) =>
+      APERO_KITCHEN_CATS.includes(it.cat) && it.phase === "apero" && !it.served ? { ...it, served: true } : it
+    );
+    updateOrder(order.id, { items: updatedItems }).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
@@ -84,15 +108,14 @@ export default function KitchenBoard() {
       {aperoWaiting.length > 0 && (
         <div className="mb-6">
           <div className="font-bold mb-3">🍸 Apéro à préparer ({aperoWaiting.length})</div>
-          <p className="text-[#a88f78] text-xs mb-3 -mt-2">La confirmation "Apéro servi" se fait côté écran Service, une fois apporté à table.</p>
+          <p className="text-[#a88f78] text-xs mb-3 -mt-2">"Apéro servi" ici retire juste la carte de cet écran une fois la focaccia/pizza prête — la confirmation à table (qui libère les pizzas principales) reste du ressort de l'écran Service.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {sortOrdersByTime(aperoWaiting).map((o) => {
-              const aperoItems = o.items.filter((it) => (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero");
+            {aperoWaiting.map(({ order: o, pendingItems, showMinimal }) => {
               // Apéro boissons seules : rien à préparer en cuisine, mais on
               // garde la table visible (juste le nom, pas de liste ni de
               // bouton) pour que le pizzaiolo ne s'inquiète pas de voir
               // arriver ses pizzas plus tard sans avoir rien vu passer.
-              if (aperoItems.length === 0) {
+              if (showMinimal) {
                 return (
                   <div key={o.id} className="rounded-xl border-2 px-4 py-3 flex items-center justify-between gap-2" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
                     <div className="display-font text-lg font-bold">{o.name}</div>
@@ -129,10 +152,13 @@ export default function KitchenBoard() {
                   </div>
                   <div className="display-font text-xl font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4] mb-3">
-                    {aperoItems.map((it, idx) => (
+                    {pendingItems.map((it, idx) => (
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
+                  <button onClick={() => markAperoKitchenPrepared(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                    ✅ Apéro servi
+                  </button>
                   <OrderNote note={o.note} />
                 </div>
               );
