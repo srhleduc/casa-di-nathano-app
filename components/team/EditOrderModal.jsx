@@ -224,7 +224,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   if (view === "slot") {
     const otherOrders = orders.filter((o) => o.id !== order.id);
     const slotOptions = slots
-      .map((s) => ({ ...s, remaining: remainingForSlot(otherOrders, s) }))
+      .map((s) => ({ ...s, remaining: remainingForSlot(otherOrders, s, slots) }))
       .sort((a, b) => (parseMinutes(a.label) ?? 0) - (parseMinutes(b.label) ?? 0));
     return (
       <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
