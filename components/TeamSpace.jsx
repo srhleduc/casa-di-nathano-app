@@ -54,6 +54,17 @@ export default function TeamSpace({ onExit }) {
   useEffect(() => {
     if (readOnly) return;
     computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => {
+      // Garde-fou : cet effet ne doit jamais écrire autre chose que
+      // slotAllocations (voir updateOrder, qui n'envoie que les clés
+      // fournies) — si jamais la répartition calculée ne correspond pas au
+      // nombre de pizzas réel de la commande, on n'écrit rien plutôt que de
+      // risquer une donnée fausse, et on le signale.
+      const order = orders.find((o) => o.id === orderId);
+      const total = slotAllocations.reduce((s, a) => s + a.qty, 0);
+      if (!order || total !== order.pizzaCount) {
+        console.error("Répartition de créneau programmée incohérente, écriture annulée", { orderId, total, pizzaCount: order?.pizzaCount });
+        return;
+      }
       updateOrder(orderId, { slotAllocations }).catch((err) => console.error(err));
     });
   }, [orders, slots, readOnly]);
