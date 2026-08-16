@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
-import { computeScheduledOrderSlotAllocations } from "@/lib/business";
+import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations } from "@/lib/business";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
@@ -42,6 +42,21 @@ export default function TeamSpace({ onExit }) {
   const restaurant = useRestaurant(restaurantFilter);
   const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
 
+  // Écrit une répartition de créneaux calculée sur une commande — jamais
+  // autre chose (voir updateOrder, qui n'envoie que les clés fournies).
+  // Garde-fou : si le total calculé ne correspond pas au nombre de pizzas
+  // réel de la commande, on n'écrit rien plutôt que de risquer une donnée
+  // fausse, et on le signale.
+  function writeScheduledSlotAllocations(orderId, slotAllocations) {
+    const order = orders.find((o) => o.id === orderId);
+    const total = slotAllocations.reduce((s, a) => s + a.qty, 0);
+    if (!order || total !== order.pizzaCount) {
+      console.error("Répartition de créneau programmée incohérente, écriture annulée", { orderId, total, pizzaCount: order?.pizzaCount });
+      return;
+    }
+    updateOrder(orderId, { slotAllocations }).catch((err) => console.error(err));
+  }
+
   // Une commande programmée la veille pour aujourd'hui n'a jamais réservé de
   // vraies places sur les créneaux du jour (voir ScheduledOrderFlow) —
   // remainingForSlot les prend déjà en compte dynamiquement pour le calcul
@@ -53,20 +68,17 @@ export default function TeamSpace({ onExit }) {
   // Non applicable à la vue Direction (lecture seule).
   useEffect(() => {
     if (readOnly) return;
-    computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => {
-      // Garde-fou : cet effet ne doit jamais écrire autre chose que
-      // slotAllocations (voir updateOrder, qui n'envoie que les clés
-      // fournies) — si jamais la répartition calculée ne correspond pas au
-      // nombre de pizzas réel de la commande, on n'écrit rien plutôt que de
-      // risquer une donnée fausse, et on le signale.
-      const order = orders.find((o) => o.id === orderId);
-      const total = slotAllocations.reduce((s, a) => s + a.qty, 0);
-      if (!order || total !== order.pizzaCount) {
-        console.error("Répartition de créneau programmée incohérente, écriture annulée", { orderId, total, pizzaCount: order?.pizzaCount });
-        return;
-      }
-      updateOrder(orderId, { slotAllocations }).catch((err) => console.error(err));
-    });
+    computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeScheduledSlotAllocations(orderId, slotAllocations));
+  }, [orders, slots, readOnly]);
+
+  // Si le pizzaiolo ajuste la capacité d'un créneau en cours de service
+  // (SlotsAdmin), toute commande programmée déjà répartie mais pas encore
+  // enfournée doit en profiter/s'y adapter automatiquement — jamais une
+  // commande déjà partie en cuisine, dont la répartition reflète une
+  // réalité physique qu'aucun recalcul ne doit bousculer.
+  useEffect(() => {
+    if (readOnly) return;
+    recomputeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeScheduledSlotAllocations(orderId, slotAllocations));
   }, [orders, slots, readOnly]);
 
   function goZone(z, defaultTab) {
