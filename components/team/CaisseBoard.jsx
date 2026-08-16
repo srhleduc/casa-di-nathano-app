@@ -73,7 +73,14 @@ export default function CaisseBoard() {
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" />
         <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
-        {o.paid ? (
+        {!isTakeawayLike(o.serviceType) ? (
+          // Sur place : le client a généralement déjà mangé au moment de
+          // payer, pas besoin du paiement anticipé — un seul bouton, comme
+          // avant.
+          <button onClick={() => markPaidAndServed(o)} className="tap-scale w-full text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            💰 Marquer payée
+          </button>
+        ) : o.paid ? (
           <div className="flex items-center gap-2">
             <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "#204a3a", color: "#a8e8c8" }}>
               ✅ Payée
