@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
-import { computeScheduledOrderSlotAllocations } from "@/lib/business";
+import { useState } from "react";
+import { useOrders, useTestMode, setTestModeEnabled, deleteAllTestOrders } from "@/lib/data";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
@@ -36,27 +35,10 @@ export default function TeamSpace({ onExit }) {
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
-  const { slots } = useSlots();
   const { testMode } = useTestMode();
   const restaurantFilter = useRestaurantFilter();
   const restaurant = useRestaurant(restaurantFilter);
   const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
-
-  // Une commande programmée la veille pour aujourd'hui n'a jamais réservé de
-  // vraies places sur les créneaux du jour (voir ScheduledOrderFlow) —
-  // remainingForSlot les prend déjà en compte dynamiquement pour le calcul
-  // de capacité, mais sans écran équipe ouvert pour déclencher cet effet, la
-  // commande elle-même reste affichée sur son seul horaire visé au lieu de
-  // sa vraie répartition (ex. "20:30" plutôt que "6×20:10 + 7×20:20 +
-  // 7×20:30"). On la fige en base dès qu'un écran équipe est ouvert, pour
-  // qu'elle s'affiche partout comme n'importe quelle commande répartie.
-  // Non applicable à la vue Direction (lecture seule).
-  useEffect(() => {
-    if (readOnly) return;
-    computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => {
-      updateOrder(orderId, { slotAllocations }).catch((err) => console.error(err));
-    });
-  }, [orders, slots, readOnly]);
 
   function goZone(z, defaultTab) {
     setZone(z);
