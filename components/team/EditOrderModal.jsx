@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -38,6 +38,12 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [selectedSlot, setSelectedSlot] = useState(
     order.slotAllocations && order.slotAllocations.length === 1 ? { id: order.slotAllocations[0].slotId, label: order.slotAllocations[0].label } : null
   );
+  // Distingue "selectedSlot pré-rempli depuis l'unique créneau déjà en
+  // place" (juste un affichage par défaut) d'un vrai choix de l'équipe via
+  // le bouton "Changer" — sans ça, changer seulement le nombre de pizzas
+  // d'une commande programmée réaffecterait tout le nouveau total sur ce
+  // seul ancien créneau, écrasant sa vraie répartition multi-créneaux.
+  const [slotManuallyChanged, setSlotManuallyChanged] = useState(false);
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
@@ -111,6 +117,13 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     let finalSlotAllocations =
       pizzaCount <= 0 || serviceType === IMMEDIATE_TAKEAWAY_SERVICE_TYPE || dineInSkipsSlot
         ? []
+        : order.scheduledTime && !(slotManuallyChanged && selectedSlot)
+        ? // Commande programmée : on reste ancré sur l'horaire visé par le
+          // client, quel que soit le nombre de pizzas actuel — jamais un
+          // simple report brut de l'ancien créneau avec la nouvelle
+          // quantité, qui écraserait sa vraie répartition multi-créneaux
+          // dès la moindre modification (voir backwardFillPlanWithScheduled).
+          backwardFillPlanWithScheduled(orders.filter((o) => o.id !== order.id), slots, order.scheduledTime, pizzaCount)
         : selectedSlot
         ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }]
         : order.slotAllocations || [];
@@ -241,6 +254,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                 key={s.id}
                 onClick={() => {
                   setSelectedSlot({ id: s.id, label: s.label });
+                  setSlotManuallyChanged(true);
                   setView("summary");
                 }}
                 className="tap-scale rounded-2xl py-5 border-2 flex flex-col items-center"
