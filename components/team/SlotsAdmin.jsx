@@ -169,6 +169,7 @@ export default function SlotsAdmin() {
             <div key={s.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-3 flex flex-col items-center">
               <span className="font-bold">{s.label}</span>
               <input
+                key={s.capacity}
                 defaultValue={s.capacity}
                 onBlur={(e) => updateCapacity(s.id, e.target.value)}
                 type="number"
