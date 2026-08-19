@@ -817,3 +817,17 @@ alter table team_config add column if not exists dine_in_counts_toward_slots boo
 -- table pendant que sa commande est encore en preparation -- l'encaissement
 -- la faisait disparaitre a tort des ecrans equipe.
 alter table orders add column if not exists paid boolean not null default false;
+
+-- =====================================================================
+-- ANNULATION D'UN PASSAGE A "servie" -- filet de securite pour un clic sur
+-- le mauvais bouton (ex. "Payee et servie" au lieu de "Payee, non servie"
+-- en Caisse, ou "Payee" en Finition pour l'a emporter pret) : la commande
+-- disparait alors a tort de tous les ecrans equipe (Four, Finition,
+-- Service...). Comme aucun autre champ (items[].served, oven_done_at,
+-- finition_done_at, delivered, apero_status) n'est touche par ce passage a
+-- "servie", il suffit de retenir le statut et l'etat paye juste avant pour
+-- restaurer la commande exactement a sa position d'origine. Colonnes
+-- effacees (remises a null) une fois la restauration effectuee, pour ne
+-- jamais permettre de remonter au-dela de la derniere action volontaire.
+alter table orders add column if not exists previous_status text;
+alter table orders add column if not exists previous_paid boolean;

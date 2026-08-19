@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
 import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
@@ -43,15 +43,19 @@ export default function CaisseBoard() {
     updateOrder(order.id, { paid: true }).catch((err) => console.error(err));
   }
   function markPaidAndServed(order) {
-    updateOrder(order.id, { paid: true, status: "servie" }).catch((err) => console.error(err));
+    markOrderServed(order, { paid: true }).catch((err) => console.error(err));
   }
   function markServed(order) {
-    updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
+    markOrderServed(order).catch((err) => console.error(err));
   }
 
   function cancelOrder(order) {
     deleteOrders([order.id]).catch((err) => console.error(err));
     setConfirmingId(null);
+  }
+
+  function restoreServedOrder(order) {
+    restoreOrder(order).catch((err) => console.error(err));
   }
 
   function quickCancel(order) {
@@ -157,6 +161,14 @@ export default function CaisseBoard() {
                 <div className="display-font text-lg font-bold mb-1">{o.name}</div>
                 <div className="text-xs text-[#a88f78] mb-2">{isOrderPaid(o) ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
                 <GroupedItemList items={o.items} className="mb-3" />
+                {o.status === "servie" && o.previousStatus && (
+                  <button
+                    onClick={() => restoreServedOrder(o)}
+                    className="tap-scale w-full mb-2 text-xs font-bold rounded-full px-4 py-2 border-2 border-[#3a2b1f]"
+                  >
+                    ↩️ Restaurer (marquée servie par erreur)
+                  </button>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
                   {confirmingId === o.id ? (

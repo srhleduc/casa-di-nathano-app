@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, markOrderServed, deleteOrders } from "@/lib/data";
 import { isOrderActiveToday, sortOrdersByTime, isTakeawayLike } from "@/lib/business";
 import ItemLine from "../ItemLine";
 import OrderCardHeader from "../OrderCardHeader";
@@ -45,7 +45,7 @@ export default function FinitionBoard() {
     updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString(), items: updatedItems }).catch((err) => console.error(err));
   }
   function markPaid(order) {
-    updateOrder(order.id, { status: "servie" }).catch((err) => console.error(err));
+    markOrderServed(order).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
