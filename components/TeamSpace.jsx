@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
-import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations } from "@/lib/business";
+import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations, recomputeImmediateOrderSlotAllocations } from "@/lib/business";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
@@ -42,12 +42,12 @@ export default function TeamSpace({ onExit }) {
   const restaurant = useRestaurant(restaurantFilter);
   const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
 
-  // Écrit une répartition de créneaux calculée sur une commande — jamais
-  // autre chose (voir updateOrder, qui n'envoie que les clés fournies).
-  // Garde-fou : si le total calculé ne correspond pas au nombre de pizzas
-  // réel de la commande, on n'écrit rien plutôt que de risquer une donnée
-  // fausse, et on le signale.
-  function writeScheduledSlotAllocations(orderId, slotAllocations) {
+  // Écrit une répartition de créneaux recalculée sur une commande (programmée
+  // ou prise le jour même) — jamais autre chose (voir updateOrder, qui
+  // n'envoie que les clés fournies). Garde-fou : si le total calculé ne
+  // correspond pas au nombre de pizzas réel de la commande, on n'écrit rien
+  // plutôt que de risquer une donnée fausse, et on le signale.
+  function writeRecomputedSlotAllocations(orderId, slotAllocations) {
     const order = orders.find((o) => o.id === orderId);
     const total = slotAllocations.reduce((s, a) => s + a.qty, 0);
     if (!order || total !== order.pizzaCount) {
@@ -68,7 +68,7 @@ export default function TeamSpace({ onExit }) {
   // Non applicable à la vue Direction (lecture seule).
   useEffect(() => {
     if (readOnly) return;
-    computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeScheduledSlotAllocations(orderId, slotAllocations));
+    computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
   }, [orders, slots, readOnly]);
 
   // Si le pizzaiolo ajuste la capacité d'un créneau en cours de service
@@ -78,7 +78,17 @@ export default function TeamSpace({ onExit }) {
   // réalité physique qu'aucun recalcul ne doit bousculer.
   useEffect(() => {
     if (readOnly) return;
-    recomputeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeScheduledSlotAllocations(orderId, slotAllocations));
+    recomputeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
+  }, [orders, slots, readOnly]);
+
+  // Même logique pour une commande "à emporter"/"sur place" classique (pas
+  // programmée à l'avance) déjà répartie sur un ou plusieurs créneaux réels :
+  // si le pizzaiolo change la capacité d'un créneau après coup (ex. 4 → 5
+  // pizzas max), une commande de 6 pizzas restée sur 4+2 doit se retrouver en
+  // 5+1 sans intervention, tant qu'elle n'est pas encore enfournée.
+  useEffect(() => {
+    if (readOnly) return;
+    recomputeImmediateOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
   }, [orders, slots, readOnly]);
 
   function goZone(z, defaultTab) {
