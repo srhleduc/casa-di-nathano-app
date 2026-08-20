@@ -831,3 +831,93 @@ alter table orders add column if not exists paid boolean not null default false;
 -- jamais permettre de remonter au-dela de la derniere action volontaire.
 alter table orders add column if not exists previous_status text;
 alter table orders add column if not exists previous_paid boolean;
+
+-- =====================================================================
+-- APPROVISIONNEMENT -- Phase 1 (fournisseurs, produits, mouvements de
+-- stock). Prefixe appro_ pour ne jamais entrer en collision avec le module
+-- de cout de revient existant (suppliers/ingredients/pizza_ingredients,
+-- reserve a la Direction) -- deux systemes distincts avec des audiences et
+-- des besoins differents, pas une fusion.
+--
+-- Stock PARTAGE entre Riec et Casa Di Luigi : une seule cuisine, un seul
+-- pool de stock physique, une seule commande hebdomadaire pour les deux
+-- adresses. Contrairement au reste du schema, ces tables n'ont donc PAS de
+-- restaurant_id -- n'importe quel compte authentifie (les deux comptes de
+-- service kiosque, et les managers) lit/ecrit le meme jeu de donnees,
+-- exactement comme menu_items.
+
+create table if not exists appro_suppliers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  contact_name text,
+  phone text,
+  email text,
+  delivery_day text,
+  notes text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists appro_products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  unit text not null,
+  primary_supplier_id uuid references appro_suppliers (id) on delete set null,
+  current_stock numeric not null default 0,
+  alert_threshold numeric,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- Table centrale -- toute variation de stock passe obligatoirement par une
+-- ligne ici, jamais par une mise a jour directe de appro_products.current_stock
+-- (voir trigger appro_recalc_stock plus bas). quantity positif = entree,
+-- negatif = sortie.
+create table if not exists appro_stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references appro_products (id) on delete cascade,
+  movement_type text not null check (movement_type in ('achat', 'vente', 'perte', 'correction', 'retour')),
+  quantity numeric not null,
+  reason text,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+
+alter table appro_suppliers enable row level security;
+alter table appro_products enable row level security;
+alter table appro_stock_movements enable row level security;
+
+create policy "appro_suppliers_authenticated_all" on appro_suppliers for all to authenticated using (true) with check (true);
+create policy "appro_products_authenticated_all" on appro_products for all to authenticated using (true) with check (true);
+create policy "appro_stock_movements_authenticated_all" on appro_stock_movements for all to authenticated using (true) with check (true);
+
+alter publication supabase_realtime add table appro_suppliers;
+alter publication supabase_realtime add table appro_products;
+alter publication supabase_realtime add table appro_stock_movements;
+
+-- Recalcule current_stock comme la somme de tous les mouvements du produit
+-- a chaque insert/update/delete -- jamais de mise a jour directe, pour
+-- rester coherent meme avec Riec et Quimperle qui saisissent une reception
+-- au meme moment sur des appareils differents.
+create or replace function appro_recalc_stock()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update appro_products
+  set current_stock = (select coalesce(sum(quantity), 0) from appro_stock_movements where product_id = coalesce(new.product_id, old.product_id))
+  where id = coalesce(new.product_id, old.product_id);
+  return null;
+end;
+$$;
+
+create trigger appro_stock_movements_recalc
+after insert or update or delete on appro_stock_movements
+for each row execute function appro_recalc_stock();
+
+insert into appro_suppliers (name) values
+  ('France Boissons'), ('Grain du Ponant'), ('Danioli'), ('Sysco'),
+  ('Arno and Co'), ('Ferme des Mille Loches'), ('Carniato'),
+  ('Episaveurs'), ('Terreazur')
+on conflict (name) do nothing;

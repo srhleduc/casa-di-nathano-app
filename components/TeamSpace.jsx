@@ -23,6 +23,7 @@ import MenuAdmin from "./team/MenuAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import TablePlanAdmin from "./team/TablePlanAdmin";
 import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
+import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
 
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
@@ -232,6 +233,7 @@ export default function TeamSpace({ onExit }) {
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
             <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔀 Types de service</button>
             <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🚫 Ruptures</button>
+            <button onClick={() => setTab("appro")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "appro" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📦 Approvisionnement</button>
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
             <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱ Temps de prépa</button>
             <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
@@ -239,6 +241,7 @@ export default function TeamSpace({ onExit }) {
           </div>
           {tab === "services" && <ServiceTypesAdmin />}
           {tab === "ruptures" && <RupturesAdmin />}
+          {tab === "appro" && <ApprovisionnementAdmin />}
           {tab === "patons" && <PizzaStockAdmin />}
           {tab === "timing" && <TimingStatsAdmin />}
           {tab === "newproduct" && <MenuAdmin canEdit={readOnly} />}
