@@ -14,6 +14,7 @@
 import fs from "fs";
 import path from "path";
 import { PDFParse } from "pdf-parse";
+import { pathToFileURL } from "node:url";
 
 const DIR = path.join(process.cwd(), "factures-fournisseurs", "danioli");
 
@@ -21,7 +22,7 @@ const DIR = path.join(process.cwd(), "factures-fournisseurs", "danioli");
 const PRODUCT_LINE = /^(\d{6})\s+(.+?)\s+(\d+,\d{3})\s+(\d+,\d{2})\s+(\d+,\d{3})(?:\s+(.*))?$/;
 const VAT_LABEL = { 0: "0%", 1: "20%", 2: "5.5%" };
 
-function parseInvoiceText(text, fileName) {
+export function parseInvoiceText(text, fileName) {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   // Filename FC<code client>_<n° facture>.pdf
   const invoiceNumber = (fileName.match(/FC\d+_(\d+)/) || [null, null])[1];
@@ -92,7 +93,9 @@ async function main() {
   console.log(`\n${allRows.length} ligne(s) produit extraite(s) sur ${pdfFiles.length} facture(s).`);
 }
 
-main().catch((err) => {
-  console.error("Erreur :", err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("Erreur :", err);
+    process.exit(1);
+  });
+}

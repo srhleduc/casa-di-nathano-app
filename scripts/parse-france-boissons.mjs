@@ -24,6 +24,7 @@
 import fs from "fs";
 import path from "path";
 import { PDFParse } from "pdf-parse";
+import { pathToFileURL } from "node:url";
 
 const DIR = path.join(process.cwd(), "factures-fournisseurs", "france-boissons");
 
@@ -35,7 +36,7 @@ const HEADER_LINE_COLIS_COLS = /^(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+([\d,]+)$/;
 const HEADER_LINE_QTY_ONLY = /^(\d+)\s+(.+?)\s+(\d+)\s+([\d,]+)$/;
 const PRIX_NET_LINE = /^Prix net\s+([\d,]+)\s+(.+)$/;
 
-function parseInvoiceText(text, fileName) {
+export function parseInvoiceText(text, fileName) {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const rows = [];
   let pending = null; // { code, label, colis, cols, puHtt }
@@ -165,7 +166,9 @@ async function main() {
   console.log(`\n${allRows.length} ligne(s) produit extraite(s) sur ${pdfFiles.length} facture(s), dont ${uncertainCount} à vérifier manuellement.`);
 }
 
-main().catch((err) => {
-  console.error("Erreur :", err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("Erreur :", err);
+    process.exit(1);
+  });
+}

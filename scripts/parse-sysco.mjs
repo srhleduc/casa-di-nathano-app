@@ -24,13 +24,14 @@
 import fs from "fs";
 import path from "path";
 import { PDFParse } from "pdf-parse";
+import { pathToFileURL } from "node:url";
 
 const DIR = path.join(process.cwd(), "factures-fournisseurs", "sysco");
 
 const TAIL_LINE = /^(.*?)\s+([SHFA])\s+(\d+,\d{3})\s+([A-Z]+)\s+(\d+,\d{3})\s+(\d)\s+(\d+,\d{2})$/;
 const CODE_IN_PREFIX = /(?:^|\s)(\d{5})(?:\s|$)/;
 
-function parseInvoiceText(text, fileName) {
+export function parseInvoiceText(text, fileName) {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const rows = [];
 
@@ -125,7 +126,9 @@ async function main() {
   console.log(`\n${allRows.length} ligne(s) produit extraite(s) sur ${pdfFiles.length} facture(s), dont ${uncertainCount} à vérifier manuellement.`);
 }
 
-main().catch((err) => {
-  console.error("Erreur :", err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("Erreur :", err);
+    process.exit(1);
+  });
+}
