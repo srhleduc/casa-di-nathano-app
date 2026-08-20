@@ -954,3 +954,82 @@ join appro_suppliers s on s.name = v.supplier_name
 where not exists (
   select 1 from appro_products p where p.name = v.name
 );
+
+-- Les 114 produits restants du catalogue (Grain du Ponant, Sysco,
+-- Danioli, Armor Emballages, France Boissons) sont seedes via
+-- scripts/seed-appro-catalog.mjs -- pas de bloc SQL ici, la source est
+-- deja idempotente (dedup par nom+fournisseur, ignore les noms existants).
+
+-- =====================================================================
+-- APPROVISIONNEMENT -- Phase 3 (recettes et decrementation automatique
+-- du stock via les ventes).
+--
+-- appro_recipes : une recette par article vendable du menu (menu_items,
+-- id text -- voir menu_items plus haut). Contrairement a pizza_ingredients
+-- (module cout de revient, Direction), ce n'est pas une ligne libre par
+-- ingredient directement liee au menu_item -- on passe par une recette
+-- explicite (avec ses propres notes) pour rester coherent avec le
+-- vocabulaire du cahier des charges et permettre une recette "vide"
+-- (aucun ingredient) distincte de "pas encore renseignee".
+create table if not exists appro_recipes (
+  id uuid primary key default gen_random_uuid(),
+  menu_item_id text not null
+    references menu_items (id)
+    on delete cascade,
+  notes text,
+  created_at timestamptz not null default now(),
+  unique (menu_item_id)
+);
+
+create table if not exists appro_recipe_ingredients (
+  id uuid primary key default gen_random_uuid(),
+  recipe_id uuid not null
+    references appro_recipes (id)
+    on delete cascade,
+  product_id uuid not null
+    references appro_products (id)
+    on delete restrict,
+  quantity_per_unit numeric not null,
+  unit text not null,
+  unique (recipe_id, product_id)
+);
+
+alter table appro_recipes
+  enable row level security;
+alter table appro_recipe_ingredients
+  enable row level security;
+
+create policy "appro_recipes_authenticated_all"
+  on appro_recipes
+  for all
+  to authenticated
+  using (true)
+  with check (true);
+
+create policy "appro_recipe_ingredients_authenticated_all"
+  on appro_recipe_ingredients
+  for all
+  to authenticated
+  using (true)
+  with check (true);
+
+alter publication supabase_realtime
+  add table appro_recipes;
+alter publication supabase_realtime
+  add table appro_recipe_ingredients;
+
+-- Tracabilite : quel mouvement de stock vient de quelle commande (utile
+-- pour deboguer/auditer une decrementation automatique).
+alter table appro_stock_movements
+  add column if not exists order_id uuid
+    references orders (id)
+    on delete set null;
+
+-- Garde-fou anti double-decompte : une commande ne decremente le stock
+-- qu'une seule fois dans sa vie, la premiere fois qu'elle passe a
+-- "servie" (voir markOrderServed cote appli). Le bouton "Restaurer"
+-- (filet de securite ajoute precedemment) ne remet JAMAIS cette colonne
+-- a null -- corriger une erreur de clic sur le statut/paiement ne doit
+-- pas laisser croire que la nourriture n'a pas ete reellement consommee.
+alter table orders
+  add column if not exists stock_decremented_at timestamptz;
