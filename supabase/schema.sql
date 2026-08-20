@@ -921,3 +921,36 @@ insert into appro_suppliers (name) values
   ('Arno and Co'), ('Ferme des Mille Loches'), ('Carniato'),
   ('Episaveurs'), ('Terreazur')
 on conflict (name) do nothing;
+
+-- =====================================================================
+-- APPROVISIONNEMENT -- donnees complementaires : fournisseur emballages
+-- + premiers produits identifies, chacun relie a son fournisseur
+-- principal existant. appro_products n'a pas de contrainte unique sur le
+-- nom (des variantes similaires restent possibles via l'ecran), d'ou le
+-- garde "where not exists" plutot qu'un on conflict.
+
+insert into appro_suppliers (name)
+values ('Armor Emballages')
+on conflict (name) do nothing;
+
+insert into appro_products (name, unit, primary_supplier_id)
+select v.name, v.unit, s.id
+from (
+  values
+    ('Eau de source en bouteille 1,5L Cristaline', 'palette', 'Episaveurs'),
+    ('Sel de mer fin en sachet 1kg La Tablée', 'colis', 'Episaveurs'),
+    ('Regal''ad fruits en sachet 150g Krema', 'colis', 'Episaveurs'),
+    ('Sac de conservation gaufré sous vide 30x40 Publiembal', 'paquet', 'Episaveurs'),
+    ('Brisure de spéculoos en sachet 1,1kg Biscuiterie Brichard', 'sachet', 'Episaveurs'),
+    ('Sauce pimentée en dose 4ml Gyma', 'colis', 'Episaveurs'),
+    ('Miel de fleur gastronomie en squeeze 740g Lune de Miel', 'colis', 'Episaveurs'),
+    ('Salade jeunes pousses roquette sauvage barquette 250g', 'barquette', 'Terreazur'),
+    ('Champignon de Paris brun calibre moyen 3kg', 'colis', 'Terreazur'),
+    ('Poitrine fumée', 'kg', 'Arno and Co'),
+    ('Bœuf haché', 'kg', 'Arno and Co'),
+    ('Courge potimarron', 'kg', 'Ferme des Mille Loches')
+) as v(name, unit, supplier_name)
+join appro_suppliers s on s.name = v.supplier_name
+where not exists (
+  select 1 from appro_products p where p.name = v.name
+);

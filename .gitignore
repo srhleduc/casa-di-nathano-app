@@ -24,6 +24,10 @@ npm-debug.log*
 # supabase CLI local state
 /supabase/.temp
 
+# factures fournisseurs deposees en local pour l'extraction (donnees
+# commerciales sensibles) -- seule l'arborescence (.gitkeep) est versionnee.
+/factures-fournisseurs/**/*.pdf
+
 # editor
 .vscode/*
 !.vscode/extensions.json
