@@ -137,6 +137,15 @@ export default function OrderScreen({
               const last = matches[matches.length - 1];
               if (last) changeQty(last.id, last.note, last.modifiers, -1);
             }
+            // Le "+" rajoute simplement un exemplaire de la dernière ligne du
+            // panier (mêmes modificateurs) sans rouvrir la modale — sinon
+            // personnaliser 13 Regina identiques forçait à repasser par la
+            // modale à chaque clic.
+            function handleIncrement() {
+              const matches = cart.filter((i) => i.id === item.id);
+              const last = matches[matches.length - 1];
+              if (last) changeQty(last.id, last.note, last.modifiers, 1);
+            }
             return (
               <div
                 key={item.id}
@@ -166,7 +175,7 @@ export default function OrderScreen({
                           −
                         </button>
                         <span className="text-sm font-bold w-5 text-center">{inCart}</span>
-                        <button onClick={handleTap} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
+                        <button onClick={handleIncrement} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
                           +
                         </button>
                       </div>
