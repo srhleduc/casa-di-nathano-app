@@ -34,22 +34,42 @@ export default function SlotsAdmin() {
     }
   }, [defaultsLoading, defaultsInitialized, slotDefaults]);
 
-  function addSlot() {
+  // Un upsert en masse (générer tout un service) déclenche un event Realtime
+  // par ligne modifiée, donc la vue peut mettre plusieurs secondes à se
+  // stabiliser en attendant que ces dizaines d'events cascadent — trop lent
+  // et pas fiable au clic. On attend explicitement la fin de l'écriture puis
+  // on relance nous-mêmes un reload() immédiat pour un retour instantané.
+  async function addSlot() {
     if (!label.match(/^\d{1,2}[:h]\d{2}$/)) return;
     const clean = label.replace("h", ":");
-    insertSlot({ label: clean, capacity: parseInt(capacity, 10) || 0 }).catch((err) => console.error(err));
-    setLabel("");
+    try {
+      await insertSlot({ label: clean, capacity: parseInt(capacity, 10) || 0 });
+      setLabel("");
+      reload();
+    } catch (err) {
+      console.error(err);
+    }
   }
-  function removeSlot(id) {
-    deleteSlot(id).catch((err) => console.error(err));
+  async function removeSlot(id) {
+    try {
+      await deleteSlot(id);
+      reload();
+    } catch (err) {
+      console.error(err);
+    }
   }
-  function updateCapacity(id, val) {
-    updateSlotCapacity(id, parseInt(val, 10) || 0).catch((err) => console.error(err));
+  async function updateCapacity(id, val) {
+    try {
+      await updateSlotCapacity(id, parseInt(val, 10) || 0);
+      reload();
+    } catch (err) {
+      console.error(err);
+    }
   }
   // Calcule en minutes totales (pas en heures/minutes séparées) pour que la
   // plage du soir puisse aller jusqu'à minuit inclus (24:00) sans bricolage
   // de dépassement d'heure.
-  function bulkGenerate(start, end, step, cap) {
+  async function bulkGenerate(start, end, step, cap) {
     const out = [];
     const [sh, sm] = start.split(":").map(Number);
     const [eh, em] = end.split(":").map(Number);
@@ -60,17 +80,30 @@ export default function SlotsAdmin() {
       const m = t % 60;
       out.push({ label: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`, capacity: cap });
     }
-    bulkUpsertSlots(out).catch((err) => console.error(err));
+    try {
+      await bulkUpsertSlots(out);
+      reload();
+    } catch (err) {
+      console.error(err);
+    }
   }
-  function generateMidi() {
+  async function generateMidi() {
     const cap = parseInt(capMidi, 10) || 0;
-    bulkGenerate("12:00", "15:00", 10, cap);
+    await bulkGenerate("12:00", "15:00", 10, cap);
     setSlotDefaults({ midiCapacity: cap }).catch((err) => console.error(err));
   }
-  function generateSoir() {
+  async function generateSoir() {
     const cap = parseInt(capSoir, 10) || 0;
-    bulkGenerate("18:00", "24:00", 10, cap);
+    await bulkGenerate("18:00", "24:00", 10, cap);
     setSlotDefaults({ soirCapacity: cap }).catch((err) => console.error(err));
+  }
+  async function clearAll() {
+    try {
+      await clearAllSlots();
+      reload();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   const visibleSlots = slots.filter((s) => (service === "midi" ? isMidiSlot(s.label) : !isMidiSlot(s.label)));
@@ -124,7 +157,7 @@ export default function SlotsAdmin() {
             </button>
           </div>
         </div>
-        <button onClick={() => clearAllSlots().catch((err) => console.error(err))} className="tap-scale rounded-xl border border-red-800 text-red-400 px-4 py-3 text-sm font-bold self-start">
+        <button onClick={clearAll} className="tap-scale rounded-xl border border-red-800 text-red-400 px-4 py-3 text-sm font-bold self-start">
           Tout effacer
         </button>
         <button onClick={() => reload()} className="tap-scale rounded-xl border border-[#3a2b1f] px-4 py-3 text-sm font-bold self-start">
