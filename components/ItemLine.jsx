@@ -13,11 +13,18 @@ export default function ItemLine({ it }) {
           ↳ {noteIcon(it.name, it.note)} {it.note}
         </div>
       )}
-      {(it.modifiers || []).map((m, mi) => (
-        <div key={mi} className="text-xs text-[#a88f78] pl-4">
-          ↳ {m.name}
-        </div>
-      ))}
+      {(it.modifiers || []).map((m, mi) => {
+        const isRemoved = m.name.startsWith("Sans ");
+        const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
+        return (
+          <div key={mi} className="text-xs pl-4 flex items-center gap-1.5">
+            <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
+              {isRemoved ? "−" : "+"}
+            </span>
+            <span className="text-[#a88f78]">{label}</span>
+          </div>
+        );
+      })}
     </li>
   );
 }

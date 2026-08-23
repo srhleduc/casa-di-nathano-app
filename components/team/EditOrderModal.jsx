@@ -344,12 +344,21 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                       ↳ {noteIcon(i.name, i.note)} {i.note}
                     </div>
                   )}
-                  {(i.modifiers || []).map((m, mi) => (
-                    <div key={mi} className="text-xs text-[#a88f78] pl-3">
-                      ↳ {m.name}
-                      {m.price > 0 ? ` (+${eur(m.price)})` : ""}
-                    </div>
-                  ))}
+                  {(i.modifiers || []).map((m, mi) => {
+                    const isRemoved = m.name.startsWith("Sans ");
+                    const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
+                    return (
+                      <div key={mi} className="text-xs pl-3 flex items-center gap-1.5">
+                        <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
+                          {isRemoved ? "−" : "+"}
+                        </span>
+                        <span className="text-[#a88f78]">
+                          {label}
+                          {m.price > 0 ? ` (+${eur(m.price)})` : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
                   <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
                 </div>
                 {i.served ? (
