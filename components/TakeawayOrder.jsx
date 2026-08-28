@@ -196,6 +196,7 @@ export default function TakeawayOrder() {
           serviceType={serviceType}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}
+          dessertStockNote="🍰 Nos desserts sont proposés dans la limite des stocks disponibles. En cas de rupture, on vous prévient au retrait de la commande."
         />
       )}
 

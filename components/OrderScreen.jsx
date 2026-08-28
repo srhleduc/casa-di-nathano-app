@@ -28,6 +28,7 @@ export default function OrderScreen({
   serviceType,
   topBanner,
   staffMode,
+  dessertStockNote,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -115,6 +116,11 @@ export default function OrderScreen({
           <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
             <div className="font-bold">🍕 Pizzas épuisées pour ce soir</div>
             <div className="text-[#a88f78] text-sm mt-1">Toutes nos pâtes ont trouvé preneur — le reste du menu reste disponible.</div>
+          </div>
+        )}
+        {activeCat === "dessert" && dessertStockNote && (
+          <div className="rounded-2xl px-5 py-3 mb-4 text-center" style={{ background: "#221812", border: "1px solid #3a2b1f" }}>
+            <div className="text-[#a88f78] text-sm">{dessertStockNote}</div>
           </div>
         )}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
