@@ -35,9 +35,28 @@ export default function OrderScreen({
   // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
   const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
   const baseCategories = isPanuzzoTime ? CATEGORIES : CATEGORIES.filter((c) => c.key !== "panuzzo");
-  const visibleCategories = aperoMode ? baseCategories.filter((c) => APERO_CATS.includes(c.key)) : baseCategories;
 
   const isTakeaway = isTakeawayLike(serviceType);
+
+  // Un produit "sur place uniquement" (coché dans l'admin Menu) est
+  // structurellement absent des parcours à emporter : click & collect, borne en
+  // mode « à emporter », prise de commande équipe à emporter. À distinguer des
+  // ruptures et stocks du jour épuisés, qui sont temporaires et gardent leur
+  // onglet (avec message dédié).
+  function isStructurallyAvailable(m) {
+    return !(isTakeaway && m.dineInOnly);
+  }
+
+  // On masque l'onglet d'une catégorie qui n'a plus aucun produit commandable
+  // dans ce mode (ex. toutes les salades passées en « sur place uniquement »),
+  // ou d'une catégorie sans aucun produit.
+  const visibleCategories = (aperoMode ? baseCategories.filter((c) => APERO_CATS.includes(c.key)) : baseCategories).filter((c) =>
+    fullMenu.some((m) => m.cat === c.key && isStructurallyAvailable(m))
+  );
+
+  // Si la catégorie active vient d'être masquée (ses produits passés en « sur
+  // place uniquement »), on retombe sur la première catégorie encore visible.
+  const currentCat = visibleCategories.some((c) => c.key === activeCat) ? activeCat : visibleCategories[0]?.key;
 
   // Dessert épuisé dans son format normal : `fallback` indique qu'une
   // commande sur place peut tout de même être dépannée avec le format à
@@ -62,7 +81,7 @@ export default function OrderScreen({
 
   const items = fullMenu.filter(
     (m) =>
-      m.cat === activeCat &&
+      m.cat === currentCat &&
       !(ruptures || []).includes(m.id) &&
       !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
@@ -102,7 +121,7 @@ export default function OrderScreen({
             key={c.key}
             onClick={() => setActiveCat(c.key)}
             className={`tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
-              activeCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
+              currentCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
             }`}
           >
             <span className="text-3xl">{c.emoji}</span>
@@ -112,13 +131,13 @@ export default function OrderScreen({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-40">
-        {activeCat === "pizza" && pizzaStockOut && (
+        {currentCat === "pizza" && pizzaStockOut && (
           <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
             <div className="font-bold">🍕 Pizzas épuisées pour ce soir</div>
             <div className="text-[#a88f78] text-sm mt-1">Toutes nos pâtes ont trouvé preneur — le reste du menu reste disponible.</div>
           </div>
         )}
-        {activeCat === "dessert" && dessertStockNote && (
+        {currentCat === "dessert" && dessertStockNote && (
           <div className="rounded-2xl px-5 py-3 mb-4 text-center" style={{ background: "#221812", border: "1px solid #3a2b1f" }}>
             <div className="text-[#a88f78] text-sm">{dessertStockNote}</div>
           </div>
