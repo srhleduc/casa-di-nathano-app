@@ -11,7 +11,7 @@ function ingredientNamesFromMenu(menuItems) {
     .sort();
 }
 
-const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false };
+const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false, featured: false };
 
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
@@ -35,6 +35,7 @@ export default function MenuAdmin({ canEdit = false }) {
       ingredients: item.ingredients || [],
       photoUrl: item.photoUrl || "",
       dineInOnly: item.dineInOnly || false,
+      featured: item.featured || false,
     });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -71,6 +72,7 @@ export default function MenuAdmin({ canEdit = false }) {
       ingredients: form.cat === "pizza" ? form.ingredients : undefined,
       photoUrl: form.photoUrl.trim() || null,
       dineInOnly: form.dineInOnly,
+      featured: form.featured,
     };
     try {
       if (editingId) {
@@ -125,6 +127,7 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
+                {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>
           ))}
@@ -174,6 +177,17 @@ export default function MenuAdmin({ canEdit = false }) {
             {form.dineInOnly ? "✓ " : ""}🍽️ Disponible sur place uniquement
           </button>
           <div className="text-xs text-[#5a4a3a] mt-1">Masqué de la borne/équipe quand le client ou la table choisit "À emporter".</div>
+        </div>
+
+        <div className="mb-4">
+          <button
+            onClick={() => setForm({ ...form, featured: !form.featured })}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={form.featured ? { borderColor: "#e8622c", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            {form.featured ? "✓ " : ""}★ Mettre en avant (badge « Best-seller »)
+          </button>
+          <div className="text-xs text-[#5a4a3a] mt-1">Affiche un badge sur la carte du produit dans l'écran client (kiosque + click & collect).</div>
         </div>
 
         {form.cat === "pizza" && (
@@ -250,6 +264,7 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
+                {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
