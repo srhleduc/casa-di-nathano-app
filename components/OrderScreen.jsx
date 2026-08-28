@@ -2,6 +2,7 @@
 
 import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
+import ProductCard from "./ProductCard";
 
 export default function OrderScreen({
   activeCat,
@@ -29,6 +30,7 @@ export default function OrderScreen({
   topBanner,
   staffMode,
   dessertStockNote,
+  clientView,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
@@ -90,16 +92,34 @@ export default function OrderScreen({
   );
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌿</span>
-          <span className="display-font text-xl font-semibold">{restaurantName}</span>
+    <div className="flex-1 flex flex-col min-h-0" style={clientView ? { background: "#150e0a" } : undefined}>
+      {clientView ? (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b" style={{ borderColor: "#3a2a1f" }}>
+          {/* Sélecteur segmenté — mono-restaurant pour l'instant (Phase 2 : 2e pill + bascule). */}
+          <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "#1c1410" }}>
+            <span className="rounded-full px-4 py-2 text-sm font-bold" style={{ background: "#e8622c", color: "#150e0a" }}>
+              {restaurantName}
+            </span>
+          </div>
+          <button
+            onClick={onCancel}
+            className="tap-scale shrink-0 text-sm font-semibold px-4 py-2 rounded-full border"
+            style={{ borderColor: "#3a2a1f", color: "#b9a692" }}
+          >
+            Annuler
+          </button>
         </div>
-        <button onClick={onCancel} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
-          Annuler la commande
-        </button>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🌿</span>
+            <span className="display-font text-xl font-semibold">{restaurantName}</span>
+          </div>
+          <button onClick={onCancel} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
+            Annuler la commande
+          </button>
+        </div>
+      )}
 
       {topBanner}
 
@@ -115,20 +135,43 @@ export default function OrderScreen({
         </div>
       )}
 
-      <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-        {visibleCategories.map((c) => (
-          <button
-            key={c.key}
-            onClick={() => setActiveCat(c.key)}
-            className={`tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
-              currentCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
-            }`}
-          >
-            <span className="text-3xl">{c.emoji}</span>
-            <span className="text-sm font-bold">{c.label}</span>
-          </button>
-        ))}
-      </div>
+      {clientView ? (
+        <div className="flex gap-2 px-5 py-3 overflow-x-auto">
+          {visibleCategories.map((c) => {
+            const on = currentCat === c.key;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setActiveCat(c.key)}
+                className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2.5 border font-bold text-sm"
+                style={{
+                  background: on ? "#1c1410" : "#1c1410",
+                  borderColor: on ? "#d9a94c" : "#3a2a1f",
+                  color: on ? "#e4b65b" : "#b9a692",
+                }}
+              >
+                <span className="text-lg">{c.emoji}</span>
+                <span>{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+          {visibleCategories.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setActiveCat(c.key)}
+              className={`tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
+                currentCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
+              }`}
+            >
+              <span className="text-3xl">{c.emoji}</span>
+              <span className="text-sm font-bold">{c.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-40">
         {currentCat === "pizza" && pizzaStockOut && (
@@ -142,7 +185,7 @@ export default function OrderScreen({
             <div className="text-[#a88f78] text-sm">{dessertStockNote}</div>
           </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className={clientView ? "grid grid-cols-2 gap-[14px] pt-1" : "grid grid-cols-2 md:grid-cols-3 gap-4"}>
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
             const needsFlavor = flavorConfigFor(item.name) !== null;
@@ -171,6 +214,19 @@ export default function OrderScreen({
               const matches = cart.filter((i) => i.id === item.id);
               const last = matches[matches.length - 1];
               if (last) changeQty(last.id, last.note, last.modifiers, 1);
+            }
+            if (clientView) {
+              return (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  inCart={inCart}
+                  onTap={handleTap}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  isFallback={isFallback}
+                />
+              );
             }
             return (
               <div
@@ -215,14 +271,23 @@ export default function OrderScreen({
       </div>
 
       {itemCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 px-6 py-5 flex items-center justify-between ticket-edge bg-[#241811] border-t border-[#4a3826]">
+        <div
+          className={`fixed bottom-0 left-0 right-0 px-6 py-5 flex items-center justify-between ${clientView ? "border-t" : "ticket-edge bg-[#241811] border-t border-[#4a3826]"}`}
+          style={clientView ? { background: "#1c1410", borderColor: "#3a2a1f" } : undefined}
+        >
           <div>
-            <div className="text-sm text-[#a88f78] font-semibold">
+            <div className="text-sm font-semibold" style={clientView ? { color: "#b9a692" } : { color: "#a88f78" }}>
               {itemCount} article{itemCount > 1 ? "s" : ""}
             </div>
-            <div className="display-font text-2xl font-bold text-[#E8B23D]">{eur(total)}</div>
+            <div className="display-font text-2xl font-bold" style={clientView ? { color: "#d9a94c" } : { color: "#E8B23D" }}>
+              {eur(total)}
+            </div>
           </div>
-          <button onClick={onCheckout} className="tap-scale rounded-full px-10 py-5 text-xl font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+          <button
+            onClick={onCheckout}
+            className="tap-scale rounded-full px-10 py-5 text-xl font-bold"
+            style={clientView ? { background: "#e8622c", color: "#150e0a" } : { background: "#C0392B", color: "#fff5ea" }}
+          >
             Voir mon panier →
           </button>
         </div>

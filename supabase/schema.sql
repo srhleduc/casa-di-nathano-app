@@ -1033,3 +1033,8 @@ alter table appro_stock_movements
 -- pas laisser croire que la nourriture n'a pas ete reellement consommee.
 alter table orders
   add column if not exists stock_decremented_at timestamptz;
+
+-- Produit mis en avant sur l'ecran client (badge « Best-seller » sur la carte,
+-- kiosque + click & collect). Pilote depuis l'admin Menu ; sans effet ailleurs.
+alter table menu_items
+  add column if not exists featured boolean not null default false;

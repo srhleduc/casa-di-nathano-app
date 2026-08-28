@@ -193,6 +193,7 @@ export default function TakeawayOrder() {
           menu={menuItems}
           restaurantName={restaurant.name}
           showPhotos={true}
+          clientView
           serviceType={serviceType}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}

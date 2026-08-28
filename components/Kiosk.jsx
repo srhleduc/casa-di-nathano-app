@@ -218,6 +218,7 @@ export default function Kiosk() {
           menu={menuItems}
           restaurantName={restaurant.name}
           showPhotos={true}
+          clientView
           serviceType={serviceType}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {
