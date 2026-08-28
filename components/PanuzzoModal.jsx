@@ -22,6 +22,7 @@ export default function PanuzzoModal({ item, menu, dessertStock, orders, rupture
   function isDessertOut(name) {
     const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return false;
+    if (group.unlimited) return false;
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
 

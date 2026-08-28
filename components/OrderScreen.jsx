@@ -45,6 +45,7 @@ export default function OrderScreen({
   function dessertAvailability(name) {
     const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return { out: false, fallback: false };
+    if (group.unlimited) return { out: false, fallback: false };
     if (remainingForDessertGroup(orders || [], dessertStock || {}, group) > 0) return { out: false, fallback: false };
     if (staffMode && !isTakeaway && dessertHasSeparateFormats(DESSERT_STOCK_GROUPS, name)) {
       const takeawayGroup = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, true);

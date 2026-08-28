@@ -51,9 +51,15 @@ export default function DessertStockAdmin() {
                   Enregistrer
                 </button>
               </div>
-              <div className={`text-sm font-bold ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
-                {remaining <= 0 ? "🚫 Épuisé" : `${remaining} restant${remaining > 1 ? "s" : ""} aujourd'hui`}
-              </div>
+              {g.unlimited ? (
+                <div className="text-sm font-bold text-[#7fb069]">
+                  ✅ Toujours disponible — décompte désactivé (en attendant l'API caisse)
+                </div>
+              ) : (
+                <div className={`text-sm font-bold ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
+                  {remaining <= 0 ? "🚫 Épuisé" : `${remaining} restant${remaining > 1 ? "s" : ""} aujourd'hui`}
+                </div>
+              )}
             </div>
           );
         })}
