@@ -1038,3 +1038,85 @@ alter table orders
 -- kiosque + click & collect). Pilote depuis l'admin Menu ; sans effet ailleurs.
 alter table menu_items
   add column if not exists featured boolean not null default false;
+
+-- =====================================================================
+-- Engagement client sur les commandes en ligne (click & collect) — anti
+-- no-show, SANS compte client. Une ligne order_commitments par commande
+-- passee depuis /commande : telephone brut (aucun rapprochement avec un
+-- profil), acceptation CGV horodatee, COPIE INTEGRALE du texte CGV affiche
+-- au moment de l'acceptation (pas une simple reference de version), et IP
+-- capturee cote serveur par la Route Handler /api/commande.
+-- =====================================================================
+create table if not exists order_commitments (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders (id) on delete cascade,
+  restaurant_id text references restaurants (id),
+  customer_phone text not null,
+  commitment_accepted boolean not null default false,
+  commitment_accepted_at timestamptz,
+  cgv_text_snapshot text not null,
+  cgv_version text,
+  ip_address text,
+  order_status text not null default 'pending'
+    check (order_status in ('pending', 'picked_up', 'no_show', 'cancelled')),
+  created_at timestamptz not null default now()
+);
+create index if not exists order_commitments_order_id_idx on order_commitments (order_id);
+create index if not exists order_commitments_phone_idx on order_commitments (customer_phone);
+
+alter table order_commitments enable row level security;
+create policy "order_commitments_select" on order_commitments
+  for select to authenticated
+  using (restaurant_id = my_restaurant_id() or is_manager());
+create policy "order_commitments_write" on order_commitments
+  for all to authenticated
+  using (restaurant_id = my_restaurant_id())
+  with check (restaurant_id = my_restaurant_id());
+
+-- Insertion ATOMIQUE commande + engagement pour le click & collect.
+-- security invoker : tourne avec les droits de l'appelant (comme insertOrder
+-- cote client aujourd'hui), donc la RLS et my_restaurant_id() s'appliquent
+-- normalement. next_takeaway_number() reste security definer et keye sur
+-- auth.uid(). L'IP arrive de la Route Handler serveur (jamais du client SQL).
+create or replace function create_takeaway_order(
+  p_items jsonb,
+  p_service_type text,
+  p_name text,
+  p_slot_allocations jsonb,
+  p_pizza_count integer,
+  p_total numeric,
+  p_customer_phone text,
+  p_cgv_text_snapshot text,
+  p_cgv_version text,
+  p_ip_address text
+)
+returns table (order_id uuid, takeaway_number integer)
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_rid text := my_restaurant_id();
+  v_num integer := next_takeaway_number();
+  v_order_id uuid;
+begin
+  insert into orders (restaurant_id, items, service_type, name, slot_allocations,
+                      pizza_count, total, status, takeaway_number)
+  values (v_rid, p_items, p_service_type, p_name,
+          coalesce(p_slot_allocations, '[]'::jsonb),
+          coalesce(p_pizza_count, 0), coalesce(p_total, 0), 'attente', v_num)
+  returning id into v_order_id;
+
+  insert into order_commitments (order_id, restaurant_id, customer_phone,
+                                 commitment_accepted, commitment_accepted_at,
+                                 cgv_text_snapshot, cgv_version, ip_address, order_status)
+  values (v_order_id, v_rid, p_customer_phone, true, now(),
+          p_cgv_text_snapshot, p_cgv_version, p_ip_address, 'pending');
+
+  order_id := v_order_id;
+  takeaway_number := v_num;
+  return next;
+end;
+$$;
+
+grant execute on function create_takeaway_order(jsonb, text, text, jsonb, integer, numeric, text, text, text, text) to authenticated;

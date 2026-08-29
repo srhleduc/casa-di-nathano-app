@@ -1,7 +1,8 @@
 "use client";
 
 import { eur, noteIcon } from "@/lib/menu";
-import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
+import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
+import { CGV_NO_SHOW_CLAUSE } from "@/lib/cgv";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -19,8 +20,18 @@ export default function CheckoutScreen({
   onBack,
   onConfirm,
   serviceTypeOptions,
+  // Engagement client (click & collect uniquement) — absent sur la borne/équipe.
+  requireCommitment,
+  phone,
+  setPhone,
+  commitmentAccepted,
+  setCommitmentAccepted,
+  onOpenCgv,
 }) {
   const options = serviceTypeOptions || DEFAULT_OPTIONS;
+  const phoneOk = !requireCommitment || isValidPhoneFr(phone);
+  const commitmentOk = !requireCommitment || commitmentAccepted === true;
+  const canConfirm = cart.length > 0 && phoneOk && commitmentOk;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
@@ -104,6 +115,44 @@ export default function CheckoutScreen({
         />
       </div>
 
+      {requireCommitment && (
+        <div className="mb-8">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de téléphone</div>
+          <input
+            value={phone || ""}
+            onChange={(e) => setPhone(e.target.value)}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="Ex. 06 12 34 56 78"
+            className="w-full rounded-xl px-4 py-4 text-lg outline-none"
+            style={{ background: "#211712", border: `1px solid ${phone && !isValidPhoneFr(phone) ? "#C0392B" : "#3a2b1f"}`, color: "#f5ebdd" }}
+          />
+          {phone && !isValidPhoneFr(phone) && (
+            <p className="text-sm mt-2" style={{ color: "#e88a8a" }}>Numéro invalide — format attendu : 06 12 34 56 78</p>
+          )}
+
+          <label className="flex items-start gap-3 mt-5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={commitmentAccepted === true}
+              onChange={(e) => setCommitmentAccepted(e.target.checked)}
+              className="mt-1 w-5 h-5 shrink-0 accent-[#C0392B]"
+            />
+            <span className="text-sm text-[#c9b8a4] leading-relaxed">
+              En validant votre commande, vous vous engagez à venir la récupérer sur le créneau choisi. Toute commande non retirée reste due.
+            </span>
+          </label>
+
+          <p className="text-sm mt-3">
+            <button type="button" onClick={onOpenCgv} className="underline underline-offset-2 font-semibold text-[#E8B23D] tap-scale">
+              Conditions générales de vente
+            </button>
+            <span className="text-[#8a7561]"> — {CGV_NO_SHOW_CLAUSE}</span>
+          </p>
+        </div>
+      )}
+
       {setNote && (
         <div className="mb-8">
           <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "#ff5fa8" }}>
@@ -124,7 +173,7 @@ export default function CheckoutScreen({
         <span className="text-xl font-bold">Total</span>
         <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
       </div>
-      <button onClick={onConfirm} disabled={cart.length === 0} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
+      <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
         {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE ? "Choisir mon créneau →" : "Valider ma commande →"}
       </button>
       <p className="text-center text-[#8a7561] text-sm mt-4">Le règlement se fait en caisse, après validation.</p>
