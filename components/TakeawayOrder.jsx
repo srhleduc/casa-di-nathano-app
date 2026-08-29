@@ -6,9 +6,10 @@
 // rendu ici, quelle que soit la manipulation d'URL tentée par un client.
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, normalizePhoneFr, TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTakeawayLinkStatus, insertOrder } from "@/lib/data";
+import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTakeawayLinkStatus, submitTakeawayOrderWithCommitment } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -17,16 +18,17 @@ import PizzaCustomizeModal from "./PizzaCustomizeModal";
 import FlavorModal from "./FlavorModal";
 import PanuzzoModal from "./PanuzzoModal";
 import CheckoutScreen from "./CheckoutScreen";
+import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
 
-async function submitWithRetry(order, attempt = 1) {
+async function submitWithRetry(payload, attempt = 1) {
   try {
-    return await insertOrder(order);
+    return await submitTakeawayOrderWithCommitment(payload);
   } catch (err) {
     if (attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
-      return submitWithRetry(order, attempt + 1);
+      return submitWithRetry(payload, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
     return null;
@@ -65,6 +67,9 @@ export default function TakeawayOrder() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander (miroir du flux serveuses)
+  const [phone, setPhone] = useState(""); // engagement client — numéro brut, aucun rapprochement profil
+  const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
+  const [cgvOpen, setCgvOpen] = useState(false);
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -120,6 +125,9 @@ export default function TakeawayOrder() {
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
     setCheckPizzaCount(0);
+    setPhone("");
+    setCommitmentAccepted(false);
+    setCgvOpen(false);
     setScreen("welcome");
   }
 
@@ -171,10 +179,17 @@ export default function TakeawayOrder() {
       slotAllocations: finalPlan || [],
       pizzaCount,
       total,
-      status: "attente",
     };
     setScreen("done");
-    submitWithRetry(newOrder).then(setConfirmedNumber);
+    submitWithRetry({
+      order: newOrder,
+      commitment: {
+        phone: normalizePhoneFr(phone),
+        accepted: commitmentAccepted,
+        cgvSnapshot: CGV_TEXT,
+        cgvVersion: CGV_VERSION,
+      },
+    }).then(setConfirmedNumber);
   }
 
   function goToSlot() {
@@ -294,8 +309,16 @@ export default function TakeawayOrder() {
           setTableName={setTableName}
           onBack={() => setScreen("order")}
           onConfirm={goToSlot}
+          requireCommitment
+          phone={phone}
+          setPhone={setPhone}
+          commitmentAccepted={commitmentAccepted}
+          setCommitmentAccepted={setCommitmentAccepted}
+          onOpenCgv={() => setCgvOpen(true)}
         />
       )}
+
+      {cgvOpen && <CgvModal onClose={() => setCgvOpen(false)} />}
 
       {screen === "slot" && (
         <SlotScreen
