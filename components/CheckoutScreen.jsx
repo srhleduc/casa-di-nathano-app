@@ -29,9 +29,10 @@ export default function CheckoutScreen({
   onOpenCgv,
 }) {
   const options = serviceTypeOptions || DEFAULT_OPTIONS;
+  const nameOk = !requireCommitment || (tableName || "").trim().length > 0;
   const phoneOk = !requireCommitment || isValidPhoneFr(phone);
   const commitmentOk = !requireCommitment || commitmentAccepted === true;
-  const canConfirm = cart.length > 0 && phoneOk && commitmentOk;
+  const canConfirm = cart.length > 0 && nameOk && phoneOk && commitmentOk;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
@@ -118,6 +119,9 @@ export default function CheckoutScreen({
       {requireCommitment && (
         <div className="mb-8">
           <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de téléphone</div>
+          <p className="text-sm text-[#8a7561] mb-2 leading-relaxed">
+            Sert à vous joindre si besoin au sujet de cette commande, et à la rattacher à votre carte de fidélité si vous en avez une. Jamais utilisé pour du démarchage.
+          </p>
           <input
             value={phone || ""}
             onChange={(e) => setPhone(e.target.value)}
@@ -176,6 +180,11 @@ export default function CheckoutScreen({
       <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
         {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE ? "Choisir mon créneau →" : "Valider ma commande →"}
       </button>
+      {requireCommitment && !canConfirm && cart.length > 0 && (
+        <p className="text-center text-sm mt-3" style={{ color: "#e88a8a" }}>
+          Renseignez votre nom, un numéro de téléphone valide et cochez l'engagement pour valider.
+        </p>
+      )}
       <p className="text-center text-[#8a7561] text-sm mt-4">Le règlement se fait en caisse, après validation.</p>
     </div>
   );
