@@ -64,6 +64,7 @@ export default function TakeawayOrder() {
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
+  const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander (miroir du flux serveuses)
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -118,8 +119,49 @@ export default function TakeawayOrder() {
     setSelectedOption(null);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
+    setCheckPizzaCount(0);
     setScreen("welcome");
   }
+
+  // Vérif de dispo affichée en haut de l'écran de commande — même calcul que le
+  // flux serveuses (StaffOrderFlow) : on annonce le créneau le plus proche pour
+  // N pizzas sans rien réserver, pour que le client sache avant de composer son
+  // panier. Masqué si aucun créneau n'est configuré (rien de pertinent à dire).
+  const checkSlotChoice = checkPizzaCount > 0 ? computeSlotOptions(orders, slots, checkPizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES) : null;
+  const availabilityBanner =
+    slots.length > 0 ? (
+      <div className="px-5 py-3 border-b flex items-center gap-3 flex-wrap" style={{ borderColor: "#3a2a1f" }}>
+        <span className="text-sm font-bold" style={{ color: "#b9a692" }}>
+          ⏱️ Vérifier une dispo avant de commander :
+        </span>
+        <select
+          value={checkPizzaCount}
+          onChange={(e) => setCheckPizzaCount(Number(e.target.value))}
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{ background: "#1c1410", border: "1px solid #3a2a1f", color: "#f5ede3" }}
+        >
+          <option value={0}>Nb pizzas…</option>
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n} pizza{n > 1 ? "s" : ""}
+            </option>
+          ))}
+        </select>
+        {checkSlotChoice && (
+          <span className="text-sm font-bold" style={{ color: "#d9a94c" }}>
+            {checkSlotChoice.mode === "none" && "😕 Aucune place disponible aujourd'hui"}
+            {checkSlotChoice.mode === "single" &&
+              checkSlotChoice.options[0] &&
+              `🕐 Créneau le plus proche : ${checkSlotChoice.options[0].label} (${checkSlotChoice.options[0].remaining} place${
+                checkSlotChoice.options[0].remaining > 1 ? "s" : ""
+              })`}
+            {checkSlotChoice.mode === "split" &&
+              checkSlotChoice.plans[0] &&
+              `🕐 Créneau le plus proche : ${checkSlotChoice.plans[0][checkSlotChoice.plans[0].length - 1].label}`}
+          </span>
+        )}
+      </div>
+    ) : null;
 
   function submitOrder(finalPlan) {
     const newOrder = {
@@ -195,6 +237,7 @@ export default function TakeawayOrder() {
           showPhotos={true}
           clientView
           serviceType={serviceType}
+          topBanner={availabilityBanner}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}
           dessertStockNote="🍰 Nos desserts sont proposés dans la limite des stocks disponibles. En cas de rupture, on vous prévient au retrait de la commande."
