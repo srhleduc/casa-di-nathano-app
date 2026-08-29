@@ -1049,7 +1049,8 @@ alter table menu_items
 -- =====================================================================
 create table if not exists order_commitments (
   id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references orders (id) on delete cascade,
+  order_id uuid not null
+    references orders (id) on delete cascade,
   restaurant_id text references restaurants (id),
   customer_phone text not null,
   commitment_accepted boolean not null default false,
@@ -1057,27 +1058,53 @@ create table if not exists order_commitments (
   cgv_text_snapshot text not null,
   cgv_version text,
   ip_address text,
-  order_status text not null default 'pending'
-    check (order_status in ('pending', 'picked_up', 'no_show', 'cancelled')),
+  order_status text not null default 'pending',
   created_at timestamptz not null default now()
 );
-create index if not exists order_commitments_order_id_idx on order_commitments (order_id);
-create index if not exists order_commitments_phone_idx on order_commitments (customer_phone);
+
+alter table order_commitments
+  drop constraint if exists order_commitments_status_chk;
+alter table order_commitments
+  add constraint order_commitments_status_chk
+  check (order_status in
+    ('pending', 'picked_up', 'no_show', 'cancelled'));
+
+create index if not exists order_commitments_order_id_idx
+  on order_commitments (order_id);
+create index if not exists order_commitments_phone_idx
+  on order_commitments (customer_phone);
 
 alter table order_commitments enable row level security;
-create policy "order_commitments_select" on order_commitments
+
+drop policy if exists "order_commitments_select"
+  on order_commitments;
+drop policy if exists "order_commitments_write"
+  on order_commitments;
+
+create policy "order_commitments_select"
+  on order_commitments
   for select to authenticated
-  using (restaurant_id = my_restaurant_id() or is_manager());
-create policy "order_commitments_write" on order_commitments
+  using (
+    restaurant_id = my_restaurant_id() or is_manager()
+  );
+
+create policy "order_commitments_write"
+  on order_commitments
   for all to authenticated
   using (restaurant_id = my_restaurant_id())
   with check (restaurant_id = my_restaurant_id());
 
 -- Insertion ATOMIQUE commande + engagement pour le click & collect.
--- security invoker : tourne avec les droits de l'appelant (comme insertOrder
--- cote client aujourd'hui), donc la RLS et my_restaurant_id() s'appliquent
--- normalement. next_takeaway_number() reste security definer et keye sur
--- auth.uid(). L'IP arrive de la Route Handler serveur (jamais du client SQL).
+-- security invoker : tourne avec les droits de l'appelant (comme
+-- insertOrder cote client aujourd'hui), donc la RLS et
+-- my_restaurant_id() s'appliquent normalement. next_takeaway_number()
+-- reste security definer et keye sur auth.uid(). L'IP arrive de la
+-- Route Handler serveur (jamais du client SQL).
+drop function if exists create_takeaway_order(
+  jsonb, text, text, jsonb, integer, numeric,
+  text, text, text, text
+);
+
 create or replace function create_takeaway_order(
   p_items jsonb,
   p_service_type text,
@@ -1094,29 +1121,66 @@ returns table (order_id uuid, takeaway_number integer)
 language plpgsql
 security invoker
 set search_path = public
-as $$
+as $func$
 declare
   v_rid text := my_restaurant_id();
   v_num integer := next_takeaway_number();
   v_order_id uuid;
 begin
-  insert into orders (restaurant_id, items, service_type, name, slot_allocations,
-                      pizza_count, total, status, takeaway_number)
-  values (v_rid, p_items, p_service_type, p_name,
-          coalesce(p_slot_allocations, '[]'::jsonb),
-          coalesce(p_pizza_count, 0), coalesce(p_total, 0), 'attente', v_num)
+  insert into orders (
+    restaurant_id,
+    items,
+    service_type,
+    name,
+    slot_allocations,
+    pizza_count,
+    total,
+    status,
+    takeaway_number
+  )
+  values (
+    v_rid,
+    p_items,
+    p_service_type,
+    p_name,
+    coalesce(p_slot_allocations, '[]'::jsonb),
+    coalesce(p_pizza_count, 0),
+    coalesce(p_total, 0),
+    'attente',
+    v_num
+  )
   returning id into v_order_id;
 
-  insert into order_commitments (order_id, restaurant_id, customer_phone,
-                                 commitment_accepted, commitment_accepted_at,
-                                 cgv_text_snapshot, cgv_version, ip_address, order_status)
-  values (v_order_id, v_rid, p_customer_phone, true, now(),
-          p_cgv_text_snapshot, p_cgv_version, p_ip_address, 'pending');
+  insert into order_commitments (
+    order_id,
+    restaurant_id,
+    customer_phone,
+    commitment_accepted,
+    commitment_accepted_at,
+    cgv_text_snapshot,
+    cgv_version,
+    ip_address,
+    order_status
+  )
+  values (
+    v_order_id,
+    v_rid,
+    p_customer_phone,
+    true,
+    now(),
+    p_cgv_text_snapshot,
+    p_cgv_version,
+    p_ip_address,
+    'pending'
+  );
 
   order_id := v_order_id;
   takeaway_number := v_num;
   return next;
 end;
-$$;
+$func$;
 
-grant execute on function create_takeaway_order(jsonb, text, text, jsonb, integer, numeric, text, text, text, text) to authenticated;
+grant execute on function create_takeaway_order(
+  jsonb, text, text, jsonb, integer, numeric,
+  text, text, text, text
+) to authenticated;
