@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots,
   updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended,
-  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone,
+  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone,
 } from "@/lib/data";
 import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
@@ -238,15 +238,17 @@ const LOYALTY_INPUT_STYLE = { background: "#140d08", border: "1px solid #3a2b1f"
 
 // Contrôle fidélité d'une carte de commande en caisse :
 //  - déjà rattachée (un mouvement porte son order_id) -> "⭐ Fidélité ☑️ Nom"
-//  - sinon, bouton "⭐ Fidélité ➕" ouvrant un panneau : cherche un compte par
-//    téléphone (pré-rempli avec le numéro du click & collect s'il y en a un),
-//    l'associe et crédite floor(total) points ; ou propose de créer le compte
-//    si le numéro est inconnu.
+//  - sinon, bouton "⭐ Fidélité ➕" ouvrant un panneau : recherche d'un compte par
+//    nom / prénom OU téléphone (champ pré-rempli avec le numéro du client pour un
+//    click & collect), association + crédit de floor(total) points ; ou création
+//    du compte si le numéro est inconnu.
 function OrderLoyaltyControl({ order, link, readOnly }) {
   const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [step, setStep] = useState("idle"); // idle | searching | found | unknown | saving
+  const [term, setTerm] = useState(""); // nom, prénom ou téléphone
+  const [step, setStep] = useState("idle"); // idle | searching | list | found | unknown | saving
+  const [results, setResults] = useState([]);
   const [match, setMatch] = useState(null);
+  const [createPhone, setCreatePhone] = useState(null); // numéro canonique quand on crée
   const [nom, setNom] = useState("");
   const [dateAnniversaire, setDateAnniversaire] = useState("");
   const [msg, setMsg] = useState(null);
@@ -263,24 +265,51 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
 
   if (readOnly) return null;
 
+  function resetToSearch() {
+    setStep("idle");
+    setResults([]);
+    setMatch(null);
+    setCreatePhone(null);
+    setMsg(null);
+  }
+
   async function runSearch(raw) {
-    const p = canonicalLoyaltyPhone(raw ?? phone);
-    if (!p) {
-      setStep("idle");
-      setMsg("Numéro invalide (format 0X XX XX XX XX).");
+    const t = (raw ?? term).trim();
+    if (t.length < 2) {
+      setMsg("Saisis un nom, un prénom ou un numéro.");
       return;
     }
     setStep("searching");
     setMsg(null);
+    setResults([]);
+    setMatch(null);
+    setCreatePhone(null);
     try {
-      const c = await fetchLoyaltyCustomerByPhone(p);
-      if (c) {
-        setMatch(c);
+      const p = canonicalLoyaltyPhone(t);
+      if (p) {
+        // Numéro complet valide -> recherche exacte, avec création si inconnu.
+        const c = await fetchLoyaltyCustomerByPhone(p);
+        if (c) {
+          setMatch(c);
+          setStep("found");
+        } else {
+          setCreatePhone(p);
+          setStep("unknown");
+          setMsg("Numéro inconnu du service de fidélité — créer un compte ?");
+        }
+        return;
+      }
+      // Sinon : recherche souple par nom/prénom (ou fragment de numéro).
+      const list = await searchLoyaltyCustomers(t);
+      if (list.length === 0) {
+        setStep("idle");
+        setMsg("Aucun client trouvé. Pour créer un compte, saisis le numéro de téléphone.");
+      } else if (list.length === 1) {
+        setMatch(list[0]);
         setStep("found");
       } else {
-        setMatch(null);
-        setStep("unknown");
-        setMsg("Numéro inconnu du service de fidélité — créer un compte ?");
+        setResults(list);
+        setStep("list");
       }
     } catch (err) {
       console.error(err);
@@ -295,7 +324,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
     try {
       const ccPhone = await fetchOrderCommitmentPhone(order.id);
       if (ccPhone) {
-        setPhone(ccPhone);
+        setTerm(ccPhone);
         runSearch(ccPhone);
       }
     } catch (err) {
@@ -304,7 +333,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
   }
 
   async function associate() {
-    const p = canonicalLoyaltyPhone(phone);
+    const p = match ? match.phone : createPhone;
     if (!p || pts <= 0) return;
     setStep("saving");
     try {
@@ -332,11 +361,10 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
     <div className="rounded-lg border border-[#3a2b1f] p-2 flex flex-col gap-2">
       <div className="flex gap-2">
         <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          type="tel"
-          inputMode="tel"
-          placeholder="06 12 34 56 78"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && runSearch()}
+          placeholder="Nom, prénom ou téléphone"
           className="flex-1 rounded px-2 py-1 text-sm min-w-0"
           style={LOYALTY_INPUT_STYLE}
         />
@@ -351,6 +379,24 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
         </div>
       )}
 
+      {step === "list" && (
+        <div className="flex flex-col gap-1">
+          {results.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => {
+                setMatch(c);
+                setStep("found");
+                setMsg(null);
+              }}
+              className="tap-scale text-left rounded border border-[#3a2b1f] px-2 py-1 text-xs text-[#c9b8a4]"
+            >
+              <span className="font-bold">{c.nom || "Sans nom"}</span> · {c.phone} · {c.soldePoints} pts
+            </button>
+          ))}
+        </div>
+      )}
+
       {step === "found" && match && (
         <>
           <div className="text-xs text-[#c9b8a4]">
@@ -358,7 +404,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
           </div>
           <button
             onClick={associate}
-            disabled={step === "saving" || pts <= 0}
+            disabled={pts <= 0}
             className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
             style={{ background: "#C0392B", color: "#fff5ea" }}
           >
@@ -373,7 +419,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
           <input value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} type="date" className="rounded px-2 py-1 text-sm" style={LOYALTY_INPUT_STYLE} />
           <button
             onClick={associate}
-            disabled={step === "saving" || pts <= 0}
+            disabled={pts <= 0}
             className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
             style={{ background: "#C0392B", color: "#fff5ea" }}
           >
@@ -382,9 +428,16 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
         </>
       )}
 
-      <button onClick={() => setOpen(false)} className="text-xs text-[#8a7561] self-start">
-        Annuler
-      </button>
+      <div className="flex items-center gap-3">
+        {(step === "list" || step === "found" || step === "unknown") && (
+          <button onClick={resetToSearch} className="text-xs text-[#8a7561]">
+            ← Nouvelle recherche
+          </button>
+        )}
+        <button onClick={() => setOpen(false)} className="text-xs text-[#8a7561]">
+          Annuler
+        </button>
+      </div>
     </div>
   );
 }
