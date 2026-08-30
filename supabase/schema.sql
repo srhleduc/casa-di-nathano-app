@@ -1486,3 +1486,49 @@ end;
 $search$;
 
 grant execute on function search_loyalty_customers(text) to authenticated;
+
+-- --------------------------------------- gabarits de messages fidélité --
+-- Textes des SMS fidélité, éditables depuis l'espace Direction (managers).
+-- Le contenu est paramétré maintenant ; l'envoi effectif (API OVH) viendra
+-- avec la phase G, une fois le nouveau système de caisse en place.
+-- Placeholders remplacés à l'envoi : {restaurant} {prenom} {code} {expiration}.
+--   bienvenue       : à la création du compte fidélité
+--   avis_google     : au 3e passage du client (demande d'avis Google)
+--   anniversaire    : le jour de l'anniversaire, avec le bon de 5 €
+--   recompense_150  : au franchissement d'un multiple de 150 points, avec le bon
+create table if not exists loyalty_message_templates (
+  key text primary key,
+  label text not null,
+  body text not null,
+  enabled boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table loyalty_message_templates enable row level security;
+drop policy if exists "loyalty_message_templates_select" on loyalty_message_templates;
+drop policy if exists "loyalty_message_templates_write" on loyalty_message_templates;
+drop policy if exists "loyalty_message_templates_update" on loyalty_message_templates;
+drop policy if exists "loyalty_message_templates_delete" on loyalty_message_templates;
+create policy "loyalty_message_templates_select" on loyalty_message_templates for select to authenticated using (true);
+create policy "loyalty_message_templates_write" on loyalty_message_templates for insert to authenticated with check (is_manager());
+create policy "loyalty_message_templates_update" on loyalty_message_templates for update to authenticated using (is_manager()) with check (is_manager());
+create policy "loyalty_message_templates_delete" on loyalty_message_templates for delete to authenticated using (is_manager());
+
+do $$
+begin
+  begin
+    execute 'alter publication supabase_realtime add table loyalty_message_templates';
+  exception when duplicate_object then null;
+  end;
+end $$;
+
+insert into loyalty_message_templates (key, label, body) values
+  ('bienvenue', 'Message de bienvenue',
+   'Bienvenue chez {restaurant} ! Votre carte de fidelite est active : 1 point par euro depense, et un bon de 5 EUR tous les 150 points. A tres vite !'),
+  ('avis_google', 'Demande d''avis Google (apres 3 passages)',
+   'Merci de votre visite chez {restaurant} ! Si vous avez passe un bon moment, votre avis Google compte beaucoup pour nous : [collez ici votre lien Google]. Merci !'),
+  ('anniversaire', 'Message d''anniversaire',
+   'Joyeux anniversaire de la part de {restaurant} ! Pour feter ca, un bon de 5 EUR vous attend (code {code}), valable jusqu''au {expiration}. A bientot !'),
+  ('recompense_150', 'Bon de 5 EUR - palier 150 points',
+   'Bravo {prenom} ! Vous avez atteint 150 points chez {restaurant} : un bon de 5 EUR est a vous (code {code}), valable jusqu''au {expiration}. Merci de votre fidelite !')
+on conflict (key) do nothing;

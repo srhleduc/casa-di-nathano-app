@@ -12,6 +12,7 @@ import TeamSpace from "../TeamSpace";
 import CostPriceAdmin from "./CostPriceAdmin";
 import ConsumptionAdmin from "./ConsumptionAdmin";
 import SupplierOrdersAdmin from "./SupplierOrdersAdmin";
+import LoyaltyMessagesAdmin from "./LoyaltyMessagesAdmin";
 
 function NotificationsToggle() {
   const { session } = useManagerSession();
@@ -68,7 +69,7 @@ export default function DirectionDashboard() {
   const { orders } = useOrders();
   const restaurants = useRestaurantsList();
   const [selected, setSelected] = useState(null);
-  const [tab, setTab] = useState("overview"); // "overview" | "costprice" | "consumption"
+  const [tab, setTab] = useState("overview"); // "overview" | "costprice" | "consumption" | "suppliers" | "messages"
 
   if (selected) {
     return (
@@ -104,6 +105,9 @@ export default function DirectionDashboard() {
         </button>
         <button onClick={() => setTab("suppliers")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "suppliers" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🚚 Commande fournisseurs
+        </button>
+        <button onClick={() => setTab("messages")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "messages" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          ✉️ Messages fidélité
         </button>
       </div>
 
@@ -146,6 +150,7 @@ export default function DirectionDashboard() {
       {tab === "costprice" && <CostPriceAdmin />}
       {tab === "consumption" && <ConsumptionAdmin />}
       {tab === "suppliers" && <SupplierOrdersAdmin />}
+      {tab === "messages" && <LoyaltyMessagesAdmin />}
     </div>
   );
 }
