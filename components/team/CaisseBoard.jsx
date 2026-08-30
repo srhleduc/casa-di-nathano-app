@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended } from "@/lib/data";
-import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike } from "@/lib/business";
+import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended, awardLoyaltyPointsFromCaisse } from "@/lib/data";
+import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
-export default function CaisseBoard() {
+export default function CaisseBoard({ readOnly = false }) {
   const { orders } = useOrders();
   const { menuItems } = useMenu();
   const { ruptures } = useRuptures();
@@ -33,17 +33,30 @@ export default function CaisseBoard() {
 
   const [cancelMode, setCancelMode] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
+  const [phoneByOrderId, setPhoneByOrderId] = useState({});
   const { suspended } = useTakeawayLinkStatus();
 
   function toggleTakeawayLink() {
     setTakeawayLinkSuspended(!suspended).catch((err) => console.error(err));
   }
 
+  // Fidélité : si un numéro valide a été saisi sur la carte, crédite les
+  // points au moment de l'encaissement. Jamais bloquant, jamais en vue
+  // Direction (readOnly). Appelé après les mutations qui posent paid = true.
+  function awardLoyaltyIfPhone(order) {
+    if (readOnly) return;
+    const phone = canonicalLoyaltyPhone(phoneByOrderId[order.id] || "");
+    if (!phone) return;
+    awardLoyaltyPointsFromCaisse(phone, order.total, order.id).catch((err) => console.error(err));
+  }
+
   function markPaidUnserved(order) {
     updateOrder(order.id, { paid: true }).catch((err) => console.error(err));
+    awardLoyaltyIfPhone(order);
   }
   function markPaidAndServed(order) {
     markOrderServed(order, { paid: true }).catch((err) => console.error(err));
+    awardLoyaltyIfPhone(order);
   }
   function markServed(order) {
     markOrderServed(order).catch((err) => console.error(err));
@@ -77,6 +90,17 @@ export default function CaisseBoard() {
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" />
         <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
+        {!readOnly && (
+          <input
+            value={phoneByOrderId[o.id] || ""}
+            onChange={(e) => setPhoneByOrderId((prev) => ({ ...prev, [o.id]: e.target.value }))}
+            type="tel"
+            inputMode="tel"
+            placeholder="📱 Tél. fidélité (facultatif)"
+            className="w-full rounded-lg px-3 py-2 mb-2 text-sm"
+            style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          />
+        )}
         {!isTakeawayLike(o.serviceType) ? (
           // Sur place : le client a généralement déjà mangé au moment de
           // payer, pas besoin du paiement anticipé — un seul bouton, comme

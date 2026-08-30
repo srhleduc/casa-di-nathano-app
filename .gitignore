@@ -28,6 +28,10 @@ npm-debug.log*
 # commerciales sensibles) -- seule l'arborescence (.gitkeep) est versionnee.
 /factures-fournisseurs/**/*.pdf
 
+# exports Zerosix deposes en local pour la migration fidelite (donnees
+# personnelles clients) -- ne JAMAIS pousser vers un outil cloud.
+/exports zerosix/
+
 # editor
 .vscode/*
 !.vscode/extensions.json

@@ -1174,6 +1174,17 @@ begin
     'pending'
   );
 
+  -- Fidelite : credite les points sur le numero deja collecte pour
+  -- l'engagement client. award_loyalty_points est security definer (donc
+  -- insensible a la RLS de cette fonction security invoker) et normalise
+  -- lui-meme le telephone. JAMAIS bloquant : une erreur cote fidelite ne
+  -- doit pas faire echouer la commande.
+  begin
+    perform award_loyalty_points(p_customer_phone, coalesce(p_total, 0), v_order_id, 'click_and_collect');
+  exception when others then
+    null;
+  end;
+
   order_id := v_order_id;
   takeaway_number := v_num;
   return next;
@@ -1184,3 +1195,294 @@ grant execute on function create_takeaway_order(
   jsonb, text, text, jsonb, integer, numeric,
   text, text, text, text
 ) to authenticated;
+
+-- =====================================================================
+-- FIDÉLITÉ CASA — remplace Zerosix. Système maison intégré à l'app.
+--
+-- Base clients PARTAGÉE entre les deux restaurants (une seule enseigne côté
+-- client, un seul solde de points, un seul programme) : comme menu_items /
+-- ingredients / appro_*, ces tables n'ont PAS de restaurant_id. La provenance
+-- d'un gain est tracée par loyalty_movements.source (click_and_collect / caisse).
+--
+-- Règles métier (cahier des charges, définitives) :
+--   - 1 point = 1 € dépensé, arrondi à l'euro inférieur (floor), sans expiration.
+--   - 150 points => bon de 5 €, CUMULABLE (300 => 2 bons, 450 => 3, ...).
+--   - Anniversaire => bon de 5 € automatique, indépendant du solde.
+--   - Bons valides 21 jours puis statut 'expire' (jamais supprimés).
+--     Réactivation manuelle => repasse 'actif' avec expires_at = now() + 21 j.
+--   - Identifiant client unique = téléphone normalisé (0XXXXXXXXX), pas d'email.
+-- =====================================================================
+
+-- ------------------------------------------------------- loyalty_customers --
+create table if not exists loyalty_customers (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null unique,               -- forme canonique 0XXXXXXXXX
+  nom text,
+  date_anniversaire date,
+  solde_points integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- ------------------------------------------------------- loyalty_movements --
+create table if not exists loyalty_movements (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references loyalty_customers (id) on delete cascade,
+  type text not null check (type in ('gain', 'depense', 'ajustement')),
+  points integer not null,
+  order_id uuid references orders (id) on delete set null,
+  source text check (source in ('click_and_collect', 'caisse')),
+  created_at timestamptz not null default now()
+);
+create index if not exists loyalty_movements_customer_id_idx
+  on loyalty_movements (customer_id);
+
+-- -------------------------------------------------------- loyalty_messages --
+-- Créée maintenant, alimentée seulement quand les SMS OVH seront branchés.
+create table if not exists loyalty_messages (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references loyalty_customers (id) on delete cascade,
+  type text not null check (type in ('anniversaire', 'recompense', 'promo', 'bienvenue')),
+  contenu text,
+  statut text not null default 'en_attente' check (statut in ('envoye', 'echec', 'en_attente')),
+  sent_at timestamptz
+);
+
+-- ------------------------------------------------------------- promo_codes --
+create table if not exists promo_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  customer_id uuid references loyalty_customers (id) on delete cascade,
+  reduction numeric(10, 2) not null,
+  reason text not null check (reason in ('palier_150', 'anniversaire', 'manuel')),
+  status text not null default 'actif' check (status in ('actif', 'expire', 'utilise')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create index if not exists promo_codes_customer_id_idx on promo_codes (customer_id);
+create index if not exists promo_codes_status_expires_idx on promo_codes (status, expires_at);
+
+-- 'manuel' : bon ajouté à la main depuis la fiche client (geste commercial).
+-- Même validité 21 j, même cron d'expiration et même réactivation que les
+-- bons automatiques. Migration pour une base déjà créée :
+alter table promo_codes drop constraint if exists promo_codes_reason_check;
+alter table promo_codes add constraint promo_codes_reason_check
+  check (reason in ('palier_150', 'anniversaire', 'manuel'));
+
+-- RLS : accès complet pour tout compte authentifié (les deux comptes de
+-- service kiosque + les managers), comme menu_items / appro_*. La logique
+-- sensible (attribution, paliers) passe par des fonctions security definer.
+alter table loyalty_customers enable row level security;
+alter table loyalty_movements enable row level security;
+alter table loyalty_messages enable row level security;
+alter table promo_codes enable row level security;
+
+drop policy if exists "loyalty_customers_authenticated_all" on loyalty_customers;
+drop policy if exists "loyalty_movements_authenticated_all" on loyalty_movements;
+drop policy if exists "loyalty_messages_authenticated_all" on loyalty_messages;
+drop policy if exists "promo_codes_authenticated_all" on promo_codes;
+
+create policy "loyalty_customers_authenticated_all" on loyalty_customers for all to authenticated using (true) with check (true);
+create policy "loyalty_movements_authenticated_all" on loyalty_movements for all to authenticated using (true) with check (true);
+create policy "loyalty_messages_authenticated_all" on loyalty_messages for all to authenticated using (true) with check (true);
+create policy "promo_codes_authenticated_all" on promo_codes for all to authenticated using (true) with check (true);
+
+alter publication supabase_realtime add table loyalty_customers;
+alter publication supabase_realtime add table loyalty_movements;
+alter publication supabase_realtime add table loyalty_messages;
+alter publication supabase_realtime add table promo_codes;
+
+-- ------------------------------------------------- award_loyalty_points() --
+-- Point d'entrée unique de l'attribution de points, appelé aussi bien par la
+-- caisse (client -> rpc) que par le click & collect (create_takeaway_order).
+-- security definer : contourne la RLS et tourne pareil dans les deux chemins.
+-- Cherche le client par téléphone normalisé, le crée si besoin, insère un
+-- mouvement 'gain' et met à jour le solde. Renvoie le nouveau solde (ou null
+-- si le numéro est invalide -- rien n'est écrit dans ce cas).
+create or replace function award_loyalty_points(
+  p_phone text,
+  p_amount numeric,
+  p_order_id uuid,
+  p_source text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $award$
+declare
+  v_phone text;
+  v_customer_id uuid;
+  v_points integer;
+  v_new_solde integer;
+begin
+  -- Normalisation défensive : retire séparateurs, ramène +33.../0033... au 0
+  -- (métropole) et +590.../+594... au 0 (Guadeloupe / Guyane).
+  v_phone := regexp_replace(coalesce(p_phone, ''), '[\s.\-()]', '', 'g');
+  if v_phone like '+33%' then
+    v_phone := '0' || substr(v_phone, 4);
+  elsif v_phone like '0033%' then
+    v_phone := '0' || substr(v_phone, 5);
+  elsif v_phone like '+590%' then
+    v_phone := '0' || substr(v_phone, 5);
+  elsif v_phone like '+594%' then
+    v_phone := '0' || substr(v_phone, 5);
+  end if;
+  if v_phone !~ '^0[1-9][0-9]{8}$' then
+    return null;
+  end if;
+
+  insert into loyalty_customers (phone)
+  values (v_phone)
+  on conflict (phone) do nothing;
+
+  select id into v_customer_id from loyalty_customers where phone = v_phone;
+
+  v_points := floor(coalesce(p_amount, 0))::integer;
+  if v_points <= 0 then
+    select solde_points into v_new_solde from loyalty_customers where id = v_customer_id;
+    return v_new_solde;
+  end if;
+
+  -- Le solde est mis à jour AVANT l'insertion du mouvement : le trigger
+  -- palier (AFTER INSERT sur loyalty_movements) lit loyalty_customers.solde_points
+  -- et doit donc y voir le nouveau total, pas l'ancien.
+  update loyalty_customers
+  set solde_points = solde_points + v_points
+  where id = v_customer_id
+  returning solde_points into v_new_solde;
+
+  insert into loyalty_movements (customer_id, type, points, order_id, source)
+  values (v_customer_id, 'gain', v_points, p_order_id, p_source);
+
+  return v_new_solde;
+end;
+$award$;
+
+grant execute on function award_loyalty_points(text, numeric, uuid, text) to authenticated;
+
+-- --------------------------------------------- trigger palier 150 points --
+-- Après chaque mouvement : génère autant de bons palier_150 (5 €, 21 j) que
+-- le solde en donne droit et qu'il n'en existe pas déjà. Idempotent et
+-- cumulable (300 => 2 bons). Un ajustement négatif ne révoque jamais un bon
+-- déjà émis (la boucle ne fait rien si earned - existing <= 0).
+-- Le trigger lit loyalty_customers.solde_points tel quel : tout code qui
+-- insère un mouvement à la main (ajustement, depense, migration) doit avoir
+-- mis le solde à jour AVANT l'insert, comme le fait award_loyalty_points.
+create or replace function loyalty_reward_palier_150()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $palier$
+declare
+  v_solde integer;
+  v_earned integer;
+  v_existing integer;
+  i integer;
+begin
+  select solde_points into v_solde from loyalty_customers where id = new.customer_id;
+  v_earned := floor(v_solde / 150.0)::integer;
+  select count(*) into v_existing
+  from promo_codes
+  where customer_id = new.customer_id and reason = 'palier_150';
+
+  for i in 1 .. (v_earned - v_existing) loop
+    insert into promo_codes (code, customer_id, reduction, reason, status, expires_at)
+    values (
+      'CASA-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6)),
+      new.customer_id,
+      5.00,
+      'palier_150',
+      'actif',
+      now() + interval '21 days'
+    );
+  end loop;
+
+  return null;
+end;
+$palier$;
+
+drop trigger if exists loyalty_movements_palier_150 on loyalty_movements;
+create trigger loyalty_movements_palier_150
+after insert on loyalty_movements
+for each row execute function loyalty_reward_palier_150();
+
+-- ------------------------------------------------- jobs quotidiens (cron) --
+-- pg_cron pur (pas d'Edge Function) : mêmes conventions que le job
+-- 'casa-di-nathano-daily-reset' plus haut. ~05:00 heure du projet.
+
+-- Bons anniversaire : un bon de 5 € (21 j) le jour anniversaire de chaque
+-- client. Le NOT EXISTS protège d'un double passage et du cas 29/02.
+select cron.schedule(
+  'loyalty-anniversaires',
+  '0 5 * * *',
+  $$
+    insert into promo_codes (code, customer_id, reduction, reason, status, expires_at)
+    select 'CASA-' || upper(substr(md5(random()::text || lc.id::text), 1, 6)),
+           lc.id, 5.00, 'anniversaire', 'actif', now() + interval '21 days'
+    from loyalty_customers lc
+    where lc.date_anniversaire is not null
+      and to_char(lc.date_anniversaire, 'MM-DD') = to_char(current_date, 'MM-DD')
+      and not exists (
+        select 1 from promo_codes p
+        where p.customer_id = lc.id
+          and p.reason = 'anniversaire'
+          and p.created_at::date = current_date
+      );
+  $$
+);
+
+-- Expiration des bons non utilisés : 'actif' -> 'expire' passé expires_at.
+select cron.schedule(
+  'loyalty-expire-bons',
+  '0 5 * * *',
+  $$
+    update promo_codes
+    set status = 'expire'
+    where status = 'actif' and expires_at < now();
+  $$
+);
+
+-- Pour désactiver plus tard :
+--   select cron.unschedule('loyalty-anniversaires');
+--   select cron.unschedule('loyalty-expire-bons');
+
+-- ----------------------------------------- recherche client (écran Fidélité) --
+-- Recherche souple : par nom/prénom (colonne `nom` = "Prénom NOM"),
+-- insensible à la casse ET aux accents ("clemence" trouve "Clémence"), ou
+-- par fragment de numéro si le terme est surtout numérique (>= 4 chiffres).
+-- Passe par une fonction car supabase-js ne peut pas appeler unaccent() dans
+-- un .ilike(). Volume faible (~1700 lignes) => pas d'index dédié nécessaire.
+create extension if not exists unaccent;
+
+create or replace function search_loyalty_customers(p_term text)
+returns setof loyalty_customers
+language plpgsql
+stable
+set search_path = public, extensions
+as $search$
+declare
+  v_term text := trim(coalesce(p_term, ''));
+  v_digits text := regexp_replace(coalesce(p_term, ''), '[\s.\-()+]', '', 'g');
+begin
+  if length(v_term) < 2 then
+    return;
+  end if;
+
+  if v_digits ~ '^[0-9]{4,}$' then
+    return query
+      select * from loyalty_customers
+      where phone like '%' || v_digits || '%'
+      order by nom nulls last
+      limit 50;
+  else
+    return query
+      select * from loyalty_customers
+      where unaccent(coalesce(nom, '')) ilike '%' || unaccent(v_term) || '%'
+      order by nom nulls last
+      limit 50;
+  end if;
+end;
+$search$;
+
+grant execute on function search_loyalty_customers(text) to authenticated;

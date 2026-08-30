@@ -24,16 +24,18 @@ import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import TablePlanAdmin from "./team/TablePlanAdmin";
 import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
+import LoyaltyAdmin from "./team/LoyaltyAdmin";
 
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
   commandes: " · Commandes/Service",
   "avant-service": " · À checker avant le service",
   logistique: " · Logistique service",
+  fidelite: " · Fidélité",
 };
 
 export default function TeamSpace({ onExit }) {
-  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "logistique"
+  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "logistique" | "fidelite"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
@@ -179,6 +181,11 @@ export default function TeamSpace({ onExit }) {
             <span className="display-font text-3xl font-bold">Logistique service</span>
             <span className="text-[#a88f78]">Types de service · Ruptures · Menu</span>
           </button>
+          <button onClick={() => goZone("fidelite", "clients")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+            <span className="text-5xl mb-2">⭐</span>
+            <span className="display-font text-3xl font-bold">Fidélité</span>
+            <span className="text-[#a88f78]">Clients · Points · Bons</span>
+          </button>
         </div>
       )}
 
@@ -196,7 +203,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "finition" && <FinitionBoard />}
           {tab === "boisson" && <BoissonBoard />}
           {tab === "dessert-cafe" && <DessertCafeBoard />}
-          {tab === "caisse" && <CaisseBoard />}
+          {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
           {tab === "staff-order" && <StaffOrderFlow />}
         </>
       )}
@@ -213,7 +220,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "service" && <ServiceBoard />}
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
-          {tab === "caisse" && <CaisseBoard />}
+          {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
         </>
       )}
 
@@ -248,6 +255,15 @@ export default function TeamSpace({ onExit }) {
           {tab === "timing" && <TimingStatsAdmin />}
           {tab === "newproduct" && <MenuAdmin canEdit={readOnly} />}
           {tab === "maintenance" && <MaintenanceAdmin />}
+        </>
+      )}
+
+      {zone === "fidelite" && (
+        <>
+          <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+            <button onClick={() => setTab("clients")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "clients" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Clients</button>
+          </div>
+          {tab === "clients" && <LoyaltyAdmin readOnly={readOnly} />}
         </>
       )}
     </div>
