@@ -44,6 +44,7 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   const [rawQuery, setRawQuery] = useState("");
   const [results, setResults] = useState(null); // null = pas encore cherché ; [] = aucun résultat
   const [createPhone, setCreatePhone] = useState(null); // string quand la recherche est un n° exact sans résultat
+  const [creatingNew, setCreatingNew] = useState(false); // formulaire "Créer un compte" ouvert
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -58,6 +59,7 @@ export default function LoyaltyAdmin({ readOnly = false }) {
     setError(null);
     setSelectedId(null);
     setCreatePhone(null);
+    setCreatingNew(false);
     const term = rawQuery.trim();
     if (term.length < 2) {
       setError("Saisis au moins 2 caractères (nom, prénom ou numéro).");
@@ -93,18 +95,39 @@ export default function LoyaltyAdmin({ readOnly = false }) {
     }
   }
 
-  async function handleCreate(fields) {
+  // `fields.phone` est fourni (brut) par le formulaire "Créer un compte" ;
+  // sinon on retombe sur `createPhone` (recherche d'un n° exact sans résultat).
+  async function handleCreate({ phone: rawPhone, nom, dateAnniversaire }) {
+    const phone = rawPhone !== undefined ? canonicalLoyaltyPhone(rawPhone) : createPhone;
+    if (!phone) {
+      setError("Numéro invalide — format attendu : 0X XX XX XX XX.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const customer = await createLoyaltyCustomer({ phone: createPhone, ...fields });
+      const customer = await createLoyaltyCustomer({ phone, nom, dateAnniversaire });
       setResults([customer]);
       setSelectedId(customer.id);
       setCreatePhone(null);
+      setCreatingNew(false);
       scrollToFiche();
     } catch (err) {
       console.error(err);
-      setError("Création impossible — ce numéro est peut-être déjà enregistré.");
+      // 23505 = numéro déjà pris : on ouvre la fiche existante plutôt qu'une erreur sèche.
+      if (err?.code === "23505") {
+        const existing = await fetchLoyaltyCustomerByPhone(phone).catch(() => null);
+        if (existing) {
+          setResults([existing]);
+          setSelectedId(existing.id);
+          setCreatePhone(null);
+          setCreatingNew(false);
+          setError("Ce numéro a déjà un compte — fiche ouverte.");
+          scrollToFiche();
+          return;
+        }
+      }
+      setError("Création impossible.");
     } finally {
       setBusy(false);
     }
@@ -129,12 +152,34 @@ export default function LoyaltyAdmin({ readOnly = false }) {
         <button type="submit" disabled={busy} className="tap-scale rounded-lg px-5 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
           🔎 Rechercher
         </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreatingNew(true);
+              setError(null);
+              setResults(null);
+              setSelectedId(null);
+              setCreatePhone(null);
+            }}
+            className="tap-scale rounded-lg px-5 py-2 font-bold text-sm border-2 border-[#3a2b1f]"
+          >
+            ➕ Créer un compte
+          </button>
+        )}
       </form>
 
       {error && (
         <p className="mb-4 text-sm font-bold" style={{ color: "#e88a8a" }}>
           {error}
         </p>
+      )}
+
+      {creatingNew && !readOnly && (
+        <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 max-w-md mb-4">
+          <div className="font-bold mb-1">Nouveau compte fidélité</div>
+          <CreateForm phoneEditable busy={busy} onCreate={handleCreate} onCancel={() => setCreatingNew(false)} />
+        </div>
       )}
 
       {results && results.length === 0 && !createPhone && (
@@ -188,7 +233,8 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   );
 }
 
-function CreateForm({ phone, busy, onCreate }) {
+function CreateForm({ phone, phoneEditable = false, busy, onCreate, onCancel }) {
+  const [phoneInput, setPhoneInput] = useState(phone || "");
   const [nom, setNom] = useState("");
   const [dateAnniversaire, setDateAnniversaire] = useState("");
 
@@ -196,11 +242,27 @@ function CreateForm({ phone, busy, onCreate }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onCreate({ nom: nom.trim(), dateAnniversaire });
+        onCreate({ phone: phoneEditable ? phoneInput : undefined, nom: nom.trim(), dateAnniversaire });
       }}
       className="mt-3 flex flex-col gap-3"
     >
-      <div className="text-xs text-[#8a7561]">Numéro : {phone}</div>
+      {phoneEditable ? (
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-[#a88f78] uppercase">Téléphone</span>
+          <input
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            type="tel"
+            inputMode="tel"
+            required
+            placeholder="06 12 34 56 78"
+            className="rounded-lg px-3 py-2"
+            style={INPUT_STYLE}
+          />
+        </label>
+      ) : (
+        <div className="text-xs text-[#8a7561]">Numéro : {phone}</div>
+      )}
       <label className="flex flex-col gap-1">
         <span className="text-xs font-bold text-[#a88f78] uppercase">Nom (facultatif)</span>
         <input value={nom} onChange={(e) => setNom(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
@@ -209,9 +271,16 @@ function CreateForm({ phone, busy, onCreate }) {
         <span className="text-xs font-bold text-[#a88f78] uppercase">Date d&apos;anniversaire (facultatif)</span>
         <input type="date" value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
       </label>
-      <button type="submit" disabled={busy} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm self-start disabled:opacity-50" style={PRIMARY_BTN}>
-        ➕ Créer le client
-      </button>
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
+          ➕ Créer le client
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm border-2 border-[#3a2b1f]">
+            Annuler
+          </button>
+        )}
+      </div>
     </form>
   );
 }
