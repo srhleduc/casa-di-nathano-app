@@ -13,7 +13,7 @@ import {
 } from "@/lib/menu";
 import { remainingForDessertGroup, isTakeawayLike, dessertStockGroupFor } from "@/lib/business";
 
-export default function PanuzzoModal({ item, menu, dessertStock, orders, ruptures, serviceType, onClose, onAddSolo, onAddFormule }) {
+export default function PanuzzoModal({ item, menu, dessertStock, orders, ruptures, serviceType, staffMode, onClose, onAddSolo, onAddFormule }) {
   const [step, setStep] = useState("choice"); // "choice" | "drink" | "dessert"
   const [drink, setDrink] = useState(null);
 
@@ -23,6 +23,7 @@ export default function PanuzzoModal({ item, menu, dessertStock, orders, rupture
     const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return false;
     if (group.unlimited) return false;
+    if (staffMode && group.unlimitedStaffOnly) return false; // illimité côté serveuses uniquement
     return remainingForDessertGroup(orders || [], dessertStock || {}, group) <= 0;
   }
 

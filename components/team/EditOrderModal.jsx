@@ -222,6 +222,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
             orders={orders}
             ruptures={ruptures}
             serviceType={order.serviceType}
+            staffMode
             onClose={() => setPanuzzoOrdering(null)}
             onAddSolo={(item) => {
               addItem(item);

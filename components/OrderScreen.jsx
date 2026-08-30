@@ -68,6 +68,9 @@ export default function OrderScreen({
     const group = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, isTakeaway);
     if (!group) return { out: false, fallback: false };
     if (group.unlimited) return { out: false, fallback: false };
+    // Illimité côté serveuses uniquement (staffMode) — la borne/le client
+    // continuent de décompter (voir DESSERT_STOCK_GROUPS).
+    if (staffMode && group.unlimitedStaffOnly) return { out: false, fallback: false };
     if (remainingForDessertGroup(orders || [], dessertStock || {}, group) > 0) return { out: false, fallback: false };
     if (staffMode && !isTakeaway && dessertHasSeparateFormats(DESSERT_STOCK_GROUPS, name)) {
       const takeawayGroup = dessertStockGroupFor(DESSERT_STOCK_GROUPS, name, true);

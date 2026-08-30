@@ -56,9 +56,16 @@ export default function DessertStockAdmin() {
                   ✅ Toujours disponible — décompte désactivé (en attendant l'API caisse)
                 </div>
               ) : (
-                <div className={`text-sm font-bold ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
-                  {remaining <= 0 ? "🚫 Épuisé" : `${remaining} restant${remaining > 1 ? "s" : ""} aujourd'hui`}
-                </div>
+                <>
+                  <div className={`text-sm font-bold ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
+                    {remaining <= 0 ? "🚫 Épuisé" : `${remaining} restant${remaining > 1 ? "s" : ""} aujourd'hui`}
+                  </div>
+                  {g.unlimitedStaffOnly && (
+                    <div className="text-xs text-[#8a7561] mt-0.5">
+                      Illimité côté serveuses — ce décompte ne concerne que la borne / le click &amp; collect.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );

@@ -335,6 +335,7 @@ export default function StaffOrderFlow() {
           orders={orders}
           ruptures={ruptures}
           serviceType={serviceType}
+          staffMode
           onClose={() => setPanuzzoOrdering(null)}
           onAddSolo={(item) => {
             addItem(item);
