@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended, awardLoyaltyPointsFromCaisse } from "@/lib/data";
+import {
+  useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots,
+  updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended,
+  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone,
+} from "@/lib/data";
 import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
@@ -19,6 +23,8 @@ export default function CaisseBoard({ readOnly = false }) {
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const paidToday = orders.filter((o) => o.status === "servie" && isOrderActiveToday(o));
+  // Rattachement fidélité des commandes visibles (badge ☑️ / bouton ➕).
+  const loyaltyLinks = useOrderLoyaltyLinks(active.map((o) => o.id));
   // Le chiffre du jour n'inclut jamais les commandes du mode test. "À
   // encaisser" ne compte que ce qui reste vraiment à payer — une commande
   // payée d'avance (bouton "Payée, non servie") ne doit plus y apparaître
@@ -33,30 +39,17 @@ export default function CaisseBoard({ readOnly = false }) {
 
   const [cancelMode, setCancelMode] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
-  const [phoneByOrderId, setPhoneByOrderId] = useState({});
   const { suspended } = useTakeawayLinkStatus();
 
   function toggleTakeawayLink() {
     setTakeawayLinkSuspended(!suspended).catch((err) => console.error(err));
   }
 
-  // Fidélité : si un numéro valide a été saisi sur la carte, crédite les
-  // points au moment de l'encaissement. Jamais bloquant, jamais en vue
-  // Direction (readOnly). Appelé après les mutations qui posent paid = true.
-  function awardLoyaltyIfPhone(order) {
-    if (readOnly) return;
-    const phone = canonicalLoyaltyPhone(phoneByOrderId[order.id] || "");
-    if (!phone) return;
-    awardLoyaltyPointsFromCaisse(phone, order.total, order.id).catch((err) => console.error(err));
-  }
-
   function markPaidUnserved(order) {
     updateOrder(order.id, { paid: true }).catch((err) => console.error(err));
-    awardLoyaltyIfPhone(order);
   }
   function markPaidAndServed(order) {
     markOrderServed(order, { paid: true }).catch((err) => console.error(err));
-    awardLoyaltyIfPhone(order);
   }
   function markServed(order) {
     markOrderServed(order).catch((err) => console.error(err));
@@ -90,16 +83,10 @@ export default function CaisseBoard({ readOnly = false }) {
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" />
         <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
-        {!readOnly && (
-          <input
-            value={phoneByOrderId[o.id] || ""}
-            onChange={(e) => setPhoneByOrderId((prev) => ({ ...prev, [o.id]: e.target.value }))}
-            type="tel"
-            inputMode="tel"
-            placeholder="📱 Tél. fidélité (facultatif)"
-            className="w-full rounded-lg px-3 py-2 mb-2 text-sm"
-            style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-          />
+        {!o.isTest && (
+          <div className="mb-2">
+            <OrderLoyaltyControl order={o} link={loyaltyLinks[o.id]} readOnly={readOnly} />
+          </div>
         )}
         {!isTakeawayLike(o.serviceType) ? (
           // Sur place : le client a généralement déjà mangé au moment de
@@ -243,6 +230,161 @@ export default function CaisseBoard({ readOnly = false }) {
           onClose={() => setEditingOrder(null)}
         />
       )}
+    </div>
+  );
+}
+
+const LOYALTY_INPUT_STYLE = { background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" };
+
+// Contrôle fidélité d'une carte de commande en caisse :
+//  - déjà rattachée (un mouvement porte son order_id) -> "⭐ Fidélité ☑️ Nom"
+//  - sinon, bouton "⭐ Fidélité ➕" ouvrant un panneau : cherche un compte par
+//    téléphone (pré-rempli avec le numéro du click & collect s'il y en a un),
+//    l'associe et crédite floor(total) points ; ou propose de créer le compte
+//    si le numéro est inconnu.
+function OrderLoyaltyControl({ order, link, readOnly }) {
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState("idle"); // idle | searching | found | unknown | saving
+  const [match, setMatch] = useState(null);
+  const [nom, setNom] = useState("");
+  const [dateAnniversaire, setDateAnniversaire] = useState("");
+  const [msg, setMsg] = useState(null);
+
+  const pts = Math.floor(order.total || 0);
+
+  if (link) {
+    return (
+      <div className="text-xs font-bold" style={{ color: "#7fb069" }}>
+        ⭐ Fidélité ☑️ <span style={{ color: "#a8e8c8" }}>{link.nom || link.phone}</span>
+      </div>
+    );
+  }
+
+  if (readOnly) return null;
+
+  async function runSearch(raw) {
+    const p = canonicalLoyaltyPhone(raw ?? phone);
+    if (!p) {
+      setStep("idle");
+      setMsg("Numéro invalide (format 0X XX XX XX XX).");
+      return;
+    }
+    setStep("searching");
+    setMsg(null);
+    try {
+      const c = await fetchLoyaltyCustomerByPhone(p);
+      if (c) {
+        setMatch(c);
+        setStep("found");
+      } else {
+        setMatch(null);
+        setStep("unknown");
+        setMsg("Numéro inconnu du service de fidélité — créer un compte ?");
+      }
+    } catch (err) {
+      console.error(err);
+      setStep("idle");
+      setMsg("Erreur pendant la recherche.");
+    }
+  }
+
+  async function openPanel() {
+    setOpen(true);
+    setMsg(null);
+    try {
+      const ccPhone = await fetchOrderCommitmentPhone(order.id);
+      if (ccPhone) {
+        setPhone(ccPhone);
+        runSearch(ccPhone);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function associate() {
+    const p = canonicalLoyaltyPhone(phone);
+    if (!p || pts <= 0) return;
+    setStep("saving");
+    try {
+      if (!match) {
+        await createLoyaltyCustomer({ phone: p, nom: nom.trim(), dateAnniversaire });
+      }
+      await awardLoyaltyPointsFromCaisse(p, order.total, order.id);
+      setOpen(false); // le badge ☑️ apparaît via le rafraîchissement temps réel
+    } catch (err) {
+      console.error(err);
+      setStep(match ? "found" : "unknown");
+      setMsg("Association impossible.");
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={openPanel} className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]">
+        ⭐ Fidélité ➕
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-[#3a2b1f] p-2 flex flex-col gap-2">
+      <div className="flex gap-2">
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          type="tel"
+          inputMode="tel"
+          placeholder="06 12 34 56 78"
+          className="flex-1 rounded px-2 py-1 text-sm min-w-0"
+          style={LOYALTY_INPUT_STYLE}
+        />
+        <button onClick={() => runSearch()} className="tap-scale shrink-0 rounded px-3 py-1 text-xs font-bold border-2 border-[#3a2b1f]">
+          Chercher
+        </button>
+      </div>
+
+      {msg && (
+        <div className="text-xs" style={{ color: step === "unknown" ? "#E8B23D" : "#e88a8a" }}>
+          {msg}
+        </div>
+      )}
+
+      {step === "found" && match && (
+        <>
+          <div className="text-xs text-[#c9b8a4]">
+            {match.nom || "Sans nom"} · {match.phone} · {match.soldePoints} pts
+          </div>
+          <button
+            onClick={associate}
+            disabled={step === "saving" || pts <= 0}
+            className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+            style={{ background: "#C0392B", color: "#fff5ea" }}
+          >
+            Associer &amp; créditer {pts} pts
+          </button>
+        </>
+      )}
+
+      {step === "unknown" && (
+        <>
+          <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom (facultatif)" className="rounded px-2 py-1 text-sm" style={LOYALTY_INPUT_STYLE} />
+          <input value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} type="date" className="rounded px-2 py-1 text-sm" style={LOYALTY_INPUT_STYLE} />
+          <button
+            onClick={associate}
+            disabled={step === "saving" || pts <= 0}
+            className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+            style={{ background: "#C0392B", color: "#fff5ea" }}
+          >
+            Créer le compte &amp; créditer {pts} pts
+          </button>
+        </>
+      )}
+
+      <button onClick={() => setOpen(false)} className="text-xs text-[#8a7561] self-start">
+        Annuler
+      </button>
     </div>
   );
 }
