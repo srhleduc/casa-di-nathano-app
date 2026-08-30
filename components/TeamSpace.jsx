@@ -196,6 +196,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("finition")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "finition" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥗 Finition</button>
             <button onClick={() => setTab("boisson")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "boisson" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥤 Boissons</button>
             <button onClick={() => setTab("dessert-cafe")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "dessert-cafe" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Dessert/Café</button>
+            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
             <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
           </div>
@@ -203,6 +204,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "finition" && <FinitionBoard />}
           {tab === "boisson" && <BoissonBoard />}
           {tab === "dessert-cafe" && <DessertCafeBoard />}
+          {tab === "service" && <ServiceBoard />}
           {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
           {tab === "staff-order" && <StaffOrderFlow />}
         </>
