@@ -1561,3 +1561,54 @@ insert into loyalty_message_templates (key, label, body) values
   ('recompense_150', 'Bon de 5 EUR - palier 150 points',
    'Bravo {prenom} ! Vous avez atteint 150 points chez {restaurant} : un bon de 5 EUR est a vous (code {code}), valable jusqu''au {expiration}. Merci de votre fidelite !')
 on conflict (key) do nothing;
+
+-- =====================================================================
+-- SMS FIDÉLITÉ (OVH) -- phase G
+-- Chaque insertion pertinente notifie l'Edge Function loyalty-sms via pg_net
+-- (même mécanisme que oven-alert-check). La fonction lit le gabarit dans
+-- loyalty_message_templates, formate, appelle OVH (ou journalise seulement si
+-- LOYALTY_SMS_ENABLED != "true") et écrit une ligne loyalty_messages.
+--   promo_code   : bon palier_150 ou anniversaire créé
+--   new_customer : nouveau compte fidélité (message de bienvenue)
+-- Les bons reason = 'manuel' ne déclenchent RIEN (filtre WHEN ci-dessous).
+-- Les 1676 comptes importés de Zerosix sont déjà insérés : le trigger
+-- new_customer ne se rejoue pas pour eux.
+-- =====================================================================
+
+create extension if not exists pg_net;
+
+-- TG_ARGV[0] = 'promo_code' | 'new_customer'. security definer pour pouvoir
+-- appeler net.http_post quel que soit le rôle qui a fait l'insert.
+create or replace function loyalty_sms_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $loyalty_sms$
+begin
+  perform net.http_post(
+    url := 'https://tvuqyrkomuwlapevgekv.functions.supabase.co/loyalty-sms',
+    body := jsonb_build_object('event', TG_ARGV[0], 'id', new.id),
+    headers := '{"Content-Type": "application/json"}'::jsonb
+  );
+  return null;
+end;
+$loyalty_sms$;
+
+drop trigger if exists loyalty_sms_promo_code on promo_codes;
+create trigger loyalty_sms_promo_code
+after insert on promo_codes
+for each row
+when (new.reason in ('palier_150', 'anniversaire'))
+execute function loyalty_sms_notify('promo_code');
+
+drop trigger if exists loyalty_sms_new_customer on loyalty_customers;
+create trigger loyalty_sms_new_customer
+after insert on loyalty_customers
+for each row
+execute function loyalty_sms_notify('new_customer');
+
+-- Pour couper les SMS sans redéployer : soit passer le secret
+-- LOYALTY_SMS_ENABLED sur "false", soit
+--   drop trigger loyalty_sms_promo_code on promo_codes;
+--   drop trigger loyalty_sms_new_customer on loyalty_customers;
