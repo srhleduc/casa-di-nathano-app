@@ -1291,6 +1291,13 @@ alter publication supabase_realtime add table loyalty_movements;
 alter publication supabase_realtime add table loyalty_messages;
 alter publication supabase_realtime add table promo_codes;
 
+-- Dernière activité du client (dernier gain de points). Sert au job de purge
+-- des comptes inactifs (voir loyalty-purge-inactifs plus bas). Pour les comptes
+-- importés de Zerosix, à réalimenter depuis la colonne « Dernier passage » de
+-- l'export via scripts/emit-zerosix-last-activity-sql.mjs.
+alter table loyalty_customers
+  add column if not exists last_activity_at timestamptz not null default now();
+
 -- ------------------------------------------------- award_loyalty_points() --
 -- Point d'entrée unique de l'attribution de points, appelé aussi bien par la
 -- caisse (client -> rpc) que par le click & collect (create_takeaway_order).
@@ -1339,7 +1346,10 @@ begin
 
   v_points := floor(coalesce(p_amount, 0))::integer;
   if v_points <= 0 then
-    select solde_points into v_new_solde from loyalty_customers where id = v_customer_id;
+    -- Passage sans point gagné (montant nul) : compte quand même comme une
+    -- activité pour la purge des comptes inactifs.
+    update loyalty_customers set last_activity_at = now() where id = v_customer_id
+      returning solde_points into v_new_solde;
     return v_new_solde;
   end if;
 
@@ -1347,7 +1357,8 @@ begin
   -- palier (AFTER INSERT sur loyalty_movements) lit loyalty_customers.solde_points
   -- et doit donc y voir le nouveau total, pas l'ancien.
   update loyalty_customers
-  set solde_points = solde_points + v_points
+  set solde_points = solde_points + v_points,
+      last_activity_at = now()
   where id = v_customer_id
   returning solde_points into v_new_solde;
 
@@ -1442,6 +1453,24 @@ select cron.schedule(
     where status = 'actif' and expires_at < now();
   $$
 );
+
+-- Purge des comptes fidélité inactifs depuis plus de 18 mois (demande de la
+-- direction). Le 1er de chaque mois à 05:30. Suppression définitive : les
+-- mouvements, messages et bons du client partent en cascade (FK on delete
+-- cascade). Le solde de points restant est perdu, c'est volontaire.
+-- `last_activity_at` = dernier gain de points (voir award_loyalty_points), ou
+-- pour les comptes Zerosix la date de « Dernier passage » de l'export
+-- (backfill via scripts/emit-zerosix-last-activity-sql.mjs).
+select cron.schedule(
+  'loyalty-purge-inactifs',
+  '30 5 1 * *',
+  $$
+    delete from loyalty_customers
+    where last_activity_at < now() - interval '18 months';
+  $$
+);
+
+-- Pour désactiver : select cron.unschedule('loyalty-purge-inactifs');
 
 -- Pour désactiver plus tard :
 --   select cron.unschedule('loyalty-anniversaires');
