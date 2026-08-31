@@ -74,9 +74,10 @@ function frDate(iso: string): string {
 function render(body: string, vars: Record<string, string>): string {
   let out = body || "";
   for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(v ?? "");
-  out = out.replace(/\{[a-zA-Z_]+\}/g, ""); // placeholders non fournis
-  out = out.replace(/ {2,}/g, " ").replace(/ +([.,!?;:])/g, "$1").trim();
-  return out;
+  out = out.replace(/\{[a-zA-Z_]+\}/g, "");     // placeholders non fournis -> vides
+  out = out.replace(/[ \t]{2,}/g, " ");         // espaces multiples (placeholder vidé) -> un seul
+  out = out.replace(/[ \t]+\n/g, "\n");          // espaces en fin de ligne
+  return out.trim();
 }
 
 Deno.serve(async (req) => {
