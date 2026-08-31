@@ -139,14 +139,14 @@ export default function OrderScreen({
       )}
 
       {clientView ? (
-        <div className="flex gap-2 px-5 py-3 overflow-x-auto">
+        <div className="flex gap-2 px-5 py-3 overflow-x-auto" style={{ touchAction: "pan-x" }}>
           {visibleCategories.map((c) => {
             const on = currentCat === c.key;
             return (
               <button
                 key={c.key}
                 onClick={() => setActiveCat(c.key)}
-                className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2.5 border font-bold text-sm"
+                className="cat-chip tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2.5 border font-bold text-sm"
                 style={{
                   background: on ? "#1c1410" : "#1c1410",
                   borderColor: on ? "#d9a94c" : "#3a2a1f",
@@ -160,12 +160,12 @@ export default function OrderScreen({
           })}
         </div>
       ) : (
-        <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+        <div className="flex gap-3 px-6 py-4 overflow-x-auto" style={{ touchAction: "pan-x" }}>
           {visibleCategories.map((c) => (
             <button
               key={c.key}
               onClick={() => setActiveCat(c.key)}
-              className={`tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
+              className={`cat-chip tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
                 currentCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
               }`}
             >

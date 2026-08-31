@@ -68,6 +68,16 @@
     box-shadow: 0 0 0 3px rgba(232, 178, 61, 0.5) inset;
   }
 
+  /* DIAGNOSTIC (scroll horizontal des catégories intermittent en PWA iOS) :
+     les puces de catégorie d'OrderScreen gardent le retour visuel de
+     .tap-scale (brightness + ring) mais SANS le transform: scale(), soupçonné
+     d'interférer avec la détection du geste de défilement par iOS Safari.
+     Le conteneur porte aussi touch-action: pan-x. À réévaluer / figer une fois
+     la cause confirmée sur appareil. */
+  .cat-chip:active {
+    transform: none;
+  }
+
   .ticket-edge {
     background-image: radial-gradient(circle at 8px 0, transparent 8px, #241811 8.5px);
     background-size: 16px 16px;
