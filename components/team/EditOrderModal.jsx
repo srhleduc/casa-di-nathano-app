@@ -73,21 +73,23 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   // du statut "déjà servi" et disparaîtrait des écrans équipe.
   function addItem(item, note) {
     setItems((prev) => {
-      const existing = prev.find((i) => !i.served && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
+      // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
+      const existing = prev.find((i) => !i.served && !i.itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
+      return [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [] }];
     });
   }
-  function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+  function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
     ];
     setItems((prev) => {
       const sig = cartSignature(pizzaItem.id, null, modifiers);
-      const existing = prev.find((i) => !i.served && cartSignature(i.id, i.note, i.modifiers) === sig);
+      const existing = prev.find((i) => !i.served && !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) === sig);
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers }];
+      return [...prev, { ...pizzaItem, qty: 1, note: null, itemNote: itemNote || null, modifiers }];
     });
     setCustomizing(null);
   }
@@ -97,9 +99,12 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
     setPanuzzoOrdering(null);
   }
-  function changeQty(id, note, modifiers, delta) {
-    const sig = cartSignature(id, note, modifiers);
-    setItems((prev) => prev.map((i) => (!i.served && cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  function changeQty(id, note, modifiers, delta, itemNote) {
+    const sig = cartSignature(id, note, modifiers) + "|" + (itemNote || "");
+    setItems((prev) => prev.map((i) => (!i.served && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.itemNote || "") === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  }
+  function updateItemNote(index, value) {
+    setItems((prev) => prev.map((i, idx) => (idx === index ? { ...i, itemNote: value } : i)));
   }
   // Reprendre un article déjà servi (le client en veut un autre) — repart
   // sur une ligne neuve non servie, sans modificateurs ni note conservés.
@@ -139,7 +144,8 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     const isTakeawayNow = isTakeawayLike(serviceType);
     setSaving(true);
     try {
-      const patch = { items, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "", note: note.trim() || null };
+      const cleanedItems = items.map((it) => ({ ...it, itemNote: (it.itemNote || "").trim() || null }));
+      const patch = { items: cleanedItems, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "", note: note.trim() || null };
       // Une commande déjà passée le four/la Finition ("prête", "prêt à
       // servir" ou même déjà "servie") n'y repasse jamais tant que son
       // statut ne bouge pas : si le client redemande une pizza en plein
@@ -200,8 +206,9 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           <PizzaCustomizeModal
             pizza={customizing}
             menu={menu}
+            staffMode
             onClose={() => setCustomizing(null)}
-            onConfirm={(removedItems, addedItems) => addCustomizedPizza(customizing, removedItems, addedItems)}
+            onConfirm={(removedItems, addedItems, itemNote) => addCustomizedPizza(customizing, removedItems, addedItems, itemNote)}
           />
         )}
         {flavoring && (
@@ -328,9 +335,10 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
             {items.map((i, idx) => (
               <div
                 key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",") + "-" + (i.served ? "servi" : "pending") + "-" + idx}
-                className="flex items-center justify-between rounded-xl border px-4 py-3"
+                className="flex flex-col gap-2 rounded-xl border px-4 py-3"
                 style={i.served ? { borderColor: "#204a3a", background: "#1a2620" } : { borderColor: "#3a2b1f", background: "#211712" }}
               >
+                <div className="flex items-center justify-between">
                 <div>
                   <div className="font-bold flex items-center gap-2">
                     {i.name}
@@ -371,15 +379,29 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
                       −
                     </button>
                     <span className="w-6 text-center font-bold">{i.qty}</span>
-                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                    <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
                       +
                     </button>
                   </div>
                 )}
+                </div>
+                {i.served
+                  ? i.itemNote && (
+                      <div className="text-xs font-bold" style={{ color: "#ff5fa8" }}>↳ 📝 {i.itemNote}</div>
+                    )
+                  : (
+                    <input
+                      value={i.itemNote || ""}
+                      onChange={(e) => updateItemNote(idx, e.target.value)}
+                      placeholder="📝 Note pour ce produit (ex. bien cuite, sans oignon)…"
+                      className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                      style={{ background: "#1a120b", border: "1px solid #3a2b1f", color: "#ff5fa8" }}
+                    />
+                  )}
               </div>
             ))}
             {items.length === 0 && <p className="text-[#8a7561]">Plus aucun article — ajoutes-en, ou annule cette commande depuis Caisse.</p>}

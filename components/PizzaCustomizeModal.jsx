@@ -10,11 +10,12 @@ const EXTRA_FEATURED_BY_PIZZA = {
   "4 Formaggi": ["Supplément base tomate", "Supplément base crème"],
 };
 
-export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm }) {
+export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm, staffMode }) {
   const [mode, setMode] = useState("detail"); // detail | remove | add
   const [removedNames, setRemovedNames] = useState([]); // noms d'ingrédients (sans préfixe)
   const [addedIds, setAddedIds] = useState([]); // ids d'articles Supp. sélectionnés
   const [showOtherSupp, setShowOtherSupp] = useState(false);
+  const [itemNote, setItemNote] = useState(""); // note libre serveuse pour cette pizza
 
   const recipe = pizza.ingredients || [];
   const allSupplements = (menu || []).filter((m) => m.cat === "supplement");
@@ -32,7 +33,7 @@ export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm })
   function confirm() {
     const removedItems = removedNames.map((n) => (menu || []).find((m) => m.cat === "sans" && m.name === `Sans ${n}`)).filter(Boolean);
     const addedItems = addedIds.map((id) => (menu || []).find((m) => m.id === id)).filter(Boolean);
-    onConfirm(removedItems, addedItems);
+    onConfirm(removedItems, addedItems, itemNote.trim() || null);
   }
 
   const extraCount = removedNames.length + addedIds.length;
@@ -64,7 +65,7 @@ export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm })
                 </>
               )}
               {recipe.length > 0 && (
-                <button onClick={() => setMode("remove")} className="tap-scale w-full rounded-xl py-4 font-bold border-2 border-[#3a2b1f] mb-3">
+                <button onClick={() => setMode("remove")} className="tap-scale w-full rounded-xl py-4 font-bold border-2 border-[#3a2b1f] mb-4">
                   🎛️ Personnaliser cette pizza
                 </button>
               )}
@@ -155,6 +156,22 @@ export default function PizzaCustomizeModal({ pizza, menu, onClose, onConfirm })
                 </>
               )}
             </>
+          )}
+
+          {staffMode && (
+            <div className={mode === "detail" ? "" : "mt-6 pt-5 border-t border-[#3a2b1f]"}>
+              <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "#ff5fa8" }}>
+                📝 Note pour ce produit (facultatif)
+              </div>
+              <textarea
+                value={itemNote}
+                onChange={(e) => setItemNote(e.target.value)}
+                placeholder="Ex. bien cuite, sans sel, à part…"
+                rows={2}
+                className="w-full rounded-xl px-4 py-3 text-base outline-none resize-none"
+                style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+              />
+            </div>
           )}
         </div>
 

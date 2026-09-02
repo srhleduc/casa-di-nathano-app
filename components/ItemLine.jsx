@@ -13,6 +13,11 @@ export default function ItemLine({ it }) {
           ↳ {noteIcon(it.name, it.note)} {it.note}
         </div>
       )}
+      {it.itemNote && (
+        <div className="text-xs font-bold pl-4" style={{ color: "#ff5fa8" }}>
+          ↳ 📝 {it.itemNote}
+        </div>
+      )}
       {(it.modifiers || []).map((m, mi) => {
         const isRemoved = m.name.startsWith("Sans ");
         const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");

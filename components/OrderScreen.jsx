@@ -207,7 +207,7 @@ export default function OrderScreen({
             function handleDecrement() {
               const matches = cart.filter((i) => i.id === item.id);
               const last = matches[matches.length - 1];
-              if (last) changeQty(last.id, last.note, last.modifiers, -1);
+              if (last) changeQty(last.id, last.note, last.modifiers, -1, last.itemNote);
             }
             // Le "+" rajoute simplement un exemplaire de la dernière ligne du
             // panier (mêmes modificateurs) sans rouvrir la modale — sinon
@@ -216,7 +216,7 @@ export default function OrderScreen({
             function handleIncrement() {
               const matches = cart.filter((i) => i.id === item.id);
               const last = matches[matches.length - 1];
-              if (last) changeQty(last.id, last.note, last.modifiers, 1);
+              if (last) changeQty(last.id, last.note, last.modifiers, 1, last.itemNote);
             }
             if (clientView) {
               return (

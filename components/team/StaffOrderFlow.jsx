@@ -80,14 +80,16 @@ export default function StaffOrderFlow() {
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     setCart((prev) => {
       const sig = cartSignature(item.id, note, null) + "|" + (phase || "");
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
+      // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
+      // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
+      const existing = prev.find((i) => !i.itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, modifiers: [], phase }];
+        : [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [], phase }];
       return withAutoFocaccia(next, item, phase, menuItems);
     });
   }
-  function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+  function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -95,9 +97,9 @@ export default function StaffOrderFlow() {
     ];
     setCart((prev) => {
       const sig = cartSignature(pizzaItem.id, null, modifiers) + "|" + (phase || "");
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
+      const existing = prev.find((i) => !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers, phase }];
+      return [...prev, { ...pizzaItem, qty: 1, note: null, itemNote: itemNote || null, modifiers, phase }];
     });
     setCustomizing(null);
   }
@@ -107,9 +109,12 @@ export default function StaffOrderFlow() {
     addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
     setPanuzzoOrdering(null);
   }
-  function changeQty(id, note, modifiers, delta) {
-    const sig = cartSignature(id, note, modifiers);
-    setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  function changeQty(id, note, modifiers, delta, itemNote) {
+    const sig = cartSignature(id, note, modifiers) + "|" + (itemNote || "");
+    setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) + "|" + (i.itemNote || "") === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  }
+  function updateItemNote(index, value) {
+    setCart((prev) => prev.map((i, idx) => (idx === index ? { ...i, itemNote: value } : i)));
   }
   function resetAll() {
     setCart([]);
@@ -138,7 +143,7 @@ export default function StaffOrderFlow() {
       (i) => i.phase === "apero" && (i.cat === "pizza" || i.cat === "panuzzo" || i.cat === "supplement" || i.cat === "sans")
     );
     const newOrder = {
-      items: cart.map(({ id, name, price, cat, qty, note, phase, modifiers }) => ({ id, name, price, cat, qty, note, phase, modifiers })),
+      items: cart.map(({ id, name, price, cat, qty, note, itemNote, phase, modifiers }) => ({ id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, phase, modifiers })),
       serviceType,
       name: tableName || "Commande équipe",
       note: note.trim() || null,
@@ -296,6 +301,7 @@ export default function StaffOrderFlow() {
           setTableName={setTableName}
           note={note}
           setNote={setNote}
+          setItemNote={updateItemNote}
           paidUpfront={paidUpfront}
           setPaidUpfront={setPaidUpfront}
           onBack={() => setScreen("order")}
@@ -321,7 +327,7 @@ export default function StaffOrderFlow() {
       )}
 
       {customizing && (
-        <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
+        <PizzaCustomizeModal pizza={customizing} menu={menuItems} staffMode onClose={() => setCustomizing(null)} onConfirm={(r, a, n) => addCustomizedPizza(customizing, r, a, n)} />
       )}
       {flavoring && (
         <FlavorModal

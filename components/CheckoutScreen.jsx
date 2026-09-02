@@ -20,6 +20,9 @@ export default function CheckoutScreen({
   onBack,
   onConfirm,
   serviceTypeOptions,
+  // Note libre par article (flux équipe uniquement) — `setItemNote(index, value)`.
+  // Absent côté client (borne / click & collect).
+  setItemNote,
   // Paiement anticipé (flux équipe uniquement) — le client règle dès la prise
   // de commande, une autre personne vient récupérer plus tard. Absent sur la
   // borne client et le click & collect (props non fournies).
@@ -46,44 +49,55 @@ export default function CheckoutScreen({
       <h2 className="display-font text-3xl font-semibold mb-6">Ma commande</h2>
 
       <div className="flex-1 flex flex-col gap-3 mb-6">
-        {cart.map((i) => (
+        {cart.map((i, idx) => (
           <div
-            key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",")}
-            className="flex items-center justify-between rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3"
+            key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",") + "-" + idx}
+            className="flex flex-col gap-2 rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3"
           >
-            <div>
-              <div className="font-bold">{i.name}</div>
-              {i.note && (
-                <div className="text-xs text-[#E8B23D] pl-3">
-                  ↳ {noteIcon(i.name, i.note)} {i.note}
-                </div>
-              )}
-              {(i.modifiers || []).map((m, mi) => {
-                const isRemoved = m.name.startsWith("Sans ");
-                const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
-                return (
-                  <div key={mi} className="text-xs pl-3 flex items-center gap-1.5">
-                    <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
-                      {isRemoved ? "−" : "+"}
-                    </span>
-                    <span className="text-[#a88f78]">
-                      {label}
-                      {m.price > 0 ? ` (+${eur(m.price)})` : ""}
-                    </span>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-bold">{i.name}</div>
+                {i.note && (
+                  <div className="text-xs text-[#E8B23D] pl-3">
+                    ↳ {noteIcon(i.name, i.note)} {i.note}
                   </div>
-                );
-              })}
-              <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
+                )}
+                {(i.modifiers || []).map((m, mi) => {
+                  const isRemoved = m.name.startsWith("Sans ");
+                  const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
+                  return (
+                    <div key={mi} className="text-xs pl-3 flex items-center gap-1.5">
+                      <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
+                        {isRemoved ? "−" : "+"}
+                      </span>
+                      <span className="text-[#a88f78]">
+                        {label}
+                        {m.price > 0 ? ` (+${eur(m.price)})` : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                  −
+                </button>
+                <span className="w-6 text-center font-bold">{i.qty}</span>
+                <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
+                  +
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
-                −
-              </button>
-              <span className="w-6 text-center font-bold">{i.qty}</span>
-              <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
-                +
-              </button>
-            </div>
+            {setItemNote && (
+              <input
+                value={i.itemNote || ""}
+                onChange={(e) => setItemNote(idx, e.target.value)}
+                placeholder="📝 Note pour ce produit (ex. bien cuite, sans oignon)…"
+                className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                style={{ background: "#1a120b", border: "1px solid #3a2b1f", color: "#ff5fa8" }}
+              />
+            )}
           </div>
         ))}
       </div>

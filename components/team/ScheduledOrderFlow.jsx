@@ -47,34 +47,39 @@ export default function ScheduledOrderFlow({ onDone }) {
 
   function addItem(item, note) {
     setCart((prev) => {
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
+      // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
+      const existing = prev.find((i) => !i.itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
+        : [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [] }];
       return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }
-  function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+  function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
     ];
     setCart((prev) => {
       const sig = cartSignature(pizzaItem.id, null, modifiers);
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === sig);
+      const existing = prev.find((i) => !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) === sig);
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers }];
+      return [...prev, { ...pizzaItem, qty: 1, note: null, itemNote: itemNote || null, modifiers }];
     });
     setCustomizing(null);
   }
-  function changeQty(id, note, modifiers, delta) {
-    const sig = cartSignature(id, note, modifiers);
-    setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  function changeQty(id, note, modifiers, delta, itemNote) {
+    const sig = cartSignature(id, note, modifiers) + "|" + (itemNote || "");
+    setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) + "|" + (i.itemNote || "") === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
+  }
+  function updateItemNote(index, value) {
+    setCart((prev) => prev.map((i, idx) => (idx === index ? { ...i, itemNote: value } : i)));
   }
 
   function submitOrder() {
     const newOrder = {
-      items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers })),
+      items: cart.map(({ id, name, price, cat, qty, note, itemNote, modifiers }) => ({ id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, modifiers })),
       serviceType,
       name: tableName || "Commande programmée",
       note: note.trim() || null,
@@ -191,6 +196,7 @@ export default function ScheduledOrderFlow({ onDone }) {
           setTableName={setTableName}
           note={note}
           setNote={setNote}
+          setItemNote={updateItemNote}
           paidUpfront={paidUpfront}
           setPaidUpfront={setPaidUpfront}
           onBack={() => setScreen("order")}
@@ -208,7 +214,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       )}
 
       {customizing && (
-        <PizzaCustomizeModal pizza={customizing} menu={menuItems} onClose={() => setCustomizing(null)} onConfirm={(r, a) => addCustomizedPizza(customizing, r, a)} />
+        <PizzaCustomizeModal pizza={customizing} menu={menuItems} staffMode onClose={() => setCustomizing(null)} onConfirm={(r, a, n) => addCustomizedPizza(customizing, r, a, n)} />
       )}
       {flavoring && (
         <FlavorModal
