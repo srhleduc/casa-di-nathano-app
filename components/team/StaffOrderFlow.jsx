@@ -56,6 +56,8 @@ export default function StaffOrderFlow() {
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
+  const [paidUpfront, setPaidUpfront] = useState(false); // client règle dès la prise de commande
+
   const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander
@@ -117,6 +119,7 @@ export default function StaffOrderFlow() {
     setActiveCat("boisson");
     setSlotChoice(null);
     setSelectedOption(null);
+    setPaidUpfront(false);
     setAperoMode(false);
     setAperoUsed(false);
     setPanuzzoOrdering(null);
@@ -144,6 +147,7 @@ export default function StaffOrderFlow() {
       pizzaCount,
       total,
       status: "attente",
+      paid: paidUpfront,
       aperoStatus: aperoUsed && (hasMainPizza || hasAperoKitchenItems) ? "waiting" : null,
       isTest: testMode.enabled,
     };
@@ -292,6 +296,8 @@ export default function StaffOrderFlow() {
           setTableName={setTableName}
           note={note}
           setNote={setNote}
+          paidUpfront={paidUpfront}
+          setPaidUpfront={setPaidUpfront}
           onBack={() => setScreen("order")}
           onConfirm={goToSlot}
         />

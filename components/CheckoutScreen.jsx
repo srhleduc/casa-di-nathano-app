@@ -20,6 +20,11 @@ export default function CheckoutScreen({
   onBack,
   onConfirm,
   serviceTypeOptions,
+  // Paiement anticipé (flux équipe uniquement) — le client règle dès la prise
+  // de commande, une autre personne vient récupérer plus tard. Absent sur la
+  // borne client et le click & collect (props non fournies).
+  paidUpfront,
+  setPaidUpfront,
   // Engagement client (click & collect uniquement) — absent sur la borne/équipe.
   requireCommitment,
   phone,
@@ -170,6 +175,22 @@ export default function CheckoutScreen({
             className="w-full rounded-xl px-4 py-3 text-base outline-none resize-none"
             style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           />
+        </div>
+      )}
+
+      {setPaidUpfront && (
+        <div className="mb-6">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Règlement</div>
+          <button
+            onClick={() => setPaidUpfront(!paidUpfront)}
+            className="tap-scale w-full rounded-xl py-4 px-4 font-bold border-2 flex items-center justify-center gap-2 text-center"
+            style={paidUpfront ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
+          >
+            {paidUpfront ? "✓ " : ""}💰 Déjà réglée par le client
+          </button>
+          <p className="text-xs text-[#8a7561] mt-2 leading-relaxed">
+            À activer si le client paie maintenant et qu'une autre personne vient récupérer la commande.
+          </p>
         </div>
       )}
 

@@ -39,6 +39,7 @@ export default function ScheduledOrderFlow({ onDone }) {
   const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
+  const [paidUpfront, setPaidUpfront] = useState(false); // client règle dès la prise de commande
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -81,6 +82,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       pizzaCount,
       total,
       status: "attente",
+      paid: paidUpfront,
       scheduledFor,
       scheduledTime,
       isTest: testMode.enabled,
@@ -189,6 +191,8 @@ export default function ScheduledOrderFlow({ onDone }) {
           setTableName={setTableName}
           note={note}
           setNote={setNote}
+          paidUpfront={paidUpfront}
+          setPaidUpfront={setPaidUpfront}
           onBack={() => setScreen("order")}
           onConfirm={submitOrder}
         />

@@ -88,14 +88,9 @@ export default function CaisseBoard({ readOnly = false }) {
             <OrderLoyaltyControl order={o} link={loyaltyLinks[o.id]} readOnly={readOnly} />
           </div>
         )}
-        {!isTakeawayLike(o.serviceType) ? (
-          // Sur place : le client a généralement déjà mangé au moment de
-          // payer, pas besoin du paiement anticipé — un seul bouton, comme
-          // avant.
-          <button onClick={() => markPaidAndServed(o)} className="tap-scale w-full text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
-            💰 Marquer payée
-          </button>
-        ) : o.paid ? (
+        {o.paid ? (
+          // Déjà encaissée (paiement anticipé en caisse, ou réglée dès la prise
+          // de commande côté serveuse) — il ne reste qu'à la marquer servie.
           <div className="flex items-center gap-2">
             <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "#204a3a", color: "#a8e8c8" }}>
               ✅ Payée
@@ -104,6 +99,13 @@ export default function CaisseBoard({ readOnly = false }) {
               ✅ Servie
             </button>
           </div>
+        ) : !isTakeawayLike(o.serviceType) ? (
+          // Sur place : le client a généralement déjà mangé au moment de
+          // payer, pas besoin du paiement anticipé — un seul bouton, comme
+          // avant.
+          <button onClick={() => markPaidAndServed(o)} className="tap-scale w-full text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            💰 Marquer payée
+          </button>
         ) : (
           <div className="flex items-center gap-2">
             <button onClick={() => markPaidUnserved(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
