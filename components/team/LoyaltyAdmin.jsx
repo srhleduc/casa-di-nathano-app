@@ -37,7 +37,7 @@ function expiredSinceDays(expiresAt) {
   return Math.max(0, Math.floor((Date.now() - expiresAt) / 86400000));
 }
 
-const MOVEMENT_LABEL = { gain: "Gain", depense: "Dépense", ajustement: "Ajustement" };
+const MOVEMENT_LABEL = { gain: "Gain", depense: "Bon débloqué", ajustement: "Ajustement" };
 const SOURCE_LABEL = { click_and_collect: "Click & collect", caisse: "Caisse" };
 const REASON_LABEL = { palier_150: "Palier 150 points", anniversaire: "Anniversaire", manuel: "Ajout manuel" };
 
