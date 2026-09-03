@@ -1236,6 +1236,12 @@ create table if not exists loyalty_movements (
 create index if not exists loyalty_movements_customer_id_idx
   on loyalty_movements (customer_id);
 
+-- Motif libre, optionnel. Alimenté uniquement par l'ajout de points manuel
+-- depuis la fiche client équipe (ex. « oubli fidélité, commande du 3/09 »).
+-- award_loyalty_points ne l'écrit jamais : le motif est posé par un second
+-- update juste après, sur le mouvement qu'on vient d'insérer.
+alter table loyalty_movements add column if not exists note text;
+
 -- -------------------------------------------------------- loyalty_messages --
 -- Créée maintenant, alimentée seulement quand les SMS OVH seront branchés.
 create table if not exists loyalty_messages (
