@@ -1612,3 +1612,41 @@ execute function loyalty_sms_notify('new_customer');
 -- LOYALTY_SMS_ENABLED sur "false", soit
 --   drop trigger loyalty_sms_promo_code on promo_codes;
 --   drop trigger loyalty_sms_new_customer on loyalty_customers;
+
+-- =====================================================================
+-- GOOGLE WALLET — carte de fidélité dématérialisée (Loyalty pass).
+--
+-- Additif pur : ne touche NI award_loyalty_points, NI les triggers paliers,
+-- NI le calcul du solde. On expose seulement, via des fonctions security
+-- definer appelables avec la clé anon (les routes API n'ont pas de session) :
+--   - lecture ciblée des infos nécessaires au pass (nom + solde) ;
+--   - marquage « pass ajouté » (optimiste au 1er lien généré, le webhook
+--     Google confirmera/écrasera plus tard).
+-- L'objet Wallet côté Google a un id stable : <issuer>.casa_loyalty_<uuid>.
+-- =====================================================================
+
+-- NB : fonctions écrites en une seule ligne (corps en chaîne simple pour les
+-- fonctions `language sql`, `$body$` compact pour la plpgsql). C'est la forme
+-- exactement appliquée en base ; elle survit à un copier-coller qui écraserait
+-- les sauts de ligne dans un bloc `$$ ... $$` multi-ligne.
+
+alter table loyalty_customers add column if not exists wallet_added_at timestamptz;
+
+-- Infos réelles pour construire / signer le pass (route /api/wallet/create-pass).
+-- Rien de plus que ce que la fiche client équipe affiche déjà.
+create or replace function get_loyalty_wallet_customer(p_id uuid) returns table (nom text, solde_points integer, wallet_added_at timestamptz) language sql security definer set search_path = public as 'select nom, solde_points, wallet_added_at from loyalty_customers where id = p_id';
+
+grant execute on function get_loyalty_wallet_customer(uuid) to anon, authenticated;
+
+-- Résolution téléphone -> (id, solde) pour le hook click & collect, qui ne
+-- connaît que le numéro. Normalisation alignée sur award_loyalty_points.
+create or replace function resolve_loyalty_wallet_by_phone(p_phone text) returns table (id uuid, solde_points integer) language plpgsql security definer set search_path = public as $body$ declare v_phone text; begin v_phone := regexp_replace(coalesce(p_phone, ''), '[\s.\-()]', '', 'g'); if v_phone like '+33%' then v_phone := '0' || substr(v_phone, 4); elsif v_phone like '0033%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+590%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+594%' then v_phone := '0' || substr(v_phone, 5); end if; if v_phone !~ '^0[1-9][0-9]{8}$' then return; end if; return query select lc.id, lc.solde_points from loyalty_customers lc where lc.phone = v_phone; end; $body$;
+
+grant execute on function resolve_loyalty_wallet_by_phone(text) to anon, authenticated;
+
+-- Marque le pass comme ajouté. Appelé optimiste par /api/wallet/create-pass
+-- dès qu'un saveUrl est généré, puis (plus tard) par le webhook Google.
+-- Idempotent : n'écrase pas un horodatage déjà posé.
+create or replace function mark_loyalty_wallet_added(p_id uuid) returns void language sql security definer set search_path = public as 'update loyalty_customers set wallet_added_at = now() where id = p_id and wallet_added_at is null';
+
+grant execute on function mark_loyalty_wallet_added(uuid) to anon, authenticated;

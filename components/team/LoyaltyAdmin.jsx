@@ -332,6 +332,7 @@ function CustomerFile({ customerId, readOnly, onBack }) {
           </button>
         )}
         {editing && !readOnly && <EditForm customer={customer} onDone={() => setEditing(false)} />}
+        {!readOnly && <WalletButton customer={customer} />}
       </div>
 
       <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
@@ -377,6 +378,72 @@ function CustomerFile({ customerId, readOnly, onBack }) {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Bouton de génération du lien "Ajouter à Google Wallet" pour ce client.
+// Staff-facing : on ouvre le lien dans un onglet ET on l'affiche en clair pour
+// que la serveuse le passe / le fasse scanner sur le téléphone du client.
+// /api/wallet/create-pass marque wallet_added_at de façon optimiste : le bouton
+// se transforme en confirmation dès le rafraîchissement temps réel de la fiche.
+function WalletButton({ customer }) {
+  const [busy, setBusy] = useState(false);
+  const [saveUrl, setSaveUrl] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function generate() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(
+        `/api/wallet/create-pass?customer_id=${encodeURIComponent(customer.id)}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Échec de génération");
+      setSaveUrl(data.saveUrl);
+      window.open(data.saveUrl, "_blank", "noopener");
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      {customer.walletAddedAt && !saveUrl ? (
+        <div className="text-xs font-semibold" style={{ color: "#7fb069" }}>
+          📲 Carte Google Wallet ajoutée le {fmtDateTime(customer.walletAddedAt)}
+        </div>
+      ) : (
+        <button
+          onClick={generate}
+          disabled={busy}
+          className="tap-scale rounded-full px-4 py-1.5 text-xs font-bold border-2 border-[#3a2b1f] disabled:opacity-50"
+        >
+          {busy ? "Génération…" : "📲 Ajouter à Google Wallet"}
+        </button>
+      )}
+      {saveUrl && (
+        <div className="mt-2">
+          <div className="text-xs text-[#a88f78] mb-1">
+            Lien à ouvrir / faire scanner sur le téléphone du client :
+          </div>
+          <input
+            readOnly
+            value={saveUrl}
+            onFocus={(e) => e.target.select()}
+            className="w-full rounded px-2 py-1 text-xs"
+            style={INPUT_STYLE}
+          />
+        </div>
+      )}
+      {err && (
+        <div className="text-xs mt-1" style={{ color: "#e88a8a" }}>
+          {err}
+        </div>
+      )}
     </div>
   );
 }
