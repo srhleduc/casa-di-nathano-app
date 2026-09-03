@@ -1,18 +1,21 @@
-// Resynchronise le solde de points affiché sur la carte Google Wallet d'un
-// client, après chaque gain de points.
+// Resynchronise le solde affiché sur la carte Google Wallet d'un client après
+// un gain de points, ET envoie au plus une notification (nouveau solde, ou
+// déblocage de bon si un palier de 150 vient d'être franchi).
 //
 //   POST /api/wallet/update-points
-//   body : { customer_id?: uuid, phone?: string, solde: number }
-//          (customer_id prioritaire ; sinon résolution par téléphone)
+//   body : { customer_id?: uuid, phone?: string, solde: number, pointsAdded?: number }
+//          (customer_id prioritaire ; sinon résolution par téléphone.
+//           pointsAdded = points crédités par cet événement, sert à détecter
+//           le franchissement de palier ; absent => aucune notification, juste
+//           le PATCH silencieux.)
 //
 // Non bloquant par conception : renvoie toujours 200 (sauf corps inutilisable).
-//   { status: "ok" }       solde poussé sur l'objet Wallet
-//   { status: "skipped" }  le client n'a jamais ajouté la carte (404 côté Google)
-//   { status: "error" }    échec loggé côté serveur, volontairement non bloquant
+//   { patch: "ok"|"skipped"|"error", message: "ok"|"skipped"|"error"|"none" }
+//   ("none" = aucune notification à envoyer pour cet événement)
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { patchLoyaltyPoints } from "@/lib/googleWallet";
+import { syncWalletAfterPointsChange } from "@/lib/googleWallet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +34,7 @@ export async function POST(request) {
   const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
   const soldeRaw = body?.solde;
   const solde = Number.isFinite(Number(soldeRaw)) ? Number(soldeRaw) : null;
+  const pointsAdded = Number.isFinite(Number(body?.pointsAdded)) ? Number(body.pointsAdded) : 0;
 
   if (!rawId && !phone) {
     return NextResponse.json(
@@ -45,7 +49,7 @@ export async function POST(request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) {
-    return NextResponse.json({ status: "error" });
+    return NextResponse.json({ patch: "error", message: "none" });
   }
   const supabase = createClient(url, anon, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -60,12 +64,12 @@ export async function POST(request) {
     });
     if (error) {
       console.error("[wallet] resolve_loyalty_wallet_by_phone:", error.message);
-      return NextResponse.json({ status: "error" });
+      return NextResponse.json({ patch: "error", message: "none" });
     }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) {
       // Numéro invalide ou client inexistant : rien à synchroniser.
-      return NextResponse.json({ status: "skipped" });
+      return NextResponse.json({ patch: "skipped", message: "skipped" });
     }
     customerId = row.id;
     // Le solde envoyé par l'appelant fait foi ; on retombe sur celui de la
@@ -74,9 +78,9 @@ export async function POST(request) {
   }
 
   if (!customerId) {
-    return NextResponse.json({ status: "skipped" });
+    return NextResponse.json({ patch: "skipped", message: "skipped" });
   }
 
-  const status = await patchLoyaltyPoints(customerId, soldePoints);
-  return NextResponse.json({ status });
+  const result = await syncWalletAfterPointsChange(customerId, soldePoints, pointsAdded);
+  return NextResponse.json(result);
 }
