@@ -1206,7 +1206,9 @@ grant execute on function create_takeaway_order(
 --
 -- Règles métier (cahier des charges, définitives) :
 --   - 1 point = 1 € dépensé, arrondi à l'euro inférieur (floor), sans expiration.
---   - 150 points => bon de 5 €, CUMULABLE (300 => 2 bons, 450 => 3, ...).
+--   - 150 points => bon de 5 €, PUIS le solde repart avec le surplus
+--     (145 + 10 => 1 bon + solde 5). Un gros gain déclenche plusieurs bons
+--     d'un coup (solde 50 + 400 => 3 bons + solde 0). Voir loyalty_reward_palier_150.
 --   - Anniversaire => bon de 5 € automatique, indépendant du solde.
 --   - Bons valides 21 jours puis statut 'expire' (jamais supprimés).
 --     Réactivation manuelle => repasse 'actif' avec expires_at = now() + 21 j.
@@ -1359,18 +1361,19 @@ begin
     return v_new_solde;
   end if;
 
-  -- Le solde est mis à jour AVANT l'insertion du mouvement : le trigger
-  -- palier (AFTER INSERT sur loyalty_movements) lit loyalty_customers.solde_points
-  -- et doit donc y voir le nouveau total, pas l'ancien.
+  -- Le solde est mis à jour AVANT l'insertion du mouvement : le trigger palier
+  -- (AFTER INSERT sur loyalty_movements) lit loyalty_customers.solde_points.
   update loyalty_customers
   set solde_points = solde_points + v_points,
       last_activity_at = now()
-  where id = v_customer_id
-  returning solde_points into v_new_solde;
+  where id = v_customer_id;
 
   insert into loyalty_movements (customer_id, type, points, order_id, source)
   values (v_customer_id, 'gain', v_points, p_order_id, p_source);
 
+  -- Le trigger palier a pu consommer 150 pts par bon débloqué : on renvoie le
+  -- solde RÉEL après reset (la caisse et le pass Wallet s'en servent).
+  select solde_points into v_new_solde from loyalty_customers where id = v_customer_id;
   return v_new_solde;
 end;
 $award$;
@@ -1378,13 +1381,13 @@ $award$;
 grant execute on function award_loyalty_points(text, numeric, uuid, text) to authenticated;
 
 -- --------------------------------------------- trigger palier 150 points --
--- Après chaque mouvement : génère autant de bons palier_150 (5 €, 21 j) que
--- le solde en donne droit et qu'il n'en existe pas déjà. Idempotent et
--- cumulable (300 => 2 bons). Un ajustement négatif ne révoque jamais un bon
--- déjà émis (la boucle ne fait rien si earned - existing <= 0).
--- Le trigger lit loyalty_customers.solde_points tel quel : tout code qui
--- insère un mouvement à la main (ajustement, depense, migration) doit avoir
--- mis le solde à jour AVANT l'insert, comme le fait award_loyalty_points.
+-- Carte consommable : à chaque GAIN, si le solde atteint 150, émet un bon
+-- palier_150 (5 €, 21 j) par tranche de 150 PUIS retire 150 pts par bon du
+-- solde (le surplus reste). Ex. 145 + 10 => 155 => 1 bon + solde 5 ;
+-- 50 + 400 => 450 => 3 bons + solde 0.
+-- Ne réagit qu'aux mouvements type='gain' : le mouvement 'depense' inséré
+-- ci-dessous re-déclenche le trigger mais sort aussitôt (pas de récursion).
+-- Un ajustement négatif ne révoque jamais un bon déjà émis.
 create or replace function loyalty_reward_palier_150()
 returns trigger
 language plpgsql
@@ -1393,17 +1396,20 @@ set search_path = public
 as $palier$
 declare
   v_solde integer;
-  v_earned integer;
-  v_existing integer;
+  v_bons integer;
   i integer;
 begin
-  select solde_points into v_solde from loyalty_customers where id = new.customer_id;
-  v_earned := floor(v_solde / 150.0)::integer;
-  select count(*) into v_existing
-  from promo_codes
-  where customer_id = new.customer_id and reason = 'palier_150';
+  if new.type <> 'gain' then
+    return null;
+  end if;
 
-  for i in 1 .. (v_earned - v_existing) loop
+  select solde_points into v_solde from loyalty_customers where id = new.customer_id;
+  v_bons := floor(v_solde / 150.0)::integer;
+  if v_bons < 1 then
+    return null;
+  end if;
+
+  for i in 1 .. v_bons loop
     insert into promo_codes (code, customer_id, reduction, reason, status, expires_at)
     values (
       'CASA-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6)),
@@ -1414,6 +1420,16 @@ begin
       now() + interval '21 days'
     );
   end loop;
+
+  -- Consomme les points : le solde repart avec le surplus.
+  update loyalty_customers
+  set solde_points = solde_points - v_bons * 150
+  where id = new.customer_id;
+
+  -- created_at = clock_timestamp() (et non now(), figé sur la transaction) pour
+  -- que ce mouvement se classe APRÈS le 'gain' qui l'a déclenché dans l'historique.
+  insert into loyalty_movements (customer_id, type, points, order_id, source, created_at)
+  values (new.customer_id, 'depense', - v_bons * 150, new.order_id, new.source, clock_timestamp());
 
   return null;
 end;

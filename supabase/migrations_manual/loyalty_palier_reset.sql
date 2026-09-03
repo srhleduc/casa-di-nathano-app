@@ -1,0 +1,15 @@
+-- Carte fidélite consommable : au franchissement de 150 pts, on emet le bon
+-- PUIS on retire 150 pts par bon du solde (le surplus reste).
+--
+-- IMPORTANT : la normalisation des soldes existants a deja ete appliquee
+-- manuellement le 2026-09-03 :
+--   update loyalty_customers lc set solde_points = greatest(0,
+--     solde_points - 150 * (select count(*) from promo_codes p
+--       where p.customer_id = lc.id and p.reason = 'palier_150'));
+-- NE PAS la rejouer (elle n'est pas idempotente).
+
+create or replace function award_loyalty_points(p_phone text, p_amount numeric, p_order_id uuid, p_source text) returns integer language plpgsql security definer set search_path = public as $award$ declare v_phone text; v_customer_id uuid; v_points integer; v_new_solde integer; begin v_phone := regexp_replace(coalesce(p_phone, ''), '[\s.\-()]', '', 'g'); if v_phone like '+33%' then v_phone := '0' || substr(v_phone, 4); elsif v_phone like '0033%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+590%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+594%' then v_phone := '0' || substr(v_phone, 5); end if; if v_phone !~ '^0[1-9][0-9]{8}$' then return null; end if; insert into loyalty_customers (phone) values (v_phone) on conflict (phone) do nothing; select id into v_customer_id from loyalty_customers where phone = v_phone; v_points := floor(coalesce(p_amount, 0))::integer; if v_points <= 0 then update loyalty_customers set last_activity_at = now() where id = v_customer_id returning solde_points into v_new_solde; return v_new_solde; end if; update loyalty_customers set solde_points = solde_points + v_points, last_activity_at = now() where id = v_customer_id; insert into loyalty_movements (customer_id, type, points, order_id, source) values (v_customer_id, 'gain', v_points, p_order_id, p_source); select solde_points into v_new_solde from loyalty_customers where id = v_customer_id; return v_new_solde; end; $award$;
+
+create or replace function loyalty_reward_palier_150() returns trigger language plpgsql security definer set search_path = public as $palier$ declare v_solde integer; v_bons integer; i integer; begin if new.type <> 'gain' then return null; end if; select solde_points into v_solde from loyalty_customers where id = new.customer_id; v_bons := floor(v_solde / 150.0)::integer; if v_bons < 1 then return null; end if; for i in 1 .. v_bons loop insert into promo_codes (code, customer_id, reduction, reason, status, expires_at) values ('CASA-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6)), new.customer_id, 5.00, 'palier_150', 'actif', now() + interval '21 days'); end loop; update loyalty_customers set solde_points = solde_points - v_bons * 150 where id = new.customer_id; insert into loyalty_movements (customer_id, type, points, order_id, source, created_at) values (new.customer_id, 'depense', - v_bons * 150, new.order_id, new.source, clock_timestamp()); return null; end; $palier$;
+
+notify pgrst, 'reload schema';
