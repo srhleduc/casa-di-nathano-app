@@ -1682,3 +1682,26 @@ alter table loyalty_public_lookups enable row level security;
 create or replace function resolve_loyalty_customer_public(p_phone text, p_nom text, p_ip text) returns table (id uuid, nom text, solde_points integer, status text) language plpgsql security definer set search_path = public, extensions as $body$ declare v_ip text := nullif(btrim(coalesce(p_ip, '')), ''); v_phone text; v_nom text := unaccent(lower(btrim(coalesce(p_nom, '')))); v_known boolean := v_ip is not null and v_ip ~ '^[0-9A-Fa-f:.]{3,45}$'; v_recent integer; begin delete from loyalty_public_lookups where at < now() - interval '1 day'; if v_known then select count(*) into v_recent from loyalty_public_lookups where ip = v_ip and at > now() - interval '10 minutes'; insert into loyalty_public_lookups (ip) values (v_ip); if v_recent >= 20 then return query select null::uuid, null::text, null::integer, 'rate_limited'::text; return; end if; else select count(*) into v_recent from loyalty_public_lookups where ip = 'unknown' and at > now() - interval '10 minutes'; insert into loyalty_public_lookups (ip) values ('unknown'); if v_recent >= 200 then return query select null::uuid, null::text, null::integer, 'rate_limited'::text; return; end if; end if; v_phone := regexp_replace(coalesce(p_phone, ''), '[\s.\-()]', '', 'g'); if v_phone like '+33%' then v_phone := '0' || substr(v_phone, 4); elsif v_phone like '0033%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+590%' then v_phone := '0' || substr(v_phone, 5); elsif v_phone like '+594%' then v_phone := '0' || substr(v_phone, 5); end if; if v_phone !~ '^0[1-9][0-9]{8}$' or length(v_nom) < 2 then return query select null::uuid, null::text, null::integer, 'not_found'::text; return; end if; return query select lc.id, lc.nom, lc.solde_points, 'ok'::text from loyalty_customers lc where lc.phone = v_phone and position(' ' || v_nom || ' ' in ' ' || unaccent(lower(coalesce(lc.nom, ''))) || ' ') > 0 limit 1; if not found then return query select null::uuid, null::text, null::integer, 'not_found'::text; end if; end; $body$;
 
 grant execute on function resolve_loyalty_customer_public(text, text, text) to anon, authenticated;
+
+-- =====================================================================
+-- WEBHOOK GOOGLE WALLET (callbacks "save" / "del") — fiabilise
+-- wallet_added_at (posé de façon optimiste au clic "Ajouter").
+--
+-- L'endpoint /api/wallet/callback vérifie la signature ECv2SigningOnly de
+-- Google (lib/googleWalletCallback.js) PUIS appelle apply_wallet_callback.
+-- La table sert à la déduplication par nonce (Google renvoie le même
+-- callback plusieurs fois, best-effort avec retries) + audit léger.
+-- RLS activée sans policy : accès uniquement via la fonction security definer.
+-- =====================================================================
+
+create table if not exists wallet_callback_events (nonce text primary key, object_id text not null, event_type text not null, received_at timestamptz not null default now());
+
+alter table wallet_callback_events enable row level security;
+
+-- p_object_id : <issuer>.casa_loyalty_<customer_id> (même format que create-pass).
+-- Retour : 'applied' | 'duplicate' (nonce déjà vu) | 'unknown_object' (préfixe
+-- inattendu / uuid invalide / client introuvable) | 'ignored' (nonce vide ou
+-- eventType hors save/del).
+create or replace function apply_wallet_callback(p_object_id text, p_event text, p_nonce text) returns text language plpgsql security definer set search_path = public as $body$ declare v_prefix constant text := '3388000000023181954.casa_loyalty_'; v_id_txt text; v_id uuid; v_rows integer; begin if p_nonce is null or btrim(p_nonce) = '' then return 'ignored'; end if; insert into wallet_callback_events (nonce, object_id, event_type) values (p_nonce, coalesce(p_object_id, ''), coalesce(p_event, '')) on conflict (nonce) do nothing; get diagnostics v_rows = row_count; if v_rows = 0 then return 'duplicate'; end if; delete from wallet_callback_events where received_at < now() - interval '30 days'; if p_object_id is null or left(p_object_id, length(v_prefix)) <> v_prefix then return 'unknown_object'; end if; v_id_txt := substr(p_object_id, length(v_prefix) + 1); begin v_id := v_id_txt::uuid; exception when others then return 'unknown_object'; end; if p_event = 'save' then update loyalty_customers set wallet_added_at = now() where id = v_id; elsif p_event = 'del' then update loyalty_customers set wallet_added_at = null where id = v_id; else return 'ignored'; end if; get diagnostics v_rows = row_count; if v_rows = 0 then return 'unknown_object'; end if; return 'applied'; end; $body$;
+
+grant execute on function apply_wallet_callback(text, text, text) to anon, authenticated;
