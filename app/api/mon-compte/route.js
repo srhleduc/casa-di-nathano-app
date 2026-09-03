@@ -26,6 +26,24 @@ export const dynamic = "force-dynamic";
 // correspondance". Sert aussi pour les entrées vides / mal formées.
 const NOT_FOUND = { found: false };
 
+// IP de l'appelant pour le rate limit. Sur Vercel, x-real-ip = IP client
+// unique, x-forwarded-for = chaîne (client en tête). On renvoie "unknown" si
+// rien d'exploitable — le rate limit par IP est alors désactivé côté base
+// (cf. resolve_loyalty_customer_public) pour ne pas bucketiser tous les
+// clients ensemble.
+function clientIp(request) {
+  const candidates = [
+    request.headers.get("x-real-ip"),
+    (request.headers.get("x-forwarded-for") || "").split(",")[0],
+    (request.headers.get("x-vercel-forwarded-for") || "").split(",")[0],
+  ];
+  for (const c of candidates) {
+    const v = (c || "").trim();
+    if (v) return v;
+  }
+  return "unknown";
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -54,8 +72,8 @@ export async function POST(request) {
     return NextResponse.json({ error: "Service indisponible" }, { status: 500 });
   }
 
-  const forwarded = request.headers.get("x-forwarded-for") || "";
-  const ip = forwarded.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";
+  const ip = clientIp(request);
+  console.log(`[mon-compte] lookup ip=${ip}`);
 
   const supabase = createClient(url, anon, {
     auth: { persistSession: false, autoRefreshToken: false },
