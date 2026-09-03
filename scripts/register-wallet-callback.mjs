@@ -59,10 +59,18 @@ async function accessToken() {
 const token = await accessToken();
 const H = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
 
+// L'API Wallet refuse un PATCH sur une classe déjà "approved" sans reviewStatus
+// explicite ("Invalid review status APPROVED. Use UNDER_REVIEW instead."). On
+// repasse donc reviewStatus à UNDER_REVIEW : Google continue de servir la
+// dernière version approuvée aux passes existants pendant qu'il re-valide le
+// changement (ajout du callback).
 const patch = await fetch(`${WALLET_API}/loyaltyClass/${encodeURIComponent(CLASS_ID)}`, {
   method: "PATCH",
   headers: H,
-  body: JSON.stringify({ callbackOptions: { url: CALLBACK_URL } }),
+  body: JSON.stringify({
+    reviewStatus: "UNDER_REVIEW",
+    callbackOptions: { url: CALLBACK_URL },
+  }),
 });
 console.log("PATCH loyaltyClass ->", patch.status);
 if (!patch.ok) {
