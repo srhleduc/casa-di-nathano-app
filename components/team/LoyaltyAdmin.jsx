@@ -18,6 +18,7 @@ import {
   useLoyaltyPromoCodes,
   reactivatePromoCode,
   addManualPromoCode,
+  awardLoyaltyPointsManual,
 } from "@/lib/data";
 
 const INPUT_STYLE = { background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" };
@@ -291,6 +292,7 @@ function CustomerFile({ customerId, readOnly, onBack }) {
   const { promoCodes } = useLoyaltyPromoCodes(customerId);
   const [editing, setEditing] = useState(false);
   const [addingBon, setAddingBon] = useState(false);
+  const [addingPoints, setAddingPoints] = useState(false);
 
   async function addBon() {
     if (!window.confirm("Créer un bon de 5 € pour ce client ? (valable 21 jours)")) return;
@@ -358,27 +360,130 @@ function CustomerFile({ customerId, readOnly, onBack }) {
       </div>
 
       <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-        <div className="font-bold mb-3">Historique des points ({movements.length})</div>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="font-bold">Historique des points ({movements.length})</div>
+          {!readOnly && (
+            <button
+              onClick={() => setAddingPoints((v) => !v)}
+              className="tap-scale shrink-0 rounded-full px-4 py-1.5 text-xs font-bold disabled:opacity-50"
+              style={PRIMARY_BTN}
+            >
+              {addingPoints ? "Fermer" : "➕ Ajouter des points"}
+            </button>
+          )}
+        </div>
+        {addingPoints && !readOnly && (
+          <ManualPointsForm customer={customer} onDone={() => setAddingPoints(false)} />
+        )}
         {movements.length === 0 && <p className="text-[#8a7561] text-sm">Aucun mouvement.</p>}
         <div className="flex flex-col gap-1">
           {movements.map((m) => {
             const positive = m.points >= 0;
             return (
-              <div key={m.id} className="flex items-center justify-between text-sm py-1 border-b border-[#2a1f16] last:border-0">
-                <span className="text-[#c9b8a4]">
-                  {fmtDateTime(m.createdAt)} · {MOVEMENT_LABEL[m.type] || m.type}
-                  {m.source ? ` · ${SOURCE_LABEL[m.source] || m.source}` : ""}
-                </span>
-                <span className="font-bold" style={{ color: positive ? "#7fb069" : "#e88a8a" }}>
-                  {positive ? "+" : ""}
-                  {m.points} pts
-                </span>
+              <div key={m.id} className="text-sm py-1 border-b border-[#2a1f16] last:border-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#c9b8a4]">
+                    {fmtDateTime(m.createdAt)} · {MOVEMENT_LABEL[m.type] || m.type}
+                    {m.source ? ` · ${SOURCE_LABEL[m.source] || m.source}` : ""}
+                  </span>
+                  <span className="font-bold" style={{ color: positive ? "#7fb069" : "#e88a8a" }}>
+                    {positive ? "+" : ""}
+                    {m.points} pts
+                  </span>
+                </div>
+                {m.note && <div className="text-[#8a7561] text-xs mt-0.5">{m.note}</div>}
               </div>
             );
           })}
         </div>
       </div>
     </div>
+  );
+}
+
+// Ajout de points manuel (fiche client équipe) : crédite des points a posteriori
+// quand un client a oublié de donner son numéro à la commande, sans repasser par
+// une fausse commande. Passe par awardLoyaltyPointsManual -> award_loyalty_points
+// (fonction Postgres inchangée) + motif optionnel dans loyalty_movements.note.
+// Après succès : patchLoyaltyPoints via /api/wallet/update-points, fire-and-forget
+// et non bloquant, exactement comme CaisseBoard après un gain en caisse.
+function ManualPointsForm({ customer, onDone }) {
+  const [points, setPoints] = useState("");
+  const [motif, setMotif] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    const n = Math.floor(Number(points));
+    if (!Number.isFinite(n) || n <= 0) {
+      setErr("Saisis un nombre de points entier supérieur à 0.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const newSolde = await awardLoyaltyPointsManual(customer.id, customer.phone, n, motif);
+      if (newSolde == null) {
+        setErr("Numéro du client invalide — aucun point crédité.");
+        return;
+      }
+      // Resync de la carte Google Wallet si elle existe. Fire-and-forget,
+      // ne doit jamais gêner l'ajout de points (cf. CaisseBoard).
+      fetch("/api/wallet/update-points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: customer.id, solde: newSolde }),
+      }).catch(() => {});
+      onDone();
+    } catch (e2) {
+      console.error(e2);
+      setErr("Ajout impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="mb-3 flex flex-wrap items-end gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-bold text-[#a88f78] uppercase">Points à créditer</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={points}
+          onChange={(e) => setPoints(e.target.value)}
+          className="w-32 rounded-lg px-3 py-2"
+          style={INPUT_STYLE}
+          autoFocus
+        />
+      </label>
+      <label className="flex flex-1 flex-col gap-1 min-w-[12rem]">
+        <span className="text-xs font-bold text-[#a88f78] uppercase">Motif (optionnel)</span>
+        <input
+          value={motif}
+          onChange={(e) => setMotif(e.target.value)}
+          placeholder="ex : oubli fidélité, commande du 3/09"
+          className="rounded-lg px-3 py-2"
+          style={INPUT_STYLE}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={busy}
+        className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50"
+        style={PRIMARY_BTN}
+      >
+        {busy ? "Ajout…" : "Créditer"}
+      </button>
+      {err && (
+        <div className="w-full text-xs" style={{ color: "#e88a8a" }}>
+          {err}
+        </div>
+      )}
+    </form>
   );
 }
 
