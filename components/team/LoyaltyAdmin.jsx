@@ -428,12 +428,13 @@ function ManualPointsForm({ customer, onDone }) {
         setErr("Numéro du client invalide — aucun point crédité.");
         return;
       }
-      // Resync de la carte Google Wallet si elle existe. Fire-and-forget,
-      // ne doit jamais gêner l'ajout de points (cf. CaisseBoard).
+      // Resync de la carte Google Wallet + notification (nouveau solde, ou
+      // déblocage de bon si un palier est franchi). Fire-and-forget, ne doit
+      // jamais gêner l'ajout de points (cf. CaisseBoard).
       fetch("/api/wallet/update-points", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer_id: customer.id, solde: newSolde }),
+        body: JSON.stringify({ customer_id: customer.id, solde: newSolde, pointsAdded: n }),
       }).catch(() => {});
       onDone();
     } catch (e2) {

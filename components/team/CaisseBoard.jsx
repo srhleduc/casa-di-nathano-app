@@ -343,13 +343,18 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
         await createLoyaltyCustomer({ phone: p, nom: nom.trim(), dateAnniversaire });
       }
       const newSolde = await awardLoyaltyPointsFromCaisse(p, order.total, order.id);
-      // Resynchronise la carte Google Wallet du client si elle existe.
+      // Resynchronise la carte Google Wallet du client + notification (nouveau
+      // solde, ou déblocage de bon si un palier est franchi).
       // Fire-and-forget : ne doit jamais gêner l'encaissement.
       if (newSolde != null) {
         fetch("/api/wallet/update-points", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: p, solde: newSolde }),
+          body: JSON.stringify({
+            phone: p,
+            solde: newSolde,
+            pointsAdded: Math.floor(Number(order.total) || 0),
+          }),
         }).catch(() => {});
       }
       setOpen(false); // le badge ☑️ apparaît via le rafraîchissement temps réel

@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { patchLoyaltyPoints } from "@/lib/googleWallet";
+import { syncWalletAfterPointsChange } from "@/lib/googleWallet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,7 +90,8 @@ export async function POST(request) {
 
   // Fidélité Google Wallet : create_takeaway_order a déjà crédité les points
   // (award_loyalty_points, dans la même transaction). On resynchronise le solde
-  // affiché sur la carte du client s'il en a ajouté une. Jamais bloquant pour
+  // affiché sur la carte du client s'il en a ajouté une, et on envoie au plus
+  // une notification (nouveau solde, ou déblocage de bon). Jamais bloquant pour
   // la confirmation de commande.
   try {
     const { data: walletRows } = await supabase.rpc(
@@ -99,7 +100,12 @@ export async function POST(request) {
     );
     const walletRow = Array.isArray(walletRows) ? walletRows[0] : walletRows;
     if (walletRow?.id) {
-      await patchLoyaltyPoints(walletRow.id, walletRow.solde_points);
+      // Points crédités = floor(total), comme award_loyalty_points.
+      await syncWalletAfterPointsChange(
+        walletRow.id,
+        walletRow.solde_points,
+        Math.floor(Number(total) || 0)
+      );
     }
   } catch (err) {
     console.error("[wallet] sync click&collect:", err?.message || err);
