@@ -1721,3 +1721,81 @@ alter table wallet_callback_events enable row level security;
 create or replace function apply_wallet_callback(p_object_id text, p_event text, p_nonce text) returns text language plpgsql security definer set search_path = public as $body$ declare v_prefix constant text := '3388000000023181954.casa_loyalty_'; v_id_txt text; v_id uuid; v_rows integer; begin if p_nonce is null or btrim(p_nonce) = '' then return 'ignored'; end if; insert into wallet_callback_events (nonce, object_id, event_type) values (p_nonce, coalesce(p_object_id, ''), coalesce(p_event, '')) on conflict (nonce) do nothing; get diagnostics v_rows = row_count; if v_rows = 0 then return 'duplicate'; end if; delete from wallet_callback_events where received_at < now() - interval '30 days'; if p_object_id is null or left(p_object_id, length(v_prefix)) <> v_prefix then return 'unknown_object'; end if; v_id_txt := substr(p_object_id, length(v_prefix) + 1); begin v_id := v_id_txt::uuid; exception when others then return 'unknown_object'; end; if p_event = 'save' then update loyalty_customers set wallet_added_at = now() where id = v_id; elsif p_event = 'del' then update loyalty_customers set wallet_added_at = null where id = v_id; else return 'ignored'; end if; get diagnostics v_rows = row_count; if v_rows = 0 then return 'unknown_object'; end if; return 'applied'; end; $body$;
 
 grant execute on function apply_wallet_callback(text, text, text) to anon, authenticated;
+
+-- =====================================================================
+-- COMMANDE À TABLE AUTONOME (« SAT » — Service À Table)
+-- Nouveau canal : lien public /sat?table=N que le client scanne à sa
+-- table pour commander lui-même, sans remplacer la prise de commande
+-- serveuse — les deux alimentent la MÊME commande ouverte par table.
+-- Additif pur : rien du pipeline cuisine/service existant n'est modifié.
+-- (Repris tel quel dans supabase/migrations_manual/sat.sql.)
+-- =====================================================================
+
+-- Registre des tables physiques. Désactivation (active = false) plutôt
+-- que suppression dure, pour préserver l'intégrité des commandes qui
+-- référencent une table (orders.table_ids).
+create table if not exists tables (
+  id uuid primary key default gen_random_uuid(),
+  restaurant_id text not null references restaurants (id),
+  number text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (restaurant_id, number)
+);
+
+alter table tables enable row level security;
+
+drop policy if exists "tables_select" on tables;
+drop policy if exists "tables_write" on tables;
+create policy "tables_select" on tables
+  for select to authenticated
+  using (restaurant_id = my_restaurant_id() or is_manager());
+create policy "tables_write" on tables
+  for all to authenticated
+  using (restaurant_id = my_restaurant_id())
+  with check (restaurant_id = my_restaurant_id());
+
+alter publication supabase_realtime add table tables;
+
+-- Rattachement structuré à une ou plusieurs tables (tables collées) +
+-- libellé texte libre en parallèle (tables non enregistrées, transition).
+-- Nullable / défaut vide : commandes existantes valides sans backfill.
+alter table orders add column if not exists table_ids text[] not null default '{}';
+alter table orders add column if not exists table_label text;
+
+-- Ajout ATOMIQUE d'articles à une commande sur place déjà ouverte —
+-- appelé par la prise de commande serveuse (StaffOrderFlow) ET le lien
+-- client /sat. Un seul UPDATE : aucune course si serveuse et client
+-- valident au même instant. security invoker : la RLS de orders
+-- s'applique, comme create_takeaway_order.
+-- p_reopen_kitchen (calculé côté client) : rouvre le circuit cuisine
+-- UNIQUEMENT si la commande l'avait déjà dépassé — réplique du garde-fou
+-- de EditOrderModal.save(). Les items[].served ne sont jamais touchés :
+-- un article déjà en finition ne régresse pas.
+-- language sql, corps sans point-virgule interne : le SQL Editor découpe les
+-- instructions sur « ; » (un corps multi-lignes plpgsql serait cassé). security
+-- invoker par défaut → la RLS de orders s'applique, comme create_takeaway_order.
+create or replace function sat_append_items(
+  p_order_id uuid,
+  p_items jsonb,
+  p_added_total numeric,
+  p_added_pizza_count integer,
+  p_reopen_kitchen boolean,
+  p_extra_table_ids text[]
+)
+returns void
+language sql
+set search_path = public
+as $fn$
+  update orders o
+  set items = o.items || coalesce(p_items, '[]'::jsonb),
+      total = o.total + coalesce(p_added_total, 0),
+      pizza_count = o.pizza_count + coalesce(p_added_pizza_count, 0),
+      table_ids = (select coalesce(array_agg(distinct e order by e), '{}') from unnest(o.table_ids || coalesce(p_extra_table_ids, '{}'::text[])) as e),
+      status = case when coalesce(p_reopen_kitchen, false) and o.status not in ('attente', 'preparation') then 'attente' else o.status end,
+      delivered = case when coalesce(p_reopen_kitchen, false) and o.status not in ('attente', 'preparation') then false else o.delivered end,
+      apero_status = case when o.apero_status = 'served_by_kitchen' then 'released' else o.apero_status end
+  where o.id = p_order_id
+$fn$;
+
+grant execute on function sat_append_items(uuid, jsonb, numeric, integer, boolean, text[]) to authenticated;
