@@ -27,6 +27,8 @@ export default function CheckoutScreen({
   toggleTableId,
   otherTableLabel,
   setOtherTableLabel,
+  // Table déjà connue (lien client /sat) : affichage figé, pas de saisie.
+  fixedTableLabel,
   // Note libre par article (flux équipe uniquement) — `setItemNote(index, value)`.
   // Absent côté client (borne / click & collect).
   setItemNote,
@@ -129,7 +131,17 @@ export default function CheckoutScreen({
         </div>
       </div>
 
-      {tables && !isTakeawayLike(serviceType) ? (
+      {fixedTableLabel && !isTakeawayLike(serviceType) ? (
+        <div className="mb-8">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Table</div>
+          <div
+            className="rounded-xl px-4 py-4 text-lg font-bold"
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          >
+            {fixedTableLabel}
+          </div>
+        </div>
+      ) : tables && !isTakeawayLike(serviceType) ? (
         <div className="mb-8">
           <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de table</div>
           <div className="flex flex-wrap gap-2 mb-3">
