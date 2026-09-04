@@ -173,7 +173,7 @@ export default function TakeawayOrder() {
 
   function submitOrder(finalPlan) {
     const newOrder = {
-      items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers })),
+      items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers, source: "click_and_collect" })),
       serviceType: TAKEAWAY_SERVICE_TYPE,
       name: tableName || "Commande en ligne",
       slotAllocations: finalPlan || [],
