@@ -2,8 +2,9 @@
 
 // Espace équipe → Fidélité. Recherche d'un client par nom / prénom / téléphone,
 // création manuelle, fiche client (solde de points, historique des mouvements,
-// bons avec statut + réactivation). Base clients partagée entre les deux
-// restaurants (voir lib/data.js et supabase/schema.sql).
+// bons avec statut — actifs et inactifs — cliquables pour prolonger /
+// réactiver à une date au choix ou supprimer). Base clients partagée entre les
+// deux restaurants (voir lib/data.js et supabase/schema.sql).
 
 import { useRef, useState } from "react";
 import { canonicalLoyaltyPhone } from "@/lib/business";
@@ -16,7 +17,8 @@ import {
   useLoyaltyCustomer,
   useLoyaltyMovements,
   useLoyaltyPromoCodes,
-  reactivatePromoCode,
+  setPromoCodeExpiry,
+  deletePromoCode,
   addManualPromoCode,
   awardLoyaltyPointsManual,
 } from "@/lib/data";
@@ -33,8 +35,11 @@ function fmtDateTime(ts) {
 function fmtBirthday(dateStr) {
   return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "long" });
 }
-function expiredSinceDays(expiresAt) {
-  return Math.max(0, Math.floor((Date.now() - expiresAt) / 86400000));
+// "YYYY-MM-DD" du jour + offset (pour les <input type="date">).
+function isoDay(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // fige sur la date locale
+  return d.toISOString().slice(0, 10);
 }
 
 const MOVEMENT_LABEL = { gain: "Gain", depense: "Bon débloqué", ajustement: "Ajustement" };
@@ -554,42 +559,105 @@ function WalletButton({ customer }) {
   );
 }
 
+// Ligne de bon. Cliquable (hors espace Direction) quand le bon est 'actif' ou
+// 'expire' : ouvre un panneau pour prolonger / réactiver (date au choix) ou
+// supprimer. Les bons 'utilise' restent en lecture seule.
 function PromoCodeRow({ bon, readOnly }) {
-  const [busy, setBusy] = useState(false);
+  const isActive = bon.status === "actif";
+  const isExpired = bon.status === "expire";
+  const clickable = !readOnly && (isActive || isExpired);
 
-  async function reactivate() {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [date, setDate] = useState(isoDay(21));
+
+  async function applyExpiry() {
+    if (!date) return;
     setBusy(true);
+    setErr(null);
     try {
-      await reactivatePromoCode(bon.id);
-    } catch (err) {
-      console.error(err);
+      await setPromoCodeExpiry(bon.id, new Date(`${date}T23:59:59`).toISOString());
+      setOpen(false);
+    } catch (e) {
+      console.error(e);
+      setErr("Échec de la mise à jour.");
     } finally {
       setBusy(false);
     }
   }
 
-  const badge =
-    bon.status === "actif"
-      ? { text: `Actif — expire le ${fmtDate(bon.expiresAt)}`, bg: "#204a3a", fg: "#a8e8c8" }
-      : bon.status === "utilise"
-      ? { text: "Utilisé", bg: "#2c2c2c", fg: "#9a9a9a" }
-      : { text: `Expiré depuis ${expiredSinceDays(bon.expiresAt)} jour${expiredSinceDays(bon.expiresAt) > 1 ? "s" : ""}`, bg: "#4a1f1f", fg: "#e8a8a8" };
+  async function remove() {
+    const msg =
+      bon.reason === "palier_150"
+        ? "Supprimer ce bon ? Les 150 points consommés pour l'obtenir ne sont pas re-crédités — à rajouter à la main si besoin."
+        : "Supprimer définitivement ce bon ?";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await deletePromoCode(bon.id);
+    } catch (e) {
+      console.error(e);
+      setErr("Échec de la suppression.");
+      setBusy(false);
+    }
+  }
+
+  const badge = isActive
+    ? { text: `Actif · jusqu'au ${fmtDate(bon.expiresAt)}`, bg: "#204a3a", fg: "#a8e8c8" }
+    : bon.status === "utilise"
+    ? { text: "Utilisé", bg: "#2c2c2c", fg: "#9a9a9a" }
+    : { text: `Inactif · depuis le ${fmtDate(bon.expiresAt)}`, bg: "#4a1f1f", fg: "#e8a8a8" };
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#3a2b1f] px-3 py-2">
-      <div>
+    <div className="rounded-lg border border-[#3a2b1f] px-3 py-2">
+      <div
+        className={clickable ? "cursor-pointer" : undefined}
+        onClick={clickable ? () => setOpen((v) => !v) : undefined}
+      >
         <div className="font-bold text-sm">
           {eur(bon.reduction)} · <span className="text-[#a88f78]">{REASON_LABEL[bon.reason] || bon.reason}</span>
+          {clickable && <span className="text-[#5a4a3a] ml-2">{open ? "▲" : "▼"}</span>}
         </div>
         <div className="text-xs text-[#8a7561]">Code {bon.code} · créé le {fmtDate(bon.createdAt)}</div>
         <span className="inline-block mt-1 text-xs font-bold rounded-full px-2 py-0.5" style={{ background: badge.bg, color: badge.fg }}>
           {badge.text}
         </span>
       </div>
-      {!readOnly && bon.status === "expire" && (
-        <button onClick={reactivate} disabled={busy} className="tap-scale shrink-0 rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50" style={PRIMARY_BTN}>
-          ♻️ Réactiver
-        </button>
+
+      {open && clickable && (
+        <div className="mt-3 border-t border-[#2a1f16] pt-3 flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase font-bold text-[#a88f78]">
+              {isExpired ? "Réactiver jusqu'au" : "Prolonger jusqu'au"}
+            </span>
+            <input
+              type="date"
+              min={isoDay(0)}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="rounded px-2 py-1 text-sm"
+              style={INPUT_STYLE}
+            />
+          </label>
+          <button
+            onClick={applyExpiry}
+            disabled={busy || !date}
+            className="tap-scale shrink-0 rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+            style={PRIMARY_BTN}
+          >
+            {isExpired ? "♻️ Réactiver" : "📅 Prolonger"}
+          </button>
+          <button
+            onClick={remove}
+            disabled={busy}
+            className="tap-scale shrink-0 rounded-full px-4 py-2 text-xs font-bold border-2 border-[#7a2a2a] text-[#e8a8a8] disabled:opacity-50"
+          >
+            🗑️ Supprimer
+          </button>
+          {err && <div className="w-full text-xs" style={{ color: "#e88a8a" }}>{err}</div>}
+        </div>
       )}
     </div>
   );
