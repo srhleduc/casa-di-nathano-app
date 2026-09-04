@@ -1,7 +1,7 @@
 "use client";
 
 import { eur, noteIcon } from "@/lib/menu";
-import { lineUnitPrice, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
+import { lineUnitPrice, tableDisplayName, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
 import { CGV_NO_SHOW_CLAUSE } from "@/lib/cgv";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
@@ -155,7 +155,7 @@ export default function CheckoutScreen({
                   className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
                   style={on ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
                 >
-                  {on ? "✓ " : ""}Table {t.number}
+                  {on ? "✓ " : ""}{tableDisplayName(t)}
                 </button>
               );
             })}

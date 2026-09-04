@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, insertOrder, appendItemsToOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -49,7 +49,7 @@ export default function StaffOrderFlow() {
 
   const tableNameCollator = useMemo(() => new Intl.Collator("fr", { numeric: true, sensitivity: "base" }), []);
   const activeTables = useMemo(
-    () => tables.filter((t) => t.active).sort((a, b) => tableNameCollator.compare(a.number, b.number)),
+    () => tables.filter((t) => t.active).sort((a, b) => tableNameCollator.compare(tableDisplayName(a), tableDisplayName(b))),
     [tables, tableNameCollator]
   );
 
