@@ -19,6 +19,15 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
             🧪 TEST
           </span>
         )}
+        {Array.isArray(order.items) && order.items.some((it) => it.source) && (
+          <span
+            className="text-xs font-bold rounded-full px-3 py-1"
+            style={{ background: "#2c1c14", color: "#a88f78" }}
+            title="Contient des articles saisis par le client (borne à table ou click & collect)"
+          >
+            📲
+          </span>
+        )}
         {order.slotForced && (
           <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a1c1c", color: "#ff6b6b" }}>
             ⚠️ Créneau forcé
