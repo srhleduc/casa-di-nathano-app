@@ -20,6 +20,13 @@ export default function CheckoutScreen({
   onBack,
   onConfirm,
   serviceTypeOptions,
+  // Sélecteur multi-tables (prise de commande serveuse, sur place uniquement).
+  // Absent sur la borne / le click & collect → l'ancien champ texte est conservé.
+  tables,
+  selectedTableIds,
+  toggleTableId,
+  otherTableLabel,
+  setOtherTableLabel,
   // Note libre par article (flux équipe uniquement) — `setItemNote(index, value)`.
   // Absent côté client (borne / click & collect).
   setItemNote,
@@ -122,18 +129,51 @@ export default function CheckoutScreen({
         </div>
       </div>
 
-      <div className="mb-8">
-        <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
-          {!isTakeawayLike(serviceType) ? "Numéro de table" : "Ton nom (pour t'appeler)"}
+      {tables && !isTakeawayLike(serviceType) ? (
+        <div className="mb-8">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de table</div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {tables.map((t) => {
+              const on = (selectedTableIds || []).includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggleTableId(t.id)}
+                  className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
+                  style={on ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                >
+                  {on ? "✓ " : ""}Table {t.number}
+                </button>
+              );
+            })}
+            {tables.length === 0 && (
+              <span className="text-sm text-[#8a7561]">Aucune table enregistrée — utilise le champ ci-dessous.</span>
+            )}
+          </div>
+          <div className="text-xs font-bold text-[#a88f78] uppercase tracking-wide mb-2">Autre / texte libre</div>
+          <input
+            value={otherTableLabel || ""}
+            onChange={(e) => setOtherTableLabel(e.target.value)}
+            placeholder="Ex. Terrasse 3, table d'appoint…"
+            className="w-full rounded-xl px-4 py-4 text-lg outline-none"
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          />
         </div>
-        <input
-          value={tableName}
-          onChange={(e) => setTableName(e.target.value)}
-          placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
-          className="w-full rounded-xl px-4 py-4 text-lg outline-none"
-          style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-        />
-      </div>
+      ) : (
+        <div className="mb-8">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
+            {!isTakeawayLike(serviceType) ? "Numéro de table" : "Ton nom (pour t'appeler)"}
+          </div>
+          <input
+            value={tableName}
+            onChange={(e) => setTableName(e.target.value)}
+            placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
+            className="w-full rounded-xl px-4 py-4 text-lg outline-none"
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+          />
+        </div>
+      )}
 
       {requireCommitment && (
         <div className="mb-8">
