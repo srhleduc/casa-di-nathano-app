@@ -21,6 +21,7 @@ import {
   earliestSlotPlan,
   kitchenPendingQty,
   tableDisplayLabel,
+  tableDisplayName,
   findOpenDineInOrderForTables,
 } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
@@ -94,7 +95,7 @@ export default function ServiceATable() {
   const restaurant = useRestaurant();
 
   const activeTables = useMemo(
-    () => tables.filter((t) => t.active).sort((a, b) => tableNumberCollator.compare(a.number, b.number)),
+    () => tables.filter((t) => t.active).sort((a, b) => tableNumberCollator.compare(tableDisplayName(a), tableDisplayName(b))),
     [tables]
   );
   const paramTable = useMemo(
@@ -330,7 +331,7 @@ function SatWelcome({ restaurantName, paramNumber, paramTable, activeTables, has
         <div className="relative z-10 flex flex-col items-center max-w-md">
           <span className="text-6xl mb-4">🌿</span>
           <h1 className="display-font text-4xl font-semibold mb-1">{restaurantName}</h1>
-          <p className="text-[#c9b8a4] text-lg mb-8">Table {paramTable.number}</p>
+          <p className="text-[#c9b8a4] text-lg mb-8">{tableDisplayName(paramTable)}</p>
           {open && (
             <p className="text-[#c9b8a4] text-base mb-6 leading-relaxed">
               Vous pouvez compléter votre commande, même si un serveur a déjà pris cette commande. Vous n'avez qu'à
@@ -375,7 +376,7 @@ function SatWelcome({ restaurantName, paramNumber, paramTable, activeTables, has
                 onClick={() => onStart(t.id)}
                 className="tap-scale rounded-2xl border-2 border-[#3a2b1f] bg-[#211712] px-4 py-5 flex flex-col items-center gap-1"
               >
-                <span className="display-font text-2xl font-bold">Table {t.number}</span>
+                <span className="display-font text-2xl font-bold">{tableDisplayName(t)}</span>
                 <span className="text-xs font-bold" style={{ color: open ? "#E8B23D" : "#8a7561" }}>
                   {open ? "Compléter" : "Nouvelle commande"}
                 </span>

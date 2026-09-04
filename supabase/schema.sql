@@ -1853,3 +1853,12 @@ select cron.schedule(
      orders_with_autonomy = excluded.orders_with_autonomy'
 );
 -- Pour désactiver : select cron.unschedule('sat-source-stats-daily');
+
+-- =====================================================================
+-- SAT — nom d'affichage libre par table. `tables.number` reste le CODE
+-- stable du QR (/sat?table=N) ; `tables.label` est le nom affiché partout,
+-- modifiable par l'équipe (« T1 », « E3 »…).
+-- (Repris dans supabase/migrations_manual/sat_table_label.sql.)
+-- =====================================================================
+alter table tables add column if not exists label text;
+update tables set label = 'Table ' || number where label is null;
