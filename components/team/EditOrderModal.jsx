@@ -3,23 +3,13 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
 import PanuzzoModal from "../PanuzzoModal";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
-
-// Catégories qui passent par le four et/ou la Finition (contrairement aux
-// boissons/desserts, qui se gèrent uniquement au niveau de l'article et
-// n'ont pas besoin de ce recalcul — voir BoissonBoard/DessertCafeBoard).
-const KITCHEN_PIPELINE_CATS = ["pizza", "panuzzo", "supplement", "sans", "antipasti", "salade"];
-function kitchenPendingQty(items) {
-  return items
-    .filter((i) => !i.served && i.phase !== "apero" && KITCHEN_PIPELINE_CATS.includes(i.cat))
-    .reduce((s, i) => s + i.qty, 0);
-}
 
 const SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", enabledKey: "dineInEnabled" },

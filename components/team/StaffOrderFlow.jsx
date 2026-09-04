@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, insertOrder, appendItemsToOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
@@ -44,13 +44,22 @@ export default function StaffOrderFlow() {
   const { menuItems } = useMenu();
   const { testMode } = useTestMode();
   const { serviceTypeSettings } = useServiceTypeSettings();
+  const { tables } = useTables();
   const restaurant = useRestaurant();
+
+  const tableNameCollator = useMemo(() => new Intl.Collator("fr", { numeric: true, sensitivity: "base" }), []);
+  const activeTables = useMemo(
+    () => tables.filter((t) => t.active).sort((a, b) => tableNameCollator.compare(a.number, b.number)),
+    [tables, tableNameCollator]
+  );
 
   const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("boisson");
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
-  const [tableName, setTableName] = useState("");
+  const [tableName, setTableName] = useState(""); // nom du client — cas "à emporter"
+  const [selectedTableIds, setSelectedTableIds] = useState([]); // sur place : tables cochées
+  const [otherTableLabel, setOtherTableLabel] = useState(""); // sur place : table hors registre
   const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
@@ -116,9 +125,15 @@ export default function StaffOrderFlow() {
   function updateItemNote(index, value) {
     setCart((prev) => prev.map((i, idx) => (idx === index ? { ...i, itemNote: value } : i)));
   }
+  function toggleTableId(id) {
+    setSelectedTableIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   function resetAll() {
     setCart([]);
     setTableName("");
+    setSelectedTableIds([]);
+    setOtherTableLabel("");
     setNote("");
     setServiceType("🍽️ Sur place");
     setActiveCat("boisson");
@@ -133,6 +148,33 @@ export default function StaffOrderFlow() {
   }
 
   function submitOrder(finalPlan, forced) {
+    const isDineIn = serviceType === "🍽️ Sur place";
+    const items = cart.map(({ id, name, price, cat, qty, note, itemNote, phase, modifiers }) => ({
+      id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, phase, modifiers,
+    }));
+
+    // Sur place : si une commande est déjà ouverte pour l'une des tables cochées
+    // (ou le libellé libre), on y AJOUTE les articles au lieu d'en créer une
+    // concurrente — même chemin atomique (sat_append_items) que le lien /sat.
+    // Jamais en mode test (on ne veut pas greffer des lignes test sur une vraie
+    // commande, ni l'inverse).
+    const existing =
+      isDineIn && !testMode.enabled
+        ? findOpenDineInOrderForTables(orders, { tableIds: selectedTableIds, tableLabel: otherTableLabel })
+        : null;
+    if (existing) {
+      setScreen("done");
+      setConfirmedNumber(null);
+      appendItemsToOrder(existing.id, {
+        newItems: items,
+        addedTotal: total,
+        addedPizzaCount: pizzaCount,
+        reopenKitchen: kitchenPendingQty(items) > 0,
+        extraTableIds: selectedTableIds,
+      }).catch((err) => console.error("Échec de l'ajout à la commande ouverte", err));
+      return;
+    }
+
     const hasMainPizza = cart.some((i) => i.cat === "pizza" && i.phase === "main");
     // Une planche (et sa focaccia auto-ajoutée) doit passer par le circuit
     // "apéro à préparer" du four même si aucune pizza principale n'a encore
@@ -143,9 +185,13 @@ export default function StaffOrderFlow() {
       (i) => i.phase === "apero" && (i.cat === "pizza" || i.cat === "panuzzo" || i.cat === "supplement" || i.cat === "sans")
     );
     const newOrder = {
-      items: cart.map(({ id, name, price, cat, qty, note, itemNote, phase, modifiers }) => ({ id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, phase, modifiers })),
+      items,
       serviceType,
-      name: tableName || "Commande équipe",
+      name: isDineIn
+        ? tableDisplayLabel({ tableIds: selectedTableIds, tableLabel: otherTableLabel }, tables)
+        : tableName || "Commande équipe",
+      tableIds: isDineIn ? selectedTableIds : [],
+      tableLabel: isDineIn ? otherTableLabel.trim() || null : null,
       note: note.trim() || null,
       slotAllocations: finalPlan || [],
       slotForced: !!forced,
@@ -299,6 +345,11 @@ export default function StaffOrderFlow() {
           serviceTypeOptions={availableServiceValues}
           tableName={tableName}
           setTableName={setTableName}
+          tables={activeTables}
+          selectedTableIds={selectedTableIds}
+          toggleTableId={toggleTableId}
+          otherTableLabel={otherTableLabel}
+          setOtherTableLabel={setOtherTableLabel}
           note={note}
           setNote={setNote}
           setItemNote={updateItemNote}
