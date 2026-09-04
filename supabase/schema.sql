@@ -1799,3 +1799,57 @@ as $fn$
 $fn$;
 
 grant execute on function sat_append_items(uuid, jsonb, numeric, integer, boolean, text[]) to authenticated;
+
+-- =====================================================================
+-- SAT — Phase 7 : reporting de la répartition des sources de commande.
+-- Part des lignes/commandes saisies par le client (sat + click_and_collect)
+-- vs par la serveuse (source NULL). Additif pur — nouvelle table + nouveau
+-- job cron, le job 'casa-di-nathano-daily-reset' n'est pas touché.
+-- (Repris dans supabase/migrations_manual/sat_source_stats.sql.)
+-- =====================================================================
+
+create table if not exists source_stats_daily (
+  restaurant_id text not null references restaurants (id),
+  date date not null,
+  lines_total integer not null default 0,
+  lines_serveuse integer not null default 0,
+  lines_sat integer not null default 0,
+  lines_click_and_collect integer not null default 0,
+  orders_total integer not null default 0,
+  orders_with_autonomy integer not null default 0,
+  primary key (restaurant_id, date)
+);
+
+alter table source_stats_daily enable row level security;
+drop policy if exists "source_stats_daily_select" on source_stats_daily;
+create policy "source_stats_daily_select" on source_stats_daily
+  for select to authenticated
+  using (restaurant_id = my_restaurant_id() or is_manager());
+
+alter publication supabase_realtime add table source_stats_daily;
+
+-- Job quotidien à 03:50, AVANT le reset de 04:00. Corps = une seule
+-- instruction sans « ; » interne. N'archive que les jours révolus.
+select cron.schedule(
+  'sat-source-stats-daily',
+  '50 3 * * *',
+  'insert into source_stats_daily (restaurant_id, date, lines_total, lines_serveuse, lines_sat, lines_click_and_collect, orders_total, orders_with_autonomy)
+   select o.restaurant_id, date(o.created_at),
+     count(*),
+     count(*) filter (where (it ->> ''source'') is null),
+     count(*) filter (where it ->> ''source'' = ''sat''),
+     count(*) filter (where it ->> ''source'' = ''click_and_collect''),
+     count(distinct o.id),
+     count(distinct o.id) filter (where exists (select 1 from jsonb_array_elements(o.items) x where (x ->> ''source'') is not null))
+   from orders o cross join lateral jsonb_array_elements(o.items) it
+   where date(o.created_at) < current_date and (o.scheduled_for is null or o.scheduled_for < current_date) and o.is_test = false
+   group by o.restaurant_id, date(o.created_at)
+   on conflict (restaurant_id, date) do update set
+     lines_total = excluded.lines_total,
+     lines_serveuse = excluded.lines_serveuse,
+     lines_sat = excluded.lines_sat,
+     lines_click_and_collect = excluded.lines_click_and_collect,
+     orders_total = excluded.orders_total,
+     orders_with_autonomy = excluded.orders_with_autonomy'
+);
+-- Pour désactiver : select cron.unschedule('sat-source-stats-daily');
