@@ -37,6 +37,7 @@ import {
   useCategoryOrder,
   insertOrder,
   appendItemsToOrder,
+  updateOrder,
 } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -163,6 +164,12 @@ export default function ServiceATable() {
     // ouvrir (ou encaisser) la table pendant que le client composait son panier.
     const existing = findOpenDineInOrderForTables(orders, { tableIds: [tableId] });
 
+    // Horodatage "ajout client" : l'écran Service met alors la pastille de la
+    // table tout devant, avec un point rose, jusqu'à ce que la serveuse clique
+    // dessus. Posé sur la commande créée (payload) ou celle complétée (après
+    // coup, non bloquant — purement un indicateur visuel).
+    const nowIso = new Date().toISOString();
+
     setScreen("done");
     submitWithRetry(() => {
       if (existing) {
@@ -190,7 +197,10 @@ export default function ServiceATable() {
         pizzaCount,
         total,
         status: "attente",
+        satAdditionAt: nowIso,
       });
+    }).then(() => {
+      if (existing) updateOrder(existing.id, { satAdditionAt: nowIso }).catch((e) => console.error(e));
     });
   }
 
