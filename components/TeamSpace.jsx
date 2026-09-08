@@ -21,7 +21,7 @@ import PizzaStockAdmin from "./team/PizzaStockAdmin";
 import TimingStatsAdmin from "./team/TimingStatsAdmin";
 import MenuAdmin from "./team/MenuAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
-import TablePlanAdmin from "./team/TablePlanAdmin";
+import RoomLayoutEditor from "./team/RoomLayoutEditor";
 import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 import TablesAdmin from "./team/TablesAdmin";
 import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
@@ -31,12 +31,13 @@ const ZONE_LABELS = {
   equipe: " · Écrans équipe",
   commandes: " · Commandes/Service",
   "avant-service": " · À checker avant le service",
+  reservation: " · Tables / Réservation",
   logistique: " · Logistique service",
   fidelite: " · Fidélité",
 };
 
 export default function TeamSpace({ onExit }) {
-  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "logistique" | "fidelite"
+  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "reservation" | "logistique" | "fidelite"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
   const { orders } = useOrders();
@@ -175,7 +176,12 @@ export default function TeamSpace({ onExit }) {
           <button onClick={() => goZone("avant-service", "slots")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">✅</span>
             <span className="display-font text-3xl font-bold">À checker avant le service</span>
-            <span className="text-[#a88f78]">Créneaux du jour · Desserts du jour · Plan de table</span>
+            <span className="text-[#a88f78]">Créneaux du jour · Desserts du jour</span>
+          </button>
+          <button onClick={() => goZone("reservation", "layout")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+            <span className="text-5xl mb-2">🗺️</span>
+            <span className="display-font text-3xl font-bold">Tables / Réservation</span>
+            <span className="text-[#a88f78]">Plan de salle · Tables</span>
           </button>
           <button onClick={() => goZone("logistique", "services")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
             <span className="text-5xl mb-2">🛠️</span>
@@ -232,11 +238,20 @@ export default function TeamSpace({ onExit }) {
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
             <button onClick={() => setTab("slots")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "slots" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱️ Créneaux du jour</button>
             <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Desserts du jour</button>
-            <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Plan de table</button>
           </div>
           {tab === "slots" && <SlotsAdmin />}
           {tab === "desserts" && <DessertStockAdmin />}
-          {tab === "tables" && <TablePlanAdmin />}
+        </>
+      )}
+
+      {zone === "reservation" && (
+        <>
+          <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+            <button onClick={() => setTab("layout")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "layout" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗺️ Plan de salle</button>
+            <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Tables</button>
+          </div>
+          {tab === "layout" && <RoomLayoutEditor readOnly={readOnly} />}
+          {tab === "tables" && <TablesAdmin />}
         </>
       )}
 
@@ -244,7 +259,6 @@ export default function TeamSpace({ onExit }) {
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
             <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔀 Types de service</button>
-            <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Tables</button>
             <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🚫 Ruptures</button>
             <button onClick={() => setTab("appro")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "appro" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📦 Approvisionnement</button>
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
@@ -253,7 +267,6 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
           </div>
           {tab === "services" && <ServiceTypesAdmin />}
-          {tab === "tables" && <TablesAdmin />}
           {tab === "ruptures" && <RupturesAdmin />}
           {tab === "appro" && <ApprovisionnementAdmin />}
           {tab === "patons" && <PizzaStockAdmin />}
