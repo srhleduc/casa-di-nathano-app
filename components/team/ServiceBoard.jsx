@@ -24,7 +24,6 @@ function isVisibleOnBoard(o) {
 }
 function statusDot(o) {
   if (o.aperoStatus === "served_by_kitchen") return "🍸";
-  if (o.status === "pret_service" && o.delivered) return "🍽️";
   if (o.status === "pret_service") return "🟢";
   if (o.status === "prete") return "🟡";
   if (o.status === "preparation") return "🟠";
@@ -42,17 +41,14 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
   const aperoReady = active.filter((o) => o.aperoStatus === "served_by_kitchen");
-  // Zone "Commandes/Service" : une table sur place déjà servie ("Partie" cliqué)
-  // reste affichée ici — carte complète, modifiable (café tardif…) — jusqu'à ce
-  // que la caissière valide le règlement (status -> "servie", la commande sort
-  // alors de `active`). Ailleurs (zone "Écrans équipe"), comportement inchangé.
-  const enSalle = dineInStaysUntilPaid
-    ? sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType) && o.delivered))
-    : [];
-  const tablePills = sortByTableName([
-    ...active.filter((o) => !isTakeawayLike(o.serviceType) && isVisibleOnBoard(o)),
-    ...enSalle,
-  ]);
+  // Zone "Commandes/Service" (`dineInStaysUntilPaid`) : pas de bouton "Partie".
+  // Une table sur place reste dans "🟢 Prêtes à apporter" — carte complète,
+  // modifiable (café tardif…) — jusqu'à ce que la caissière valide le règlement
+  // (status -> "servie", la commande sort alors de `active`). Zone "Écrans
+  // équipe" : "Partie" présent, la commande quitte l'écran au clic (delivered).
+  const tablePills = sortByTableName(
+    active.filter((o) => !isTakeawayLike(o.serviceType) && (dineInStaysUntilPaid || isVisibleOnBoard(o)))
+  );
 
   function scrollToOrder(id) {
     document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
@@ -145,7 +141,13 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
       )}
 
       {GROUPS.map((g) => {
-        const list = active.filter((o) => o.status === g.key && !(g.key === "pret_service" && o.delivered));
+        const list = active.filter((o) => {
+          if (o.status !== g.key) return false;
+          // "Partie" (delivered) retire la carte de l'écran — sauf zone
+          // "Commandes/Service", où la table reste jusqu'au règlement.
+          if (g.key === "pret_service" && o.delivered && !dineInStaysUntilPaid) return false;
+          return true;
+        });
         if (list.length === 0) return null;
         return (
           <div key={g.key} className="mb-6">
@@ -158,7 +160,7 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <GroupedItemList items={o.items} className="mb-3" />
-                  {g.key === "pret_service" && (
+                  {g.key === "pret_service" && !dineInStaysUntilPaid && (
                     <button onClick={() => markDelivered(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                       ✅ Partie
                     </button>
@@ -170,28 +172,6 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
           </div>
         );
       })}
-
-      {enSalle.length > 0 && (
-        <div className="mb-6">
-          <div className="font-bold mb-1">🍽️ À table — servies, en attente de règlement ({enSalle.length})</div>
-          <p className="text-[#a88f78] text-xs mb-3">
-            Restent ici tant que la caissière n'a pas validé le règlement — utilise ✏️ pour ajouter un café, un dessert…
-          </p>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {enSalle.map((o) => (
-              <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
-                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <GroupedItemList items={o.items} className="mb-2" />
-                <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#204a3a", color: "#a8e8c8" }}>
-                  ✅ Servie
-                </span>
-                <OrderNote note={o.note} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {editingOrder && (
         <EditOrderModal
