@@ -23,6 +23,7 @@ import MenuAdmin from "./team/MenuAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import RoomLayoutEditor from "./team/RoomLayoutEditor";
 import TableCombinationsAdmin from "./team/TableCombinationsAdmin";
+import ServicesAdmin from "./team/ServicesAdmin";
 import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 import TablesAdmin from "./team/TablesAdmin";
 import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
@@ -251,10 +252,12 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("layout")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "layout" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗺️ Plan de salle</button>
             <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Tables</button>
             <button onClick={() => setTab("combos")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "combos" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔗 Combinaisons</button>
+            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Services</button>
           </div>
           {tab === "layout" && <RoomLayoutEditor readOnly={readOnly} />}
           {tab === "tables" && <TablesAdmin />}
           {tab === "combos" && <TableCombinationsAdmin />}
+          {tab === "services" && <ServicesAdmin />}
         </>
       )}
 
