@@ -1,7 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRoomLayouts, createRoomLayout, saveRoomLayout, renameRoomLayout, deleteRoomLayout } from "@/lib/data";
+import {
+  useRoomLayouts,
+  createRoomLayout,
+  saveRoomLayout,
+  renameRoomLayout,
+  deleteRoomLayout,
+  useTables,
+  useTableCombinations,
+  useCirculationConstraints,
+  createCirculationConstraint,
+  updateCirculationConstraint,
+  deleteCirculationConstraint,
+} from "@/lib/data";
+import { evaluateConstraints } from "@/lib/reservation/constraints";
+
+const PRIORITIES = [
+  { value: "obligatoire", label: "Obligatoire" },
+  { value: "fortement_recommande", label: "Fortement recommandé" },
+  { value: "preferable", label: "Préférable" },
+];
 
 // Éditeur de plan de salle quadrillé (module Réservation). Porté du prototype
 // floorplan-editor.html : grille peignable, +/− lignes & colonnes sur chaque
@@ -50,6 +69,9 @@ function normalizeCells(cells, rows, cols) {
 
 export default function RoomLayoutEditor({ readOnly = false }) {
   const { layouts, loading } = useRoomLayouts();
+  const { tables } = useTables();
+  const { combinations } = useTableCombinations();
+  const { constraints } = useCirculationConstraints();
   const [activeId, setActiveId] = useState(null);
   const [rows, setRows] = useState(12);
   const [cols, setCols] = useState(12);
@@ -58,6 +80,9 @@ export default function RoomLayoutEditor({ readOnly = false }) {
   const [status, setStatus] = useState("");
   const [newName, setNewName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Ajout d'une contrainte de circulation : capture des extrémités sur la grille.
+  const [ccDraft, setCcDraft] = useState(null); // { name, a, b, width, priority } | null
+  const [pickMode, setPickMode] = useState(null); // "A" | "B" | null
 
   const painting = useRef(false);
   const saveTimer = useRef(null);
@@ -110,19 +135,26 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     });
   }
 
+  function cellFromPoint(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || !el.dataset || el.dataset.r === undefined) return null;
+    return { r: Number(el.dataset.r), c: Number(el.dataset.c) };
+  }
   function onGridPointerDown(e) {
     if (readOnly) return;
+    const cell = cellFromPoint(e);
+    if (pickMode && cell) {
+      setCcDraft((d) => ({ ...(d || {}), [pickMode === "A" ? "a" : "b"]: { row: cell.r, col: cell.c } }));
+      setPickMode(null);
+      return;
+    }
     painting.current = true;
-    paintFromPoint(e);
+    if (cell) paint(cell.r, cell.c);
   }
   function onGridPointerMove(e) {
     if (!painting.current) return;
-    paintFromPoint(e);
-  }
-  function paintFromPoint(e) {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    if (!el || !el.dataset || el.dataset.r === undefined) return;
-    paint(Number(el.dataset.r), Number(el.dataset.c));
+    const cell = cellFromPoint(e);
+    if (cell) paint(cell.r, cell.c);
   }
   useEffect(() => {
     const stop = () => {
@@ -208,6 +240,51 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  // --- contraintes de circulation + diagnostic (moteur de contraintes) ---
+  const layoutConstraints = useMemo(() => constraints.filter((c) => c.layoutId === activeId), [constraints, activeId]);
+  const placedTables = useMemo(
+    () => tables.filter((t) => t.layoutId === activeId && t.gridRow != null && t.gridCol != null),
+    [tables, activeId]
+  );
+  const layoutForEngine = { gridRows: rows, gridCols: cols, cellSizeCm: active?.cellSizeCm || 35, cells };
+  const diagnostic = useMemo(
+    () => evaluateConstraints(layoutForEngine, placedTables, layoutConstraints, { combinations }),
+    [rows, cols, cells, placedTables, layoutConstraints, combinations]
+  );
+
+  // marqueurs A/B à afficher sur la grille
+  const endpointMarks = useMemo(() => {
+    const m = new Map();
+    layoutConstraints.forEach((c, i) => {
+      m.set(`${c.endpointA.row},${c.endpointA.col}`, `A${i + 1}`);
+      m.set(`${c.endpointB.row},${c.endpointB.col}`, `B${i + 1}`);
+    });
+    if (ccDraft?.a) m.set(`${ccDraft.a.row},${ccDraft.a.col}`, "A");
+    if (ccDraft?.b) m.set(`${ccDraft.b.row},${ccDraft.b.col}`, "B");
+    return m;
+  }, [layoutConstraints, ccDraft]);
+
+  function startCcDraft() {
+    setCcDraft({ name: "", a: null, b: null, width: 2, priority: "obligatoire" });
+    setPickMode("A");
+  }
+  function saveCcDraft() {
+    if (!ccDraft?.name?.trim() || !ccDraft.a || !ccDraft.b || !activeId) return;
+    createCirculationConstraint({
+      layoutId: activeId,
+      name: ccDraft.name,
+      endpointA: ccDraft.a,
+      endpointB: ccDraft.b,
+      minWidthCells: Math.max(1, ccDraft.width || 1),
+      priority: ccDraft.priority,
+    })
+      .then(() => {
+        setCcDraft(null);
+        setPickMode(null);
+      })
+      .catch((err) => console.error(err));
   }
 
   const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
@@ -331,6 +408,12 @@ export default function RoomLayoutEditor({ readOnly = false }) {
         </>
       )}
 
+      {pickMode && (
+        <div className="rounded-lg px-3 py-2 mb-2 text-sm font-bold" style={{ background: "#1f5aa8", color: "#fff5ea" }}>
+          Clique la case du <b>point {pickMode}</b> du passage sur la grille.
+        </div>
+      )}
+
       {/* Grille */}
       <div className="rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-3 overflow-auto">
         <div
@@ -342,21 +425,29 @@ export default function RoomLayoutEditor({ readOnly = false }) {
           {cells.map((row, r) =>
             row.map((code, c) => {
               const t = TOOL_BY_CODE[code] || TOOL_BY_CODE.empty;
+              const mark = endpointMarks.get(`${r},${c}`);
+              const placed = placedTables.some((pt) => r >= pt.gridRow && r < pt.gridRow + 2 && c >= pt.gridCol && c < pt.gridCol + 2);
               return (
                 <div
                   key={`${r}-${c}`}
                   data-r={r}
                   data-c={c}
                   title={`L${r + 1} · C${c + 1}`}
+                  className="flex items-center justify-center"
                   style={{
                     width: CELL_PX,
                     height: CELL_PX,
                     borderRadius: 4,
-                    background: t.bg,
-                    border: `1px solid ${t.color}`,
+                    background: mark ? "#1f5aa8" : t.bg,
+                    border: placed ? "2px solid #D9689F" : `1px solid ${mark ? "#7fb0ff" : t.color}`,
+                    color: "#fff5ea",
+                    fontSize: 10,
+                    fontWeight: 700,
                     cursor: readOnly ? "default" : "pointer",
                   }}
-                />
+                >
+                  {mark || (placed ? "▦" : "")}
+                </div>
               );
             })
           )}
@@ -370,6 +461,146 @@ export default function RoomLayoutEditor({ readOnly = false }) {
             <span className="inline-block w-3 h-3 rounded" style={{ background: t.bg, border: `1px solid ${t.color}` }} />
             {t.label}
           </span>
+        ))}
+        <span className="flex items-center gap-1.5 text-xs text-[#a88f78]">
+          <span className="inline-block w-3 h-3 rounded" style={{ background: "#1f5aa8" }} />
+          Extrémité de passage (A/B)
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-[#a88f78]">
+          <span className="inline-block w-3 h-3 rounded" style={{ border: "2px solid #D9689F" }} />
+          Table placée (config)
+        </span>
+      </div>
+
+      {/* Contraintes de circulation */}
+      <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mt-4">
+        <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Contraintes de circulation de ce plan</div>
+        <div className="text-xs text-[#5a4a3a] mb-3">
+          Un chemin de la largeur mini doit toujours relier les 2 points, quelles que soient les tables placées. Le
+          moteur déplace le tracé du passage autour des tables — il vérifie l'existence d'un chemin, pas un tracé figé.
+        </div>
+
+        <div className="flex flex-col gap-2 mb-3">
+          {layoutConstraints.map((c, i) => (
+            <div key={c.id} className="flex items-center justify-between gap-3 flex-wrap text-sm">
+              <span>
+                <b>{c.name}</b> <span className="text-xs text-[#8a7561]">A{i + 1}(L{c.endpointA.row + 1}·C{c.endpointA.col + 1}) → B{i + 1}(L{c.endpointB.row + 1}·C{c.endpointB.col + 1})</span>
+              </span>
+              <div className="flex items-center gap-2 text-xs">
+                <label className="flex items-center gap-1">
+                  larg.
+                  <input
+                    type="number"
+                    min={1}
+                    value={c.minWidthCells}
+                    onChange={(e) => updateCirculationConstraint(c.id, { minWidthCells: Math.max(1, parseInt(e.target.value, 10) || 1) }).catch((err) => console.error(err))}
+                    className="w-12 rounded px-1.5 py-0.5"
+                    style={inputStyle}
+                  />
+                </label>
+                <select
+                  value={c.priority}
+                  onChange={(e) => updateCirculationConstraint(c.id, { priority: e.target.value }).catch((err) => console.error(err))}
+                  className="rounded px-1.5 py-0.5"
+                  style={inputStyle}
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => deleteCirculationConstraint(c.id).catch((err) => console.error(err))} className="tap-scale text-red-400 font-bold">
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          {layoutConstraints.length === 0 && <span className="text-xs text-[#5a4a3a]">Aucune contrainte définie.</span>}
+        </div>
+
+        {!readOnly &&
+          (ccDraft ? (
+            <div className="rounded-lg border border-[#3a2b1f] p-3 flex flex-wrap items-center gap-2">
+              <input
+                value={ccDraft.name}
+                onChange={(e) => setCcDraft((d) => ({ ...d, name: e.target.value }))}
+                placeholder="Nom (ex. Accès WC)"
+                className="rounded-lg px-2 py-1 text-sm"
+                style={inputStyle}
+              />
+              <button
+                onClick={() => setPickMode("A")}
+                className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                style={ccDraft.a ? { borderColor: "#1f5aa8", color: "#7fb0ff" } : { borderColor: "#3a2b1f" }}
+              >
+                📍 Point A {ccDraft.a ? `(L${ccDraft.a.row + 1}·C${ccDraft.a.col + 1})` : ""}
+              </button>
+              <button
+                onClick={() => setPickMode("B")}
+                className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                style={ccDraft.b ? { borderColor: "#1f5aa8", color: "#7fb0ff" } : { borderColor: "#3a2b1f" }}
+              >
+                📍 Point B {ccDraft.b ? `(L${ccDraft.b.row + 1}·C${ccDraft.b.col + 1})` : ""}
+              </button>
+              <label className="flex items-center gap-1 text-xs">
+                larg.
+                <input
+                  type="number"
+                  min={1}
+                  value={ccDraft.width}
+                  onChange={(e) => setCcDraft((d) => ({ ...d, width: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                  className="w-12 rounded px-1.5 py-0.5"
+                  style={inputStyle}
+                />
+              </label>
+              <select value={ccDraft.priority} onChange={(e) => setCcDraft((d) => ({ ...d, priority: e.target.value }))} className="rounded px-1.5 py-0.5 text-xs" style={inputStyle}>
+                {PRIORITIES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={saveCcDraft}
+                disabled={!ccDraft.name.trim() || !ccDraft.a || !ccDraft.b}
+                className="tap-scale rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40"
+                style={{ background: "#C0392B", color: "#fff5ea" }}
+              >
+                Créer
+              </button>
+              <button onClick={() => { setCcDraft(null); setPickMode(null); }} className="tap-scale text-xs text-[#8a7561] font-bold">
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button onClick={startCcDraft} className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]">
+              + Ajouter une contrainte
+            </button>
+          ))}
+      </div>
+
+      {/* Diagnostic */}
+      <div
+        className="rounded-xl border p-4 mt-4"
+        style={diagnostic.valid ? { borderColor: "#204a3a", background: "#16281c" } : { borderColor: "#C0392B", background: "#2c1c14" }}
+      >
+        <div className="font-bold text-sm mb-1">
+          {diagnostic.valid ? "✓ Disposition valide" : `✗ ${diagnostic.violations.length} contrainte(s) violée(s)`}
+          {diagnostic.penalty > 0 && <span className="text-xs font-normal text-[#e8b23d]"> · pénalité {diagnostic.penalty}</span>}
+        </div>
+        <div className="text-xs text-[#8a7561] mb-2">
+          {placedTables.length} table(s) placée(s) sur ce plan · {layoutConstraints.length} contrainte(s) de circulation
+        </div>
+        {diagnostic.violations.map((v, i) => (
+          <div key={i} className="text-xs" style={{ color: "#e88a8a" }}>
+            • {v.message}
+          </div>
+        ))}
+        {diagnostic.notes.map((n, i) => (
+          <div key={i} className="text-xs" style={{ color: "#e8b23d" }}>
+            • {n}
+          </div>
         ))}
       </div>
     </div>
