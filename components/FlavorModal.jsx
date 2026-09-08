@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { flavorConfigFor } from "@/lib/menu";
+import { flavorConfigFor, flavorGroupFor, flavorRuptureKey } from "@/lib/menu";
 
-export default function FlavorModal({ item, onClose, onConfirm }) {
+export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
   const { flavors, need } = flavorConfigFor(item.name);
+  const groupKey = flavorGroupFor(item.name);
+  // Parfums notés en rupture depuis l'onglet Ruptures — retirés du choix.
+  const availableFlavors = flavors.filter((f) => !groupKey || !(ruptures || []).includes(flavorRuptureKey(groupKey, f)));
   const [picked, setPicked] = useState([]);
 
   // Chaque tap ajoute une boule (plusieurs boules du même parfum sont
@@ -46,11 +49,14 @@ export default function FlavorModal({ item, onClose, onConfirm }) {
           )}
 
           <div className="flex flex-wrap gap-2">
-            {flavors.map((f) => (
+            {availableFlavors.map((f) => (
               <button key={f} onClick={() => add(f)} className="chip tap-scale" style={{ color: "#c9b8a4" }}>
                 + {f}
               </button>
             ))}
+            {availableFlavors.length === 0 && (
+              <p className="text-sm" style={{ color: "#e88a8a" }}>Tous les parfums sont indisponibles pour l'instant.</p>
+            )}
           </div>
         </div>
 

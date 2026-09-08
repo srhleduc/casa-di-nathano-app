@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORIES, orderedCategories, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { CATEGORIES, orderedCategories, flavorConfigFor, FLAVOR_GROUPS, flavorGroupFor, flavorRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
 import ProductCard from "./ProductCard";
 
@@ -90,11 +90,19 @@ export default function OrderScreen({
   function isPizzaOut(cat) {
     return cat === "pizza" && pizzaStockOut;
   }
+  // Un produit à parfums (glace, sirop) n'est retiré que si TOUS ses parfums
+  // sont en rupture (sinon on le garde, FlavorModal filtre les parfums KO).
+  function allFlavorsOut(m) {
+    const g = flavorGroupFor(m.name);
+    if (!g) return false;
+    return FLAVOR_GROUPS[g].flavors.every((f) => (ruptures || []).includes(flavorRuptureKey(g, f)));
+  }
 
   const items = fullMenu.filter(
     (m) =>
       m.cat === currentCat &&
       !(ruptures || []).includes(m.id) &&
+      !allFlavorsOut(m) &&
       !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
       isStructurallyAvailable(m) &&

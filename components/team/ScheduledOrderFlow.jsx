@@ -221,6 +221,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       {flavoring && (
         <FlavorModal
           item={flavoring}
+          ruptures={ruptures}
           onClose={() => setFlavoring(null)}
           onConfirm={(note) => {
             addItem(flavoring, note);
