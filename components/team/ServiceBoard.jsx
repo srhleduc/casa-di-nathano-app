@@ -15,13 +15,6 @@ const GROUPS = [
   { key: "attente", label: "🔴 Pas encore lancées" },
 ];
 
-// Reflète les mêmes cartes que celles réellement affichées plus bas — une
-// commande "pret_service" déjà marquée "Partie" n'a plus de carte à
-// rejoindre, elle ne doit donc pas apparaître dans le bandeau des tables.
-function isVisibleOnBoard(o) {
-  if (o.aperoStatus === "served_by_kitchen") return true;
-  return !(o.status === "pret_service" && o.delivered);
-}
 function statusDot(o) {
   if (o.aperoStatus === "served_by_kitchen") return "🍸";
   if (o.status === "pret_service") return "🟢";
@@ -30,7 +23,7 @@ function statusDot(o) {
   return "🔴";
 }
 
-export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
+export default function ServiceBoard() {
   const { orders } = useOrders();
   const { menuItems } = useMenu();
   const { ruptures } = useRuptures();
@@ -41,14 +34,12 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
   const aperoReady = active.filter((o) => o.aperoStatus === "served_by_kitchen");
-  // Zone "Commandes/Service" (`dineInStaysUntilPaid`) : pas de bouton "Partie".
-  // Une table sur place reste dans "🟢 Prêtes à apporter" — carte complète,
-  // modifiable (café tardif…) — jusqu'à ce que la caissière valide le règlement
-  // (status -> "servie", la commande sort alors de `active`). Zone "Écrans
-  // équipe" : "Partie" présent, la commande quitte l'écran au clic (delivered).
-  const tablePills = sortByTableName(
-    active.filter((o) => !isTakeawayLike(o.serviceType) && (dineInStaysUntilPaid || isVisibleOnBoard(o)))
-  );
+  // Pas de bouton "Partie" : une table sur place reste sur l'écran (carte
+  // complète, modifiable via ✏️ pour un café tardif…) jusqu'à ce que la
+  // caissière valide le règlement — la commande passe alors à "servie" et sort
+  // de `active`. Comportement identique dans les deux zones (Écrans équipe /
+  // Commandes-Service).
+  const tablePills = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType)));
 
   function scrollToOrder(id) {
     document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
@@ -65,9 +56,6 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
       (it.cat === "pizza" || it.cat === "supplement" || it.cat === "sans") && it.phase === "apero" && !it.served ? { ...it, served: true } : it
     );
     updateOrder(order.id, { aperoStatus: "served_by_kitchen", items: updatedItems }).catch((err) => console.error(err));
-  }
-  function markDelivered(order) {
-    updateOrder(order.id, { delivered: true }).catch((err) => console.error(err));
   }
   function cancelOrder(order) {
     if (!window.confirm(`Annuler définitivement la commande « ${order.name} » ? Cette action est irréversible.`)) return;
@@ -141,13 +129,7 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
       )}
 
       {GROUPS.map((g) => {
-        const list = active.filter((o) => {
-          if (o.status !== g.key) return false;
-          // "Partie" (delivered) retire la carte de l'écran — sauf zone
-          // "Commandes/Service", où la table reste jusqu'au règlement.
-          if (g.key === "pret_service" && o.delivered && !dineInStaysUntilPaid) return false;
-          return true;
-        });
+        const list = active.filter((o) => o.status === g.key);
         if (list.length === 0) return null;
         return (
           <div key={g.key} className="mb-6">
@@ -160,11 +142,6 @@ export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <GroupedItemList items={o.items} className="mb-3" />
-                  {g.key === "pret_service" && !dineInStaysUntilPaid && (
-                    <button onClick={() => markDelivered(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
-                      ✅ Partie
-                    </button>
-                  )}
                   <OrderNote note={o.note} />
                 </div>
               ))}
