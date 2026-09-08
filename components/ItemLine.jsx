@@ -5,11 +5,27 @@ import { noteIcon } from "@/lib/menu";
 // `showSource` : uniquement l'écran Caisse — badge par article de la source
 // (borne à table / click & collect). Rien si l'article a été saisi par la
 // serveuse (source absente), pour ne pas polluer la vue.
-export default function ItemLine({ it, showSource }) {
+// `onAck` : uniquement l'écran Service — appelé avec l'article quand la
+// serveuse clique le point rose "ajout client" (it.satNew) ou la ligne.
+export default function ItemLine({ it, showSource, onAck }) {
+  const flagged = Boolean(it.satNew) && typeof onAck === "function";
   return (
     <li className="mb-1.5">
-      <div>
-        {it.qty}× {it.name}
+      <div
+        className="flex items-center gap-1.5"
+        onClick={flagged ? () => onAck(it) : undefined}
+        style={flagged ? { cursor: "pointer" } : undefined}
+      >
+        {flagged && (
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+            aria-label="Ajout client — cliquer pour marquer vu"
+          />
+        )}
+        <span>
+          {it.qty}× {it.name}
+        </span>
         {showSource && it.source === "sat" && (
           <span
             className="ml-1.5 align-middle text-[10px] font-bold rounded px-1.5 py-0.5"

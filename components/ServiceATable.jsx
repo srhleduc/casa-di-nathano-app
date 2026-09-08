@@ -158,7 +158,7 @@ export default function ServiceATable() {
     if (submitted || !tableId) return;
     setSubmitted(true);
     const items = cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({
-      id, name, price, cat, qty, note, modifiers, source: "sat",
+      id, name, price, cat, qty, note, modifiers, source: "sat", satNew: true,
     }));
     // On relit la commande ouverte AU MOMENT de valider : une serveuse a pu
     // ouvrir (ou encaisser) la table pendant que le client composait son panier.
