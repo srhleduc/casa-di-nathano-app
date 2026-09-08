@@ -1885,3 +1885,11 @@ insert into category_order (scope, keys) values
   ('client', '["pizza","panuzzo","antipasti","salade","boisson","biere","vin","cocktail","cafe","dessert"]'::jsonb),
   ('staff',  '["pizza","panuzzo","antipasti","salade","boisson","biere","vin","cocktail","cafe","dessert"]'::jsonb)
 on conflict (scope) do nothing;
+
+-- =====================================================================
+-- SAT — signal « ajout client » sur l'écran Service. Horodaté à chaque
+-- ajout/commande fait via /sat ; l'écran Service met la pastille de la
+-- table tout devant avec un point rose, effacé au clic sur la pastille.
+-- (Repris dans supabase/migrations_manual/sat_addition_flag.sql.)
+-- =====================================================================
+alter table orders add column if not exists sat_addition_at timestamptz;

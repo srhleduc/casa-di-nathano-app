@@ -39,10 +39,21 @@ export default function ServiceBoard() {
   // caissière valide le règlement — la commande passe alors à "servie" et sort
   // de `active`. Comportement identique dans les deux zones (Écrans équipe /
   // Commandes-Service).
-  const tablePills = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType)));
+  const dineInActive = active.filter((o) => !isTakeawayLike(o.serviceType));
+  // Une table dont un client vient d'ajouter quelque chose via /sat passe tout
+  // devant, avec un point rose (voir plus bas) — jusqu'à ce que la serveuse
+  // clique sur la pastille.
+  const tablePills = [
+    ...sortByTableName(dineInActive.filter((o) => o.satAdditionAt)),
+    ...sortByTableName(dineInActive.filter((o) => !o.satAdditionAt)),
+  ];
 
   function scrollToOrder(id) {
     document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+  }
+  function openPill(o) {
+    scrollToOrder(o.id);
+    if (o.satAdditionAt) updateOrder(o.id, { satAdditionAt: null }).catch((err) => console.error(err));
   }
 
   function launchPizzas(order) {
@@ -67,16 +78,31 @@ export default function ServiceBoard() {
       {tablePills.length > 0 && (
         <div className="sticky top-0 z-20 -mx-6 px-6 pt-1 pb-3 mb-3" style={{ background: "#140d08" }}>
           <div className="flex gap-2 overflow-x-auto">
-            {tablePills.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => scrollToOrder(o.id)}
-                className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2 border-2 border-[#3a2b1f] bg-[#211712] font-bold"
-              >
-                <span>{statusDot(o)}</span>
-                <span>{o.name}</span>
-              </button>
-            ))}
+            {tablePills.map((o) => {
+              const flagged = Boolean(o.satAdditionAt);
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => openPill(o)}
+                  className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2 border-2 bg-[#211712] font-bold"
+                  style={
+                    flagged
+                      ? { borderColor: "#ff2d95", boxShadow: "0 0 10px rgba(255,45,149,0.55)" }
+                      : { borderColor: "#3a2b1f" }
+                  }
+                >
+                  {flagged && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                      aria-label="Ajout client"
+                    />
+                  )}
+                  <span>{statusDot(o)}</span>
+                  <span>{o.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
