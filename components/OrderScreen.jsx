@@ -44,13 +44,16 @@ export default function OrderScreen({
 
   const isTakeaway = isTakeawayLike(serviceType);
 
-  // Un produit "sur place uniquement" (coché dans l'admin Menu) est
-  // structurellement absent des parcours à emporter : click & collect, borne en
-  // mode « à emporter », prise de commande équipe à emporter. À distinguer des
-  // ruptures et stocks du jour épuisés, qui sont temporaires et gardent leur
-  // onglet (avec message dédié).
+  // Drapeaux de disponibilité de l'admin Menu (Direction) : "sur place
+  // uniquement" (dineInOnly) masqué en à emporter, "à emporter uniquement"
+  // (takeawayOnly) masqué en sur place, "réservé espace équipe" (staffOnly)
+  // masqué de tout parcours client. Structurel — à distinguer des ruptures et
+  // stocks du jour épuisés, qui gardent leur onglet avec un message dédié.
   function isStructurallyAvailable(m) {
-    return !(isTakeaway && m.dineInOnly);
+    if (m.staffOnly && !staffMode) return false;
+    if (isTakeaway && m.dineInOnly) return false;
+    if (!isTakeaway && m.takeawayOnly) return false;
+    return true;
   }
 
   // On masque l'onglet d'une catégorie qui n'a plus aucun produit commandable
@@ -94,7 +97,7 @@ export default function OrderScreen({
       !(ruptures || []).includes(m.id) &&
       !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
-      !(isTakeaway && m.dineInOnly) &&
+      isStructurallyAvailable(m) &&
       !(m.cat === "panuzzo" && !isPanuzzoTime)
   );
 

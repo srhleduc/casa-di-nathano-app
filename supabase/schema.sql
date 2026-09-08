@@ -1893,3 +1893,13 @@ on conflict (scope) do nothing;
 -- (Repris dans supabase/migrations_manual/sat_addition_flag.sql.)
 -- =====================================================================
 alter table orders add column if not exists sat_addition_at timestamptz;
+
+-- =====================================================================
+-- Menu — drapeaux de disponibilité par produit (admin Menu, Direction).
+-- takeaway_only : visible uniquement en "à emporter" (miroir dine_in_only).
+-- staff_only    : visible uniquement dans les flux équipe (jamais côté
+--                 client : borne, /commande, /sat).
+-- (Repris dans supabase/migrations_manual/menu_item_availability_flags.sql.)
+-- =====================================================================
+alter table menu_items add column if not exists takeaway_only boolean not null default false;
+alter table menu_items add column if not exists staff_only boolean not null default false;
