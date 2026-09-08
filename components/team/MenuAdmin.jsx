@@ -11,7 +11,7 @@ function ingredientNamesFromMenu(menuItems) {
     .sort();
 }
 
-const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false, featured: false };
+const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false, takeawayOnly: false, staffOnly: false, featured: false };
 
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
@@ -35,6 +35,8 @@ export default function MenuAdmin({ canEdit = false }) {
       ingredients: item.ingredients || [],
       photoUrl: item.photoUrl || "",
       dineInOnly: item.dineInOnly || false,
+      takeawayOnly: item.takeawayOnly || false,
+      staffOnly: item.staffOnly || false,
       featured: item.featured || false,
     });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -72,6 +74,8 @@ export default function MenuAdmin({ canEdit = false }) {
       ingredients: form.cat === "pizza" ? form.ingredients : undefined,
       photoUrl: form.photoUrl.trim() || null,
       dineInOnly: form.dineInOnly,
+      takeawayOnly: form.takeawayOnly,
+      staffOnly: form.staffOnly,
       featured: form.featured,
     };
     try {
@@ -127,6 +131,8 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
+                {item.takeawayOnly ? " · 🥡 à emporter" : ""}
+                {item.staffOnly ? " · 👥 équipe" : ""}
                 {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>
@@ -176,7 +182,29 @@ export default function MenuAdmin({ canEdit = false }) {
           >
             {form.dineInOnly ? "✓ " : ""}🍽️ Disponible sur place uniquement
           </button>
-          <div className="text-xs text-[#5a4a3a] mt-1">Masqué de la borne/équipe quand le client ou la table choisit "À emporter".</div>
+          <div className="text-xs text-[#5a4a3a] mt-1">Masqué quand le client ou la table choisit "À emporter".</div>
+        </div>
+
+        <div className="mb-4">
+          <button
+            onClick={() => setForm({ ...form, takeawayOnly: !form.takeawayOnly })}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={form.takeawayOnly ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            {form.takeawayOnly ? "✓ " : ""}🥡 Disponible à emporter uniquement
+          </button>
+          <div className="text-xs text-[#5a4a3a] mt-1">Masqué quand le client ou la table choisit "Sur place".</div>
+        </div>
+
+        <div className="mb-4">
+          <button
+            onClick={() => setForm({ ...form, staffOnly: !form.staffOnly })}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={form.staffOnly ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            {form.staffOnly ? "✓ " : ""}👥 Disponible uniquement pour l'espace équipe
+          </button>
+          <div className="text-xs text-[#5a4a3a] mt-1">Jamais visible côté client (borne, lien /commande, lien /sat) — seulement en prise de commande, édition et commande programmée.</div>
         </div>
 
         <div className="mb-4">
@@ -264,6 +292,8 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.photoUrl ? " · 📷" : ""}
                 {item.ingredients?.length ? ` · ${item.ingredients.length} ingr.` : ""}
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
+                {item.takeawayOnly ? " · 🥡 à emporter" : ""}
+                {item.staffOnly ? " · 👥 équipe" : ""}
                 {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>
