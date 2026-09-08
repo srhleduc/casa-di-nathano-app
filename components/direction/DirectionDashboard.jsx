@@ -14,6 +14,7 @@ import ConsumptionAdmin from "./ConsumptionAdmin";
 import SupplierOrdersAdmin from "./SupplierOrdersAdmin";
 import LoyaltyMessagesAdmin from "./LoyaltyMessagesAdmin";
 import SourceStatsAdmin from "./SourceStatsAdmin";
+import MenuCategoryOrderAdmin from "./MenuCategoryOrderAdmin";
 
 function NotificationsToggle() {
   const { session } = useManagerSession();
@@ -113,6 +114,9 @@ export default function DirectionDashboard() {
         <button onClick={() => setTab("autonomy")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "autonomy" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           📲 Commande autonome
         </button>
+        <button onClick={() => setTab("catorder")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "catorder" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          📂 Ordre des catégories
+        </button>
       </div>
 
       {tab === "overview" && (
@@ -156,6 +160,7 @@ export default function DirectionDashboard() {
       {tab === "suppliers" && <SupplierOrdersAdmin />}
       {tab === "messages" && <LoyaltyMessagesAdmin />}
       {tab === "autonomy" && <SourceStatsAdmin />}
+      {tab === "catorder" && <MenuCategoryOrderAdmin />}
     </div>
   );
 }

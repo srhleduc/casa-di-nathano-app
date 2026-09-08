@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -55,6 +55,7 @@ export default function Kiosk() {
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
   const { serviceTypeSettings } = useServiceTypeSettings();
+  const { categoryOrder } = useCategoryOrder();
   const restaurant = useRestaurant();
 
   const clientServiceOptions = [
@@ -201,6 +202,7 @@ export default function Kiosk() {
         <OrderScreen
           activeCat={activeCat}
           setActiveCat={setActiveCat}
+          categoryOrder={categoryOrder.client}
           cart={cart}
           addItem={addItem}
           onPizzaTap={setCustomizing}

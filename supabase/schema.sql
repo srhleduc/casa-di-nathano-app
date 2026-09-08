@@ -1862,3 +1862,26 @@ select cron.schedule(
 -- =====================================================================
 alter table tables add column if not exists label text;
 update tables set label = 'Table ' || number where label is null;
+
+-- =====================================================================
+-- Ordre d'affichage des catégories de menu — configurable par la Direction,
+-- distinct pour la vue CLIENT (borne, /commande, /sat) et la vue ÉQUIPE
+-- (prise de commande). Catalogue partagé (pas de restaurant_id), lecture
+-- ouverte (les bornes en ont besoin), écriture réservée aux managers.
+-- (Repris dans supabase/migrations_manual/menu_category_order.sql.)
+-- =====================================================================
+create table if not exists category_order (
+  scope text primary key check (scope in ('client', 'staff')),
+  keys jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table category_order enable row level security;
+drop policy if exists "category_order_select" on category_order;
+drop policy if exists "category_order_write" on category_order;
+create policy "category_order_select" on category_order for select to authenticated using (true);
+create policy "category_order_write" on category_order for all to authenticated using (is_manager()) with check (is_manager());
+alter publication supabase_realtime add table category_order;
+insert into category_order (scope, keys) values
+  ('client', '["pizza","panuzzo","antipasti","salade","boisson","biere","vin","cocktail","cafe","dessert"]'::jsonb),
+  ('staff',  '["pizza","panuzzo","antipasti","salade","boisson","biere","vin","cocktail","cafe","dessert"]'::jsonb)
+on conflict (scope) do nothing;
