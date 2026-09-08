@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMenu, insertMenuItem, updateMenuItem, deleteMenuItem, uploadMenuPhoto } from "@/lib/data";
-import { CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
+import { useMenu, insertMenuItem, updateMenuItem, deleteMenuItem, uploadMenuPhoto, useFlavors, addFlavor, removeFlavor } from "@/lib/data";
+import { CATEGORIES, eur, newMenuItemId, FLAVOR_GROUPS, flavorGroupFor, flavorsForGroup } from "@/lib/menu";
 
 function ingredientNamesFromMenu(menuItems) {
   return menuItems
@@ -15,12 +15,26 @@ const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUr
 
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
+  const { flavors: liveByGroup } = useFlavors();
   const [browseCat, setBrowseCat] = useState("pizza");
   const [editingId, setEditingId] = useState(null); // null = mode création
   const [form, setForm] = useState(EMPTY_FORM);
+  const [newFlavor, setNewFlavor] = useState("");
   const [photoLoading, setPhotoLoading] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const formRef = useRef(null);
+
+  function addNewFlavor() {
+    const grp = flavorGroupFor(form.name);
+    const n = newFlavor.trim();
+    if (!grp || !n) return;
+    if (flavorsForGroup(liveByGroup, grp).some((f) => f.toLowerCase() === n.toLowerCase())) {
+      setNewFlavor("");
+      return;
+    }
+    addFlavor(grp, n).catch((err) => console.error(err));
+    setNewFlavor("");
+  }
 
   const ingredientNames = ingredientNamesFromMenu(menuItems);
   const items = menuItems.filter((m) => m.cat === browseCat).sort((a, b) => a.name.localeCompare(b.name));
@@ -44,6 +58,7 @@ export default function MenuAdmin({ canEdit = false }) {
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setNewFlavor("");
   }
 
   function toggleIngredient(n) {
@@ -217,6 +232,53 @@ export default function MenuAdmin({ canEdit = false }) {
           </button>
           <div className="text-xs text-[#5a4a3a] mt-1">Affiche un badge sur la carte du produit dans l'écran client (kiosque + click & collect).</div>
         </div>
+
+        {editingId && flavorGroupFor(form.name) && (
+          <div className="mb-4 rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-4">
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">
+              Parfums de {(FLAVOR_GROUPS[flavorGroupFor(form.name)]?.label || "").toLowerCase()}
+            </div>
+            <div className="text-xs text-[#5a4a3a] mb-3">
+              Partagés par toutes les tailles de {(FLAVOR_GROUPS[flavorGroupFor(form.name)]?.label || "").toLowerCase()}.
+              Modifier ici met à jour le choix côté client, prise de commande et l'onglet Ruptures.
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {flavorsForGroup(liveByGroup, flavorGroupFor(form.name)).map((f) => (
+                <span
+                  key={f}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f] text-[#c9b8a4]"
+                >
+                  {f}
+                  <button
+                    onClick={() => removeFlavor(flavorGroupFor(form.name), f).catch((err) => console.error(err))}
+                    className="tap-scale text-red-400"
+                    aria-label={`Retirer ${f}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={newFlavor}
+                onChange={(e) => setNewFlavor(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addNewFlavor()}
+                placeholder="Nouveau parfum (ex. Menthe)"
+                className="flex-1 rounded-lg px-3 py-2 text-sm"
+                style={inputStyle}
+              />
+              <button
+                onClick={addNewFlavor}
+                disabled={!newFlavor.trim()}
+                className="tap-scale rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-40"
+                style={{ background: "#C0392B", color: "#fff5ea" }}
+              >
+                + Ajouter
+              </button>
+            </div>
+          </div>
+        )}
 
         {form.cat === "pizza" && (
           <div className="mb-4">

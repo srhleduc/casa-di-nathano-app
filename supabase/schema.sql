@@ -1906,3 +1906,33 @@ alter table orders add column if not exists sat_addition_at timestamptz;
 -- =====================================================================
 alter table menu_items add column if not exists takeaway_only boolean not null default false;
 alter table menu_items add column if not exists staff_only boolean not null default false;
+
+-- =====================================================================
+-- Parfums des glaces / sirops — éditables depuis l'admin Menu (Direction),
+-- au lieu des listes codées en dur dans lib/menu.js (conservées comme repli).
+-- Catalogue partagé, lecture ouverte, écriture managers.
+-- (Repris dans supabase/migrations_manual/menu_flavors.sql.)
+-- =====================================================================
+create table if not exists menu_flavors (
+  id uuid primary key default gen_random_uuid(),
+  grp text not null check (grp in ('glace', 'sirop')),
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (grp, name)
+);
+alter table menu_flavors enable row level security;
+drop policy if exists "menu_flavors_select" on menu_flavors;
+drop policy if exists "menu_flavors_write" on menu_flavors;
+create policy "menu_flavors_select" on menu_flavors for select to authenticated using (true);
+create policy "menu_flavors_write" on menu_flavors for all to authenticated using (is_manager()) with check (is_manager());
+alter publication supabase_realtime add table menu_flavors;
+insert into menu_flavors (grp, name, sort_order) values
+  ('glace', 'Vanille', 0), ('glace', 'Fior di latte', 1), ('glace', 'Chocolat', 2),
+  ('glace', 'Stracciatella', 3), ('glace', 'Cerise amarena', 4), ('glace', 'Citron', 5),
+  ('glace', 'Noisette', 6), ('glace', 'Pistache', 7), ('glace', 'Fraise', 8),
+  ('sirop', 'Fraise', 0), ('sirop', 'Framboise', 1), ('sirop', 'Pêche', 2), ('sirop', 'Menthe', 3),
+  ('sirop', 'Grenadine', 4), ('sirop', 'Vanille', 5), ('sirop', 'Citron', 6), ('sirop', 'Mojito', 7),
+  ('sirop', 'Litchi', 8), ('sirop', 'Yuzu', 9), ('sirop', 'Caramel', 10),
+  ('sirop', 'Fruit de la passion', 11), ('sirop', 'Basilic', 12), ('sirop', 'Orgeat', 13)
+on conflict (grp, name) do nothing;

@@ -1,7 +1,8 @@
 "use client";
 
-import { CATEGORIES, orderedCategories, flavorConfigFor, FLAVOR_GROUPS, flavorGroupFor, flavorRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { CATEGORIES, orderedCategories, flavorConfigFor, flavorGroupFor, flavorRuptureKey, flavorsForGroup, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
+import { useFlavors } from "@/lib/data";
 import ProductCard from "./ProductCard";
 
 export default function OrderScreen({
@@ -36,6 +37,7 @@ export default function OrderScreen({
   categoryOrder,
 }) {
   const fullMenu = menu || [];
+  const { flavors: liveByGroup } = useFlavors();
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
   // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
   const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
@@ -95,7 +97,8 @@ export default function OrderScreen({
   function allFlavorsOut(m) {
     const g = flavorGroupFor(m.name);
     if (!g) return false;
-    return FLAVOR_GROUPS[g].flavors.every((f) => (ruptures || []).includes(flavorRuptureKey(g, f)));
+    const list = flavorsForGroup(liveByGroup, g);
+    return list.length > 0 && list.every((f) => (ruptures || []).includes(flavorRuptureKey(g, f)));
   }
 
   const items = fullMenu.filter(
