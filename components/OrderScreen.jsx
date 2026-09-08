@@ -1,8 +1,8 @@
 "use client";
 
-import { CATEGORIES, orderedCategories, flavorConfigFor, flavorGroupFor, flavorRuptureKey, flavorsForGroup, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { CATEGORIES, orderedCategories, optionRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
-import { useFlavors } from "@/lib/data";
+import { useOptionGroups } from "@/lib/data";
 import ProductCard from "./ProductCard";
 
 export default function OrderScreen({
@@ -37,7 +37,7 @@ export default function OrderScreen({
   categoryOrder,
 }) {
   const fullMenu = menu || [];
-  const { flavors: liveByGroup } = useFlavors();
+  const { forItem: optionGroupsForItem } = useOptionGroups();
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
   // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
   const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
@@ -92,20 +92,22 @@ export default function OrderScreen({
   function isPizzaOut(cat) {
     return cat === "pizza" && pizzaStockOut;
   }
-  // Un produit à parfums (glace, sirop) n'est retiré que si TOUS ses parfums
-  // sont en rupture (sinon on le garde, FlavorModal filtre les parfums KO).
-  function allFlavorsOut(m) {
-    const g = flavorGroupFor(m.name);
-    if (!g) return false;
-    const list = flavorsForGroup(liveByGroup, g);
-    return list.length > 0 && list.every((f) => (ruptures || []).includes(flavorRuptureKey(g, f)));
+  // Un produit à sous-catégories n'est retiré que si une sous-catégorie
+  // OBLIGATOIRE n'a plus aucune option disponible (sinon on le garde, la modale
+  // filtre les options en rupture).
+  function requiredOptionsUnavailable(m) {
+    return optionGroupsForItem(m).some((g) => {
+      if (!g.required) return false;
+      const avail = g.options.filter((o) => !(ruptures || []).includes(optionRuptureKey(g.id, o.name)));
+      return avail.length === 0;
+    });
   }
 
   const items = fullMenu.filter(
     (m) =>
       m.cat === currentCat &&
       !(ruptures || []).includes(m.id) &&
-      !allFlavorsOut(m) &&
+      !requiredOptionsUnavailable(m) &&
       !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
       isStructurallyAvailable(m) &&
@@ -209,7 +211,7 @@ export default function OrderScreen({
         <div className={clientView ? "grid grid-cols-2 gap-[14px] pt-1" : "grid grid-cols-2 md:grid-cols-3 gap-4"}>
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
-            const needsFlavor = flavorConfigFor(item.name) !== null;
+            const needsFlavor = optionGroupsForItem(item).length > 0;
             const isFallback = item.cat === "dessert" && dessertAvailability(item.name).fallback;
             function handleTap() {
               if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
