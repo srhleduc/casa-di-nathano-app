@@ -220,12 +220,12 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
           </div>
           {tab === "staff-order" && <StaffOrderFlow />}
-          {/* Zone "Commandes/Service" : on garde les commandes sur place servies
-              affichées jusqu'à la purge de nuit (pas dans la zone "Écrans équipe"). */}
-          {tab === "service" && <ServiceBoard keepServedDineIn />}
+          {/* Zone "Commandes/Service" : les tables sur place servies restent sur
+              l'écran Service jusqu'au règlement (pas dans "Écrans équipe"). */}
+          {tab === "service" && <ServiceBoard dineInStaysUntilPaid />}
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
-          {tab === "caisse" && <CaisseBoard readOnly={readOnly} keepServedDineIn />}
+          {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
         </>
       )}
 

@@ -13,7 +13,7 @@ import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
 
-export default function CaisseBoard({ readOnly = false, keepServedDineIn = false }) {
+export default function CaisseBoard({ readOnly = false }) {
   const { orders } = useOrders();
   const { menuItems } = useMenu();
   const { ruptures } = useRuptures();
@@ -23,14 +23,8 @@ export default function CaisseBoard({ readOnly = false, keepServedDineIn = false
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const paidToday = orders.filter((o) => o.status === "servie" && isOrderActiveToday(o));
-  // Zone "Commandes/Service" : les commandes sur place déjà servies restent
-  // dans la liste (grisées) jusqu'à la purge de nuit — pour ne pas perdre la
-  // table de vue au clic "Payée et servie" / "Servie".
-  const servedDineInKept = keepServedDineIn
-    ? sortByTableName(orders.filter((o) => o.status === "servie" && !isTakeawayLike(o.serviceType) && isOrderActiveToday(o)))
-    : [];
   // Rattachement fidélité des commandes visibles (badge ☑️ / bouton ➕).
-  const loyaltyLinks = useOrderLoyaltyLinks([...active, ...servedDineInKept].map((o) => o.id));
+  const loyaltyLinks = useOrderLoyaltyLinks(active.map((o) => o.id));
   // Le chiffre du jour n'inclut jamais les commandes du mode test. "À
   // encaisser" ne compte que ce qui reste vraiment à payer — une commande
   // payée d'avance (bouton "Payée, non servie") ne doit plus y apparaître
@@ -83,34 +77,18 @@ export default function CaisseBoard({ readOnly = false, keepServedDineIn = false
   const activeDineIn = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType)));
 
   function renderActiveCard(o) {
-    const served = o.status === "servie";
     return (
-      <div
-        key={o.id}
-        className="w-72 shrink-0 rounded-xl border p-4"
-        style={served ? { borderColor: "#2f2a24", background: "#1b1611" } : { borderColor: "#3a2b1f", background: "#211712" }}
-      >
+      <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
-        <div className="display-font text-lg font-bold mb-2" style={served ? { color: "#8a7561" } : undefined}>{o.name}</div>
+        <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" showSource />
-        <div className="display-font font-bold text-lg mb-2" style={{ color: served ? "#7a6a52" : "#E8B23D" }}>{eur(o.total)}</div>
+        <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
         {!o.isTest && (
           <div className="mb-2">
             <OrderLoyaltyControl order={o} link={loyaltyLinks[o.id]} readOnly={readOnly} />
           </div>
         )}
-        {served ? (
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "#204a3a", color: "#a8e8c8" }}>
-              ✅ Servie
-            </span>
-            {o.previousStatus && !readOnly && (
-              <button onClick={() => restoreServedOrder(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
-                ↩️ Restaurer
-              </button>
-            )}
-          </div>
-        ) : o.paid ? (
+        {o.paid ? (
           // Déjà encaissée (paiement anticipé en caisse, ou réglée dès la prise
           // de commande côté serveuse) — il ne reste qu'à la marquer servie.
           <div className="flex items-center gap-2">
@@ -223,10 +201,8 @@ export default function CaisseBoard({ readOnly = false, keepServedDineIn = false
         </>
       ) : (
         <>
-          {active.length === 0 && servedDineInKept.length === 0 && (
-            <p className="text-[#8a7561]">Aucune commande en attente de règlement.</p>
-          )}
-          {(active.length > 0 || servedDineInKept.length > 0) && (
+          {active.length === 0 && <p className="text-[#8a7561]">Aucune commande en attente de règlement.</p>}
+          {active.length > 0 && (
             <>
               <div className="font-bold mb-3">🥡 À emporter ({activeTakeaway.length})</div>
               <div className="flex gap-4 overflow-x-auto pb-2 mb-6">
@@ -234,10 +210,10 @@ export default function CaisseBoard({ readOnly = false, keepServedDineIn = false
                 {activeTakeaway.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
               </div>
 
-              <div className="font-bold mb-3">🍽️ Sur place ({activeDineIn.length + servedDineInKept.length})</div>
+              <div className="font-bold mb-3">🍽️ Sur place ({activeDineIn.length})</div>
               <div className="flex gap-4 overflow-x-auto pb-2">
-                {[...activeDineIn, ...servedDineInKept].map(renderActiveCard)}
-                {activeDineIn.length + servedDineInKept.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
+                {activeDineIn.map(renderActiveCard)}
+                {activeDineIn.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
               </div>
             </>
           )}

@@ -24,13 +24,14 @@ function isVisibleOnBoard(o) {
 }
 function statusDot(o) {
   if (o.aperoStatus === "served_by_kitchen") return "🍸";
+  if (o.status === "pret_service" && o.delivered) return "🍽️";
   if (o.status === "pret_service") return "🟢";
   if (o.status === "prete") return "🟡";
   if (o.status === "preparation") return "🟠";
   return "🔴";
 }
 
-export default function ServiceBoard({ keepServedDineIn = false }) {
+export default function ServiceBoard({ dineInStaysUntilPaid = false }) {
   const { orders } = useOrders();
   const { menuItems } = useMenu();
   const { ruptures } = useRuptures();
@@ -39,15 +40,19 @@ export default function ServiceBoard({ keepServedDineIn = false }) {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
-  // Zone "Commandes/Service" : on garde les commandes sur place déjà servies
-  // affichées (rappel grisé en bas) jusqu'à la purge de nuit, pour ne pas
-  // perdre la table de vue au clic "Payée et servie" / "Servie".
-  const servedDineIn = keepServedDineIn
-    ? sortByTableName(orders.filter((o) => o.status === "servie" && !isTakeawayLike(o.serviceType) && isOrderActiveToday(o)))
-    : [];
   const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
   const aperoReady = active.filter((o) => o.aperoStatus === "served_by_kitchen");
-  const tablePills = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType) && isVisibleOnBoard(o)));
+  // Zone "Commandes/Service" : une table sur place déjà servie ("Partie" cliqué)
+  // reste affichée ici — carte complète, modifiable (café tardif…) — jusqu'à ce
+  // que la caissière valide le règlement (status -> "servie", la commande sort
+  // alors de `active`). Ailleurs (zone "Écrans équipe"), comportement inchangé.
+  const enSalle = dineInStaysUntilPaid
+    ? sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType) && o.delivered))
+    : [];
+  const tablePills = sortByTableName([
+    ...active.filter((o) => !isTakeawayLike(o.serviceType) && isVisibleOnBoard(o)),
+    ...enSalle,
+  ]);
 
   function scrollToOrder(id) {
     document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
@@ -166,19 +171,17 @@ export default function ServiceBoard({ keepServedDineIn = false }) {
         );
       })}
 
-      {servedDineIn.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[#3a2b1f]">
-          <div className="font-bold mb-3 text-[#8a7561]">✅ Servies aujourd'hui ({servedDineIn.length})</div>
+      {enSalle.length > 0 && (
+        <div className="mb-6">
+          <div className="font-bold mb-1">🍽️ À table — servies, en attente de règlement ({enSalle.length})</div>
+          <p className="text-[#a88f78] text-xs mb-3">
+            Restent ici tant que la caissière n'a pas validé le règlement — utilise ✏️ pour ajouter un café, un dessert…
+          </p>
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {servedDineIn.map((o) => (
-              <div
-                key={o.id}
-                id={`order-${o.id}`}
-                className="w-72 shrink-0 rounded-xl border p-4"
-                style={{ borderColor: "#2f2a24", background: "#1b1611" }}
-              >
+            {enSalle.map((o) => (
+              <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                 <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
-                <div className="display-font text-lg font-bold mb-2 text-[#8a7561]">{o.name}</div>
+                <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <GroupedItemList items={o.items} className="mb-2" />
                 <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#204a3a", color: "#a8e8c8" }}>
                   ✅ Servie
