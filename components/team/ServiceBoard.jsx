@@ -40,12 +40,13 @@ export default function ServiceBoard() {
   // de `active`. Comportement identique dans les deux zones (Écrans équipe /
   // Commandes-Service).
   const dineInActive = active.filter((o) => !isTakeawayLike(o.serviceType));
-  // Une table dont un client vient d'ajouter quelque chose via /sat passe tout
-  // devant, avec un point rose (voir plus bas) — jusqu'à ce que la serveuse
-  // clique sur la pastille.
+  // Un ajout client via /sat n'est "vu" que quand la serveuse a pointé la
+  // pastille ET chaque ligne concernée (point rose par article). Tant qu'il
+  // reste quelque chose de non pointé, la table passe tout devant.
+  const isFlagged = (o) => Boolean(o.satAdditionAt) || (o.items || []).some((it) => it.satNew);
   const tablePills = [
-    ...sortByTableName(dineInActive.filter((o) => o.satAdditionAt)),
-    ...sortByTableName(dineInActive.filter((o) => !o.satAdditionAt)),
+    ...sortByTableName(dineInActive.filter(isFlagged)),
+    ...sortByTableName(dineInActive.filter((o) => !isFlagged(o))),
   ];
 
   function scrollToOrder(id) {
@@ -54,6 +55,15 @@ export default function ServiceBoard() {
   function openPill(o) {
     scrollToOrder(o.id);
     if (o.satAdditionAt) updateOrder(o.id, { satAdditionAt: null }).catch((err) => console.error(err));
+  }
+  // Point rose d'une ligne pointée par la serveuse (clic sur le point ou la
+  // ligne). Quand plus aucune ligne n'est en attente, on efface aussi le
+  // signal au niveau commande (pastille).
+  function ackSatItem(order, targetItem) {
+    const updatedItems = order.items.map((it) => (it === targetItem ? { ...it, satNew: false } : it));
+    const patch = { items: updatedItems };
+    if (order.satAdditionAt && !updatedItems.some((it) => it.satNew)) patch.satAdditionAt = null;
+    updateOrder(order.id, patch).catch((err) => console.error(err));
   }
 
   function launchPizzas(order) {
@@ -79,7 +89,7 @@ export default function ServiceBoard() {
         <div className="sticky top-0 z-20 -mx-6 px-6 pt-1 pb-3 mb-3" style={{ background: "#140d08" }}>
           <div className="flex gap-2 overflow-x-auto">
             {tablePills.map((o) => {
-              const flagged = Boolean(o.satAdditionAt);
+              const flagged = isFlagged(o);
               return (
                 <button
                   key={o.id}
@@ -115,7 +125,7 @@ export default function ServiceBoard() {
               <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                 <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                <GroupedItemList items={o.items.filter((it) => it.phase === "apero")} className="mb-3" />
+                <GroupedItemList items={o.items.filter((it) => it.phase === "apero")} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
                 <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   ✅ Apéro servi
                 </button>
@@ -136,7 +146,7 @@ export default function ServiceBoard() {
                 <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                  <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" />
+                  <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
                   {hasMainFood ? (
                     <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                       🍕 Lancer les pizzas
@@ -167,7 +177,7 @@ export default function ServiceBoard() {
                 <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-                  <GroupedItemList items={o.items} className="mb-3" />
+                  <GroupedItemList items={o.items} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
                   <OrderNote note={o.note} />
                 </div>
               ))}
