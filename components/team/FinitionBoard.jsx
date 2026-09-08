@@ -44,6 +44,13 @@ export default function FinitionBoard() {
     const updatedItems = order.items.map((it) => (it.cat === "pizza" && it.phase !== "apero" && !it.served ? { ...it, served: true } : it));
     updateOrder(order.id, { status: "pret_service", finitionDoneAt: new Date().toISOString(), items: updatedItems }).catch((err) => console.error(err));
   }
+  // Mauvaise manip : la commande a été envoyée au four (bouton "🔥 Four") alors
+  // qu'elle ne devait pas / trop tôt. On la renvoie dans la file du four et on
+  // efface l'horodatage de sortie de four (pour que le chrono et la moyenne
+  // "temps au four" repartent proprement à la vraie sortie).
+  function backToOven(order) {
+    updateOrder(order.id, { status: "preparation", ovenDoneAt: null }).catch((err) => console.error(err));
+  }
   function markPaid(order) {
     markOrderServed(order).catch((err) => console.error(err));
   }
@@ -92,6 +99,12 @@ export default function FinitionBoard() {
                         <ItemLine key={idx} it={it} />
                       ))}
                   </ul>
+                  <button
+                    onClick={() => backToOven(o)}
+                    className="tap-scale w-full rounded-xl py-2.5 text-sm font-bold border-2 border-[#3a2b1f] text-[#c9b8a4] mt-2"
+                  >
+                    ↩️ Retour four (mauvaise manip)
+                  </button>
                 </div>
               )}
               {canFinishService && (
