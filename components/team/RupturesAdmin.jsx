@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRuptures, addRupture, removeRupture, useMenu } from "@/lib/data";
-import { CATEGORIES, FLAVOR_GROUPS, flavorGroupFor, flavorRuptureKey, parseFlavorRuptureKey } from "@/lib/menu";
+import { useRuptures, addRupture, removeRupture, useMenu, useFlavors } from "@/lib/data";
+import { CATEGORIES, FLAVOR_GROUPS, flavorGroupFor, flavorRuptureKey, parseFlavorRuptureKey, flavorsForGroup } from "@/lib/menu";
 
 const CHIP_OUT = {
   background: "#C0392B",
@@ -16,6 +16,7 @@ const CHIP_OUT = {
 export default function RupturesAdmin() {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
+  const { flavors: liveByGroup } = useFlavors();
   const [cat, setCat] = useState("pizza");
   const [openFlavorItem, setOpenFlavorItem] = useState(null); // id du produit à parfums déplié
   const items = menuItems.filter((m) => m.cat === cat);
@@ -33,7 +34,7 @@ export default function RupturesAdmin() {
   const outFlavorCount = (it) => {
     const g = flavorGroupFor(it.name);
     if (!g) return 0;
-    return FLAVOR_GROUPS[g].flavors.filter((f) => ruptures.includes(flavorRuptureKey(g, f))).length;
+    return flavorsForGroup(liveByGroup, g).filter((f) => ruptures.includes(flavorRuptureKey(g, f))).length;
   };
 
   return (
@@ -138,7 +139,7 @@ export default function RupturesAdmin() {
             client comme en prise de commande.
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
-            {FLAVOR_GROUPS[openGroupKey].flavors.map((f) => {
+            {flavorsForGroup(liveByGroup, openGroupKey).map((f) => {
               const key = flavorRuptureKey(openGroupKey, f);
               const out = ruptures.includes(key);
               return (

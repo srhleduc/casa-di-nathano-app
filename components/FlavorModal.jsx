@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { flavorConfigFor, flavorGroupFor, flavorRuptureKey } from "@/lib/menu";
+import { flavorConfigFor, flavorGroupFor, flavorRuptureKey, flavorsForGroup } from "@/lib/menu";
+import { useFlavors } from "@/lib/data";
 
 export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
-  const { flavors, need } = flavorConfigFor(item.name);
+  const { need } = flavorConfigFor(item.name);
   const groupKey = flavorGroupFor(item.name);
+  const { flavors: liveByGroup } = useFlavors();
+  const flavors = flavorsForGroup(liveByGroup, groupKey);
   // Parfums notés en rupture depuis l'onglet Ruptures — retirés du choix.
   const availableFlavors = flavors.filter((f) => !groupKey || !(ruptures || []).includes(flavorRuptureKey(groupKey, f)));
   const [picked, setPicked] = useState([]);
