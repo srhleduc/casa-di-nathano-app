@@ -30,7 +30,7 @@ function statusDot(o) {
   return "🔴";
 }
 
-export default function ServiceBoard() {
+export default function ServiceBoard({ keepServedDineIn = false }) {
   const { orders } = useOrders();
   const { menuItems } = useMenu();
   const { ruptures } = useRuptures();
@@ -39,6 +39,12 @@ export default function ServiceBoard() {
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
+  // Zone "Commandes/Service" : on garde les commandes sur place déjà servies
+  // affichées (rappel grisé en bas) jusqu'à la purge de nuit, pour ne pas
+  // perdre la table de vue au clic "Payée et servie" / "Servie".
+  const servedDineIn = keepServedDineIn
+    ? sortByTableName(orders.filter((o) => o.status === "servie" && !isTakeawayLike(o.serviceType) && isOrderActiveToday(o)))
+    : [];
   const aperoWaiting = active.filter((o) => o.aperoStatus === "waiting");
   const aperoReady = active.filter((o) => o.aperoStatus === "served_by_kitchen");
   const tablePills = sortByTableName(active.filter((o) => !isTakeawayLike(o.serviceType) && isVisibleOnBoard(o)));
@@ -159,6 +165,30 @@ export default function ServiceBoard() {
           </div>
         );
       })}
+
+      {servedDineIn.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-[#3a2b1f]">
+          <div className="font-bold mb-3 text-[#8a7561]">✅ Servies aujourd'hui ({servedDineIn.length})</div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {servedDineIn.map((o) => (
+              <div
+                key={o.id}
+                id={`order-${o.id}`}
+                className="w-72 shrink-0 rounded-xl border p-4"
+                style={{ borderColor: "#2f2a24", background: "#1b1611" }}
+              >
+                <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
+                <div className="display-font text-lg font-bold mb-2 text-[#8a7561]">{o.name}</div>
+                <GroupedItemList items={o.items} className="mb-2" />
+                <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#204a3a", color: "#a8e8c8" }}>
+                  ✅ Servie
+                </span>
+                <OrderNote note={o.note} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {editingOrder && (
         <EditOrderModal
