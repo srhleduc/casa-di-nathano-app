@@ -206,6 +206,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
         {flavoring && (
           <FlavorModal
             item={flavoring}
+            ruptures={ruptures}
             onClose={() => setFlavoring(null)}
             onConfirm={(note) => {
               addItem(flavoring, note);

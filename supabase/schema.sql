@@ -778,11 +778,14 @@ alter table orders add column if not exists slot_forced boolean not null default
 -- pizzaiolos oublient parfois de le remettre à illimité après un service où
 -- ils avaient serré la limite, ce qui contraignait le service suivant sans
 -- raison.
+--
+-- MAJ (voir migrations_manual/ruptures_persistantes.sql) : « delete from
+-- ruptures; » retiré — une rupture produit/parfum reste jusqu'à réactivation
+-- manuelle dans l'onglet Ruptures.
 select cron.schedule(
   'casa-di-nathano-daily-reset',
   '0 4 * * *',
   'insert into daily_sales (restaurant_id, date, menu_item_id, qty) select o.restaurant_id, date(o.created_at), item->>''id'', sum(coalesce((item->>''qty'')::int, 1)) from orders o, jsonb_array_elements(o.items) item where date(o.created_at) < current_date and (o.scheduled_for is null or o.scheduled_for < current_date) and o.is_test = false group by o.restaurant_id, date(o.created_at), item->>''id'' on conflict (restaurant_id, date, menu_item_id) do update set qty = daily_sales.qty + excluded.qty;
-   delete from ruptures;
    update dessert_stock set qty = 0;
    update team_config set takeaway_order_counter = 0;
    update pizza_stock set total = 0;
