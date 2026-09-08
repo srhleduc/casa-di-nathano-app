@@ -1,8 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMenu, insertMenuItem, updateMenuItem, deleteMenuItem, uploadMenuPhoto, useFlavors, addFlavor, removeFlavor } from "@/lib/data";
-import { CATEGORIES, eur, newMenuItemId, FLAVOR_GROUPS, flavorGroupFor, flavorsForGroup } from "@/lib/menu";
+import {
+  useMenu,
+  insertMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  uploadMenuPhoto,
+  useOptionGroups,
+  addOptionGroup,
+  deleteOptionGroup,
+  addOption,
+  removeOption,
+  linkOptionGroup,
+  updateOptionGroupLink,
+  unlinkOptionGroup,
+} from "@/lib/data";
+import { CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
 
 function ingredientNamesFromMenu(menuItems) {
   return menuItems
@@ -13,28 +27,195 @@ function ingredientNamesFromMenu(menuItems) {
 
 const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false, takeawayOnly: false, staffOnly: false, featured: false };
 
+// Éditeur des sous-catégories (« options ») d'un produit : rattacher / créer une
+// sous-catégorie, régler son nombre de choix et son caractère obligatoire,
+// ajouter / retirer ses options. Une sous-catégorie peut être partagée entre
+// plusieurs produits — d'où « Détacher » (retire le lien) distinct de la
+// suppression complète.
+function OptionGroupsEditor({ menuItemId, inputStyle }) {
+  const { groups: allGroups, forItem } = useOptionGroups();
+  const attached = forItem(menuItemId, false);
+  const attachedIds = new Set(attached.map((g) => g.id));
+  const attachable = allGroups.filter((g) => !attachedIds.has(g.id));
+
+  const [newGroupName, setNewGroupName] = useState("");
+  const [attachId, setAttachId] = useState("");
+  const [optDraft, setOptDraft] = useState({}); // { [groupId]: string }
+  const [confirmDelete, setConfirmDelete] = useState(null); // groupId
+
+  async function createGroup() {
+    const n = newGroupName.trim();
+    if (!n) return;
+    try {
+      const id = await addOptionGroup(n);
+      await linkOptionGroup(menuItemId, id, { choices: 1, required: true });
+      setNewGroupName("");
+    } catch (err) {
+      console.error(err);
+      alert("Échec de la création de la sous-catégorie.");
+    }
+  }
+  function attachExisting() {
+    if (!attachId) return;
+    linkOptionGroup(menuItemId, attachId, { choices: 1, required: true }).catch((err) => console.error(err));
+    setAttachId("");
+  }
+  function addOpt(g) {
+    const n = (optDraft[g.id] || "").trim();
+    if (!n) return;
+    if (!g.options.some((o) => o.name.toLowerCase() === n.toLowerCase())) {
+      addOption(g.id, n).catch((err) => console.error(err));
+    }
+    setOptDraft((d) => ({ ...d, [g.id]: "" }));
+  }
+
+  return (
+    <div className="space-y-3">
+      {attached.map((g) => (
+        <div key={g.id} className="rounded-lg border border-[#3a2b1f] bg-[#211712] p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="font-bold text-sm">{g.name}</div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => unlinkOptionGroup(g.linkId).catch((err) => console.error(err))}
+                className="tap-scale text-xs font-bold rounded-full px-3 py-1.5 border-2 border-[#3a2b1f] text-[#c9b8a4]"
+              >
+                Détacher
+              </button>
+              {confirmDelete === g.id ? (
+                <button
+                  onClick={() => {
+                    deleteOptionGroup(g.id).catch((err) => console.error(err));
+                    setConfirmDelete(null);
+                  }}
+                  className="tap-scale text-xs font-bold rounded-full px-3 py-1.5"
+                  style={{ background: "#C0392B", color: "#fff5ea" }}
+                >
+                  Supprimer partout ?
+                </button>
+              ) : (
+                <button onClick={() => setConfirmDelete(g.id)} className="tap-scale text-xs text-red-400 font-bold">
+                  🗑
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <label className="text-xs text-[#a88f78] flex items-center gap-2">
+              Nombre de choix
+              <input
+                type="number"
+                min={1}
+                value={g.choices}
+                onChange={(e) =>
+                  updateOptionGroupLink(g.linkId, { choices: Math.max(1, parseInt(e.target.value, 10) || 1) }).catch((err) =>
+                    console.error(err)
+                  )
+                }
+                className="w-16 rounded-lg px-2 py-1 text-sm"
+                style={inputStyle}
+              />
+            </label>
+            <button
+              onClick={() => updateOptionGroupLink(g.linkId, { required: !g.required }).catch((err) => console.error(err))}
+              className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+              style={g.required ? { borderColor: "#C0392B", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+            >
+              {g.required ? "✓ Choix obligatoire" : "Choix facultatif"}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-2">
+            {g.options.map((o) => (
+              <span
+                key={o.id}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f] text-[#c9b8a4]"
+              >
+                {o.name}
+                <button
+                  onClick={() => removeOption(o.id).catch((err) => console.error(err))}
+                  className="tap-scale text-red-400"
+                  aria-label={`Retirer ${o.name}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            {g.options.length === 0 && <span className="text-xs text-[#5a4a3a]">Aucune option pour l'instant.</span>}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={optDraft[g.id] || ""}
+              onChange={(e) => setOptDraft((d) => ({ ...d, [g.id]: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && addOpt(g)}
+              placeholder="Nouvelle option (ex. Menthe)"
+              className="flex-1 rounded-lg px-3 py-2 text-sm"
+              style={inputStyle}
+            />
+            <button
+              onClick={() => addOpt(g)}
+              disabled={!(optDraft[g.id] || "").trim()}
+              className="tap-scale rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-40"
+              style={{ background: "#C0392B", color: "#fff5ea" }}
+            >
+              + Ajouter
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <div className="flex gap-2">
+        <input
+          value={newGroupName}
+          onChange={(e) => setNewGroupName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && createGroup()}
+          placeholder="Nouvelle sous-catégorie (ex. Cuisson)"
+          className="flex-1 rounded-lg px-3 py-2 text-sm"
+          style={inputStyle}
+        />
+        <button
+          onClick={createGroup}
+          disabled={!newGroupName.trim()}
+          className="tap-scale rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-40"
+          style={{ background: "#C0392B", color: "#fff5ea" }}
+        >
+          + Nouvelle
+        </button>
+      </div>
+
+      {attachable.length > 0 && (
+        <div className="flex gap-2">
+          <select value={attachId} onChange={(e) => setAttachId(e.target.value)} className="flex-1 rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+            <option value="">Rattacher une sous-catégorie existante…</option>
+            {attachable.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={attachExisting}
+            disabled={!attachId}
+            className="tap-scale rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-40 border-2 border-[#3a2b1f] text-[#c9b8a4]"
+          >
+            Rattacher
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
-  const { flavors: liveByGroup } = useFlavors();
   const [browseCat, setBrowseCat] = useState("pizza");
   const [editingId, setEditingId] = useState(null); // null = mode création
   const [form, setForm] = useState(EMPTY_FORM);
-  const [newFlavor, setNewFlavor] = useState("");
   const [photoLoading, setPhotoLoading] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const formRef = useRef(null);
-
-  function addNewFlavor() {
-    const grp = flavorGroupFor(form.name);
-    const n = newFlavor.trim();
-    if (!grp || !n) return;
-    if (flavorsForGroup(liveByGroup, grp).some((f) => f.toLowerCase() === n.toLowerCase())) {
-      setNewFlavor("");
-      return;
-    }
-    addFlavor(grp, n).catch((err) => console.error(err));
-    setNewFlavor("");
-  }
 
   const ingredientNames = ingredientNamesFromMenu(menuItems);
   const items = menuItems.filter((m) => m.cat === browseCat).sort((a, b) => a.name.localeCompare(b.name));
@@ -58,7 +239,6 @@ export default function MenuAdmin({ canEdit = false }) {
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setNewFlavor("");
   }
 
   function toggleIngredient(n) {
@@ -233,52 +413,20 @@ export default function MenuAdmin({ canEdit = false }) {
           <div className="text-xs text-[#5a4a3a] mt-1">Affiche un badge sur la carte du produit dans l'écran client (kiosque + click & collect).</div>
         </div>
 
-        {editingId && flavorGroupFor(form.name) && (
-          <div className="mb-4 rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-4">
-            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">
-              Parfums de {(FLAVOR_GROUPS[flavorGroupFor(form.name)]?.label || "").toLowerCase()}
-            </div>
-            <div className="text-xs text-[#5a4a3a] mb-3">
-              Partagés par toutes les tailles de {(FLAVOR_GROUPS[flavorGroupFor(form.name)]?.label || "").toLowerCase()}.
-              Modifier ici met à jour le choix côté client, prise de commande et l'onglet Ruptures.
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {flavorsForGroup(liveByGroup, flavorGroupFor(form.name)).map((f) => (
-                <span
-                  key={f}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f] text-[#c9b8a4]"
-                >
-                  {f}
-                  <button
-                    onClick={() => removeFlavor(flavorGroupFor(form.name), f).catch((err) => console.error(err))}
-                    className="tap-scale text-red-400"
-                    aria-label={`Retirer ${f}`}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={newFlavor}
-                onChange={(e) => setNewFlavor(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addNewFlavor()}
-                placeholder="Nouveau parfum (ex. Menthe)"
-                className="flex-1 rounded-lg px-3 py-2 text-sm"
-                style={inputStyle}
-              />
-              <button
-                onClick={addNewFlavor}
-                disabled={!newFlavor.trim()}
-                className="tap-scale rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-40"
-                style={{ background: "#C0392B", color: "#fff5ea" }}
-              >
-                + Ajouter
-              </button>
-            </div>
+        <div className="mb-4 rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-4">
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Sous-catégories</div>
+          <div className="text-xs text-[#5a4a3a] mb-3">
+            Parfums, cuisson, taille… Le client choisit une ou plusieurs options à la commande (sans effet sur le prix).
+            Une même sous-catégorie peut être partagée entre plusieurs produits.
           </div>
-        )}
+          {editingId ? (
+            <OptionGroupsEditor menuItemId={editingId} inputStyle={inputStyle} />
+          ) : (
+            <div className="text-xs text-[#5a4a3a]">
+              Enregistre d'abord le produit pour pouvoir lui ajouter des sous-catégories.
+            </div>
+          )}
+        </div>
 
         {form.cat === "pizza" && (
           <div className="mb-4">

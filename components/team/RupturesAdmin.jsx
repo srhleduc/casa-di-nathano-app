@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRuptures, addRupture, removeRupture, useMenu, useFlavors } from "@/lib/data";
-import { CATEGORIES, FLAVOR_GROUPS, flavorGroupFor, flavorRuptureKey, parseFlavorRuptureKey, flavorsForGroup } from "@/lib/menu";
+import { useRuptures, addRupture, removeRupture, useMenu, useOptionGroups } from "@/lib/data";
+import { CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
 
 const CHIP_OUT = {
   background: "#C0392B",
@@ -16,9 +16,9 @@ const CHIP_OUT = {
 export default function RupturesAdmin() {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
-  const { flavors: liveByGroup } = useFlavors();
+  const { groups: optionGroups, forItem } = useOptionGroups();
   const [cat, setCat] = useState("pizza");
-  const [openFlavorItem, setOpenFlavorItem] = useState(null); // id du produit à parfums déplié
+  const [openOptionItem, setOpenOptionItem] = useState(null); // id du produit à sous-catégories déplié
   const items = menuItems.filter((m) => m.cat === cat);
 
   function toggle(key) {
@@ -26,29 +26,34 @@ export default function RupturesAdmin() {
     else addRupture(key).catch((err) => console.error(err));
   }
 
-  const rupturedItems = menuItems.filter((m) => ruptures.includes(m.id));
-  const rupturedFlavors = ruptures.map(parseFlavorRuptureKey).filter(Boolean);
+  // Sous-catégories réellement configurées en base pour ce produit (pas de repli
+  // statique ici : l'onglet Ruptures ne pilote que des groupes existants).
+  const groupsFor = (it) => forItem(it, false);
+  const groupNameById = Object.fromEntries(optionGroups.map((g) => [g.id, g.name]));
 
-  const openItem = openFlavorItem ? menuItems.find((m) => m.id === openFlavorItem) : null;
-  const openGroupKey = openItem ? flavorGroupFor(openItem.name) : null;
-  const outFlavorCount = (it) => {
-    const g = flavorGroupFor(it.name);
-    if (!g) return 0;
-    return flavorsForGroup(liveByGroup, g).filter((f) => ruptures.includes(flavorRuptureKey(g, f))).length;
-  };
+  const rupturedItems = menuItems.filter((m) => ruptures.includes(m.id));
+  const rupturedOptions = ruptures.map(parseOptionRuptureKey).filter(Boolean);
+
+  const openItem = openOptionItem ? menuItems.find((m) => m.id === openOptionItem) : null;
+  const openGroups = openItem ? groupsFor(openItem) : [];
+  const outOptionCount = (it) =>
+    groupsFor(it).reduce(
+      (sum, g) => sum + g.options.filter((o) => ruptures.includes(optionRuptureKey(g.id, o.name))).length,
+      0
+    );
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="text-xs text-[#8a7561] mb-4 max-w-2xl">
         Un produit noté en rupture le reste jusqu'à sa réactivation ici — plus de remise à zéro automatique la nuit.
-        Aucune limite de nombre. Pour les glaces et sirops, clique le produit pour choisir les parfums indisponibles un
-        par un.
+        Aucune limite de nombre. Pour un produit avec des sous-catégories (parfums, cuisson…), clique-le pour marquer
+        des options indisponibles une par une.
       </div>
 
-      {(rupturedItems.length > 0 || rupturedFlavors.length > 0) && (
+      {(rupturedItems.length > 0 || rupturedOptions.length > 0) && (
         <div className="rounded-xl mb-6 px-5 py-4" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
           <div className="font-bold mb-2">
-            🚫 En rupture actuellement ({rupturedItems.length + rupturedFlavors.length})
+            🚫 En rupture actuellement ({rupturedItems.length + rupturedOptions.length})
           </div>
           <div className="flex flex-wrap gap-2">
             {rupturedItems.map((it) => (
@@ -56,14 +61,15 @@ export default function RupturesAdmin() {
                 ✕ {it.name}
               </button>
             ))}
-            {rupturedFlavors.map(({ group, flavor }) => (
+            {rupturedOptions.map(({ groupId, option }) => (
               <button
-                key={`${group}:${flavor}`}
-                onClick={() => toggle(flavorRuptureKey(group, flavor))}
+                key={`${groupId}:${option}`}
+                onClick={() => toggle(optionRuptureKey(groupId, option))}
                 className="chip tap-scale text-sm"
                 style={CHIP_OUT}
               >
-                ✕ {flavor} · {(FLAVOR_GROUPS[group]?.label || group).toLowerCase()}
+                ✕ {option}
+                {groupNameById[groupId] ? ` · ${groupNameById[groupId].toLowerCase()}` : ""}
               </button>
             ))}
           </div>
@@ -76,7 +82,7 @@ export default function RupturesAdmin() {
             key={c.key}
             onClick={() => {
               setCat(c.key);
-              setOpenFlavorItem(null);
+              setOpenOptionItem(null);
             }}
             className={`tap-scale shrink-0 rounded-full px-5 py-2 font-bold border-2 text-sm ${cat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}
           >
@@ -87,15 +93,15 @@ export default function RupturesAdmin() {
 
       <div className="flex flex-wrap gap-2">
         {items.map((it) => {
-          const flavorGroup = flavorGroupFor(it.name);
-          if (flavorGroup) {
-            const outN = outFlavorCount(it);
-            const isOpen = openFlavorItem === it.id;
+          const groups = groupsFor(it);
+          if (groups.length > 0) {
+            const outN = outOptionCount(it);
+            const isOpen = openOptionItem === it.id;
             const wholeOut = ruptures.includes(it.id);
             return (
               <button
                 key={it.id}
-                onClick={() => setOpenFlavorItem(isOpen ? null : it.id)}
+                onClick={() => setOpenOptionItem(isOpen ? null : it.id)}
                 className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
                 style={
                   isOpen
@@ -106,7 +112,7 @@ export default function RupturesAdmin() {
                 }
               >
                 {it.name}
-                {wholeOut ? " · 🚫 tout" : outN > 0 ? ` · 🚫 ${outN} parfum${outN > 1 ? "s" : ""}` : ""} ▾
+                {wholeOut ? " · 🚫 tout" : outN > 0 ? ` · 🚫 ${outN} option${outN > 1 ? "s" : ""}` : ""} ▾
               </button>
             );
           }
@@ -126,35 +132,41 @@ export default function RupturesAdmin() {
         {items.length === 0 && <p className="text-[#8a7561]">Aucun produit dans cette catégorie.</p>}
       </div>
 
-      {openItem && openGroupKey && (
+      {openItem && openGroups.length > 0 && (
         <div className="mt-5 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 max-w-2xl">
-          <div className="flex items-center justify-between mb-2">
-            <div className="font-bold">Parfums indisponibles — {openItem.name}</div>
-            <button onClick={() => setOpenFlavorItem(null)} className="text-xs text-[#8a7561] tap-scale">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-bold">Options indisponibles — {openItem.name}</div>
+            <button onClick={() => setOpenOptionItem(null)} className="text-xs text-[#8a7561] tap-scale">
               Fermer
             </button>
           </div>
-          <div className="text-xs text-[#8a7561] mb-3">
-            Un parfum coché est retiré pour toutes les tailles de {(FLAVOR_GROUPS[openGroupKey].label || "").toLowerCase()} — côté
-            client comme en prise de commande.
-          </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {flavorsForGroup(liveByGroup, openGroupKey).map((f) => {
-              const key = flavorRuptureKey(openGroupKey, f);
-              const out = ruptures.includes(key);
-              return (
-                <button
-                  key={f}
-                  onClick={() => toggle(key)}
-                  className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
-                  style={out ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
-                >
-                  {out ? "🚫 " : ""}
-                  {f}
-                </button>
-              );
-            })}
-          </div>
+
+          {openGroups.map((g) => (
+            <div key={g.id} className="mb-4">
+              <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">{g.name}</div>
+              <div className="flex flex-wrap gap-2">
+                {g.options.map((o) => {
+                  const key = optionRuptureKey(g.id, o.name);
+                  const out = ruptures.includes(key);
+                  return (
+                    <button
+                      key={o.id}
+                      onClick={() => toggle(key)}
+                      className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                      style={out ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                    >
+                      {out ? "🚫 " : ""}
+                      {o.name}
+                    </button>
+                  );
+                })}
+                {g.options.length === 0 && (
+                  <span className="text-xs text-[#5a4a3a]">Aucune option dans cette sous-catégorie.</span>
+                )}
+              </div>
+            </div>
+          ))}
+
           <button
             onClick={() => toggle(openItem.id)}
             className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2"
