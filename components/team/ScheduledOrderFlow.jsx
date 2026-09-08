@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS } from "@/lib/business";
-import { useRuptures, useMenu, useTestMode, insertOrder } from "@/lib/data";
+import { useRuptures, useMenu, useTestMode, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import OrderScreen from "../OrderScreen";
@@ -26,6 +26,7 @@ async function submitWithRetry(order, attempt = 1) {
 export default function ScheduledOrderFlow({ onDone }) {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
+  const { categoryOrder } = useCategoryOrder();
   const { testMode } = useTestMode();
   const restaurant = useRestaurant();
 
@@ -164,6 +165,7 @@ export default function ScheduledOrderFlow({ onDone }) {
         <OrderScreen
           activeCat={activeCat}
           setActiveCat={setActiveCat}
+          categoryOrder={categoryOrder.staff}
           cart={cart}
           addItem={addItem}
           onPizzaTap={setCustomizing}

@@ -34,6 +34,7 @@ import {
   useMenu,
   useTables,
   useServiceTypeSettings,
+  useCategoryOrder,
   insertOrder,
   appendItemsToOrder,
 } from "@/lib/data";
@@ -92,6 +93,7 @@ export default function ServiceATable() {
   const { menuItems } = useMenu();
   const { tables, loading: tablesLoading } = useTables();
   const { serviceTypeSettings } = useServiceTypeSettings();
+  const { categoryOrder } = useCategoryOrder();
   const restaurant = useRestaurant();
 
   const activeTables = useMemo(
@@ -233,6 +235,7 @@ export default function ServiceATable() {
         <OrderScreen
           activeCat={activeCat}
           setActiveCat={setActiveCat}
+          categoryOrder={categoryOrder.client}
           cart={cart}
           addItem={addItem}
           onPizzaTap={setCustomizing}

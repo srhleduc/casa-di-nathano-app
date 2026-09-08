@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORIES, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { CATEGORIES, orderedCategories, flavorConfigFor, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
 import ProductCard from "./ProductCard";
 
@@ -31,12 +31,16 @@ export default function OrderScreen({
   staffMode,
   dessertStockNote,
   clientView,
+  // Ordre des catégories choisi en Direction pour ce contexte (client / équipe).
+  // Absent ou vide → ordre naturel de CATEGORIES.
+  categoryOrder,
 }) {
   const fullMenu = menu || [];
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
   // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
   const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
-  const baseCategories = isPanuzzoTime ? CATEGORIES : CATEGORIES.filter((c) => c.key !== "panuzzo");
+  const ordered = categoryOrder && categoryOrder.length ? orderedCategories(categoryOrder) : CATEGORIES;
+  const baseCategories = isPanuzzoTime ? ordered : ordered.filter((c) => c.key !== "panuzzo");
 
   const isTakeaway = isTakeawayLike(serviceType);
 

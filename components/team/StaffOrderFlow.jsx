@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, insertOrder, appendItemsToOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, insertOrder, appendItemsToOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
@@ -44,6 +44,7 @@ export default function StaffOrderFlow() {
   const { menuItems } = useMenu();
   const { testMode } = useTestMode();
   const { serviceTypeSettings } = useServiceTypeSettings();
+  const { categoryOrder } = useCategoryOrder();
   const { tables } = useTables();
   const restaurant = useRestaurant();
 
@@ -307,6 +308,7 @@ export default function StaffOrderFlow() {
         <OrderScreen
           activeCat={activeCat}
           setActiveCat={setActiveCat}
+          categoryOrder={categoryOrder.staff}
           cart={cart}
           addItem={addItem}
           onPizzaTap={setCustomizing}
