@@ -30,6 +30,7 @@ import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from 
 import { solveReservations } from "@/lib/reservation/api";
 import { findUpcomingReservations } from "@/lib/reservation/booking-identity";
 import { sortByFillPriority, sortByComboPriority } from "@/lib/business";
+import ResaNote from "@/components/ResaNote";
 
 const REMINDER =
   "Petit rappel : afin de garantir un service fluide et de pouvoir accueillir l'ensemble de nos clients dans les meilleures conditions, nous prévoyons environ 1h30 dans la mesure du possible par table. Merci de votre compréhension 😊";
@@ -83,6 +84,7 @@ export default function ReservationBooking() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [slots, setSlots] = useState([]); // [{ startMin, durationMin, serviceLabel }]
+  const [note, setNote] = useState("");
   const [confirmed, setConfirmed] = useState(null); // { name, party, date, startMin }
 
   // --- gestion d'une réservation existante ---
@@ -92,6 +94,7 @@ export default function ReservationBooking() {
   const [lookupHint, setLookupHint] = useState(null);
   const [editing, setEditing] = useState(null); // réservation en cours de modif
   const [editParty, setEditParty] = useState(2);
+  const [editNote, setEditNote] = useState("");
   const [manageOutcome, setManageOutcome] = useState(null); // "modified" | "cancelled"
   const [confirmCancelId, setConfirmCancelId] = useState(null);
 
@@ -186,6 +189,7 @@ export default function ReservationBooking() {
         requestedAt: buildRequestedAtISO(date, slot.startMin),
         estimatedDurationMinutes: slot.durationMin,
         source: "client",
+        note: note.trim() || null,
       });
       setConfirmed({ name: name.trim(), party, date, startMin: slot.startMin });
       setScreen("done");
@@ -226,10 +230,24 @@ export default function ReservationBooking() {
   function startEdit(r) {
     setEditing(r);
     setEditParty(r.partySize);
+    setEditNote(r.note || "");
     setDate(String(r.requestedAt).slice(0, 10));
     setSlots([]);
     setErr(null);
     setScreen("manage-edit");
+  }
+
+  // Édition directe de la note depuis la liste (sans changer le créneau).
+  async function saveMatchNote(r, value) {
+    const v = value.trim();
+    if (v === (r.note || "")) return;
+    try {
+      await updateReservation(r.id, { note: v || null });
+      setMatches((ms) => ms.map((m) => (m.id === r.id ? { ...m, note: v || null } : m)));
+    } catch (e) {
+      console.error(e);
+      setErr("La note n'a pas pu être enregistrée.");
+    }
   }
 
   async function loadEditSlots() {
@@ -255,6 +273,7 @@ export default function ReservationBooking() {
         partySize: editParty,
         requestedAt: buildRequestedAtISO(date, slot.startMin),
         estimatedDurationMinutes: slot.durationMin,
+        note: editNote.trim() || null,
       });
       setConfirmed({ name: editing.customerName, party: editParty, date, startMin: slot.startMin });
       setManageOutcome("modified");
@@ -291,6 +310,7 @@ export default function ReservationBooking() {
     setParty(2);
     setDate(todayISO());
     setSlots([]);
+    setNote("");
     setConfirmed(null);
     setErr(null);
     setLookupPhone("");
@@ -299,6 +319,7 @@ export default function ReservationBooking() {
     setLookupHint(null);
     setEditing(null);
     setEditParty(2);
+    setEditNote("");
     setManageOutcome(null);
     setConfirmCancelId(null);
   }
@@ -443,6 +464,21 @@ export default function ReservationBooking() {
               <p className="text-[#b9a692] text-sm">
                 {r.partySize} personne{r.partySize > 1 ? "s" : ""} · {r.customerName}
               </p>
+
+              <div className="mt-2">
+                <div className="text-xs text-[#a88f78] mb-1">Note (chaise bébé, allergie…)</div>
+                <input
+                  defaultValue={r.note || ""}
+                  key={r.note || ""}
+                  onBlur={(e) => saveMatchNote(r, e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  placeholder="Aucune note"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={inputStyle}
+                />
+                {r.note && <div className="mt-1"><ResaNote note={r.note} /></div>}
+              </div>
+
               <div className="flex items-center gap-3 mt-3">
                 <button
                   onClick={() => startEdit(r)}
@@ -489,6 +525,12 @@ export default function ReservationBooking() {
           <span className="text-xs text-[#a88f78] uppercase font-bold">Nombre de personnes</span>
           <PartyStepper value={editParty} onChange={setEditParty} />
         </div>
+
+        <label className="block mb-3">
+          <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(ex. chaise bébé)</span></span>
+          <textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
+        </label>
+
         <p className="text-xs text-[#8a7561] mb-5">
           Le changement de jour n'est pas possible ici : annulez puis reprenez une réservation pour une autre date.
         </p>
@@ -580,9 +622,14 @@ export default function ReservationBooking() {
         <PartyStepper value={party} onChange={setParty} />
       </div>
 
-      <label className="block mb-5">
+      <label className="block mb-3">
         <span className="text-xs text-[#a88f78] uppercase font-bold">Date</span>
         <input value={date} min={todayISO()} onChange={(e) => setDate(e.target.value)} type="date" className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
+      </label>
+
+      <label className="block mb-5">
+        <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(facultatif — ex. chaise bébé, allergie)</span></span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
       </label>
 
       {err && <p className="text-sm mb-3" style={{ color: "#e88a8a" }}>{err}</p>}

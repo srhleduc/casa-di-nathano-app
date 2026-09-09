@@ -27,6 +27,7 @@ import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildR
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
 import { tableDisplayName, sortByFillPriority, sortByComboPriority } from "@/lib/business";
+import ResaNote from "@/components/ResaNote";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
@@ -169,9 +170,10 @@ export default function ReservationsBoard() {
 
   // Ajout rapide d'une réservation depuis une carte de service (bouton « + »).
   const [addForm, setAddForm] = useState(null); // { service } | null
-  const [af, setAf] = useState({ name: "", phone: "", party: 2, slotMin: null, tableId: "" });
+  const [af, setAf] = useState({ name: "", phone: "", party: 2, slotMin: null, tableId: "", note: "" });
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState(null);
+  const [noteEditId, setNoteEditId] = useState(null); // réservation dont on édite la note
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -369,9 +371,15 @@ export default function ReservationsBoard() {
   );
   function openAddForm(s) {
     const first = buildCandidateSlots([s], settings, 2, { nowMin: null })[0];
-    setAf({ name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableId: "" });
+    setAf({ name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableId: "", note: "" });
     setAddErr(null);
     setAddForm({ service: s });
+  }
+  function saveNote(id, value) {
+    const v = value.trim();
+    setNoteEditId(null);
+    if (v === (dayReservations.find((x) => x.id === id)?.note || "")) return;
+    updateReservation(id, { note: v || null }).catch((e) => console.error(e));
   }
   async function submitAdd() {
     if (addBusy) return;
@@ -387,6 +395,7 @@ export default function ReservationsBoard() {
         requestedAt: buildRequestedAtISO(date, af.slotMin),
         estimatedDurationMinutes: estimateDurationMin(af.party),
         source: "walk_in",
+        note: af.note.trim() || null,
       });
       if (af.tableId) await setReservationTables(rid, [af.tableId], { manual: true });
       setAddForm(null);
@@ -657,6 +666,31 @@ export default function ReservationsBoard() {
                   </button>
                 )}
               </div>
+
+              <div className="w-full flex items-center gap-2 mt-1">
+                {noteEditId === r.id ? (
+                  <input
+                    autoFocus
+                    defaultValue={r.note || ""}
+                    onBlur={(e) => saveNote(r.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") setNoteEditId(null);
+                    }}
+                    placeholder="Note (ex. chaise bébé)"
+                    className="flex-1 rounded-lg px-2 py-1 text-xs"
+                    style={inputStyle}
+                  />
+                ) : r.note ? (
+                  <button onClick={() => setNoteEditId(r.id)} className="tap-scale text-left" title="Modifier la note">
+                    <ResaNote note={r.note} />
+                  </button>
+                ) : (
+                  <button onClick={() => setNoteEditId(r.id)} className="tap-scale text-[11px] text-[#8a7561] font-bold">
+                    + note
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -730,7 +764,7 @@ export default function ReservationsBoard() {
               </label>
             </div>
 
-            <label className="block mb-4 text-xs text-[#a88f78]">
+            <label className="block mb-3 text-xs text-[#a88f78]">
               Table <span className="text-[#5a4a3a]">(facultatif — automatique si non choisie)</span>
               <select
                 value={af.tableId}
@@ -745,6 +779,17 @@ export default function ReservationsBoard() {
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label className="block mb-4 text-xs text-[#a88f78]">
+              Note <span className="text-[#5a4a3a]">(facultatif — ex. chaise bébé)</span>
+              <textarea
+                value={af.note}
+                onChange={(e) => setAf((x) => ({ ...x, note: e.target.value }))}
+                rows={2}
+                className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
+                style={inputStyle}
+              />
             </label>
 
             {addErr && <div className="text-xs mb-3" style={{ color: "#e88a8a" }}>{addErr}</div>}
