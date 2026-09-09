@@ -13,9 +13,14 @@ import {
   createCirculationConstraint,
   updateCirculationConstraint,
   deleteCirculationConstraint,
+  updateTable,
+  setTableActive,
 } from "@/lib/data";
 import { evaluateConstraints } from "@/lib/reservation/constraints";
 import { cellCode, isSplit, normalizeGrid } from "@/lib/reservation/grid";
+import { tableDisplayName } from "@/lib/business";
+import TableConfigFields from "./TableConfigFields";
+import TablePriorityList from "./TablePriorityList";
 
 const PRIORITIES = [
   { value: "obligatoire", label: "Obligatoire" },
@@ -72,6 +77,12 @@ export default function RoomLayoutEditor({ readOnly = false }) {
   // de contraintes raisonne toujours en 35 cm (grid.js expandTo35).
   const [halfMode, setHalfMode] = useState(false);
   const [halfAxis, setHalfAxis] = useState("v"); // "v" = gauche/droite, "h" = haut/bas
+  // Mode « Configurer les tables » : un clic sur la grille sélectionne la table
+  // posée sur cette case (panneau de config façon TheFork) au lieu de peindre ;
+  // un clic sur une case vide propose d'y poser une table non placée.
+  const [mode, setMode] = useState("paint"); // "paint" | "config"
+  const [selTableId, setSelTableId] = useState(null);
+  const [pendingCell, setPendingCell] = useState(null); // { r, c } | null
   // Ajout d'une contrainte de circulation : capture des extrémités sur la grille.
   const [ccDraft, setCcDraft] = useState(null); // { name, a, b, width, priority } | null
   const [pickMode, setPickMode] = useState(null); // "A" | "B" | null
@@ -99,6 +110,14 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     setCells(normalizeGrid(active.cells, gr, gc));
     hydratedFor.current = active.id;
   }, [active]);
+
+  // Change de plan → on oublie la sélection de config en cours.
+  useEffect(() => {
+    setSelTableId(null);
+    setPendingCell(null);
+  }, [activeId]);
+
+  const selTable = useMemo(() => tables.find((t) => t.id === selTableId) || null, [tables, selTableId]);
 
   function queueSave(nextRows, nextCols, nextCells) {
     if (readOnly || !activeId) return;
@@ -170,6 +189,20 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     if (pickMode && cell) {
       setCcDraft((d) => ({ ...(d || {}), [pickMode === "A" ? "a" : "b"]: { row: cell.r, col: cell.c } }));
       setPickMode(null);
+      return;
+    }
+    // Mode config : sélectionner la table posée sur la case, ou préparer un
+    // placement sur une case vide. Jamais de peinture.
+    if (mode === "config") {
+      if (!cell) return;
+      const hit = placedTables.find((pt) => pt.gridRow === cell.r && pt.gridCol === cell.c);
+      if (hit) {
+        setSelTableId(hit.id);
+        setPendingCell(null);
+      } else {
+        setSelTableId(null);
+        setPendingCell({ r: cell.r, c: cell.c });
+      }
       return;
     }
     downInfo.current = { x: e.clientX, y: e.clientY, type: e.pointerType };
@@ -288,6 +321,25 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     () => tables.filter((t) => t.layoutId === activeId && t.gridRow != null && t.gridCol != null),
     [tables, activeId]
   );
+  // Tables non posées sur CE plan (actives) — candidates au placement.
+  const unplacedTables = useMemo(
+    () => tables.filter((t) => t.active && !(t.layoutId === activeId && t.gridRow != null && t.gridCol != null)),
+    [tables, activeId]
+  );
+
+  function placeTableAt(tableId, r, c) {
+    updateTable(tableId, { layoutId: activeId, gridRow: r, gridCol: c })
+      .then(() => {
+        setSelTableId(tableId);
+        setPendingCell(null);
+      })
+      .catch((e) => console.error(e));
+  }
+  function unplaceTable(tableId) {
+    updateTable(tableId, { gridRow: null, gridCol: null })
+      .then(() => setSelTableId(null))
+      .catch((e) => console.error(e));
+  }
   // L'éditeur travaille toujours en « 1 case = 1 table » (70 cm), quel que
   // soit le cell_size_cm stocké — le moteur détaille en 35 cm.
   const layoutForEngine = { gridRows: rows, gridCols: cols, cellSizeCm: 70, cells };
@@ -341,7 +393,8 @@ export default function RoomLayoutEditor({ readOnly = false }) {
         Grille de la salle : <b>une case = une table (70 cm)</b>. Un clic pose ou retire une table entière. Les{" "}
         <b>passages</b> indiquent une obligation de circulation dont le tracé exact pourra bouger ; les <b>portes</b> et{" "}
         <b>zones travail/attente</b> servent de repères au moteur. Pour les ajustements fins de largeur de passage,
-        active <b>« Demi-cases (35 cm) »</b>. Sauvegarde automatique.
+        active <b>« Demi-cases (35 cm) »</b>. Passe en <b>« Configurer les tables »</b> pour cliquer une table et régler
+        ses places, sa disponibilité en ligne et ses combinaisons. Sauvegarde automatique.
       </p>
 
       {/* Sélecteur de plan */}
@@ -403,6 +456,25 @@ export default function RoomLayoutEditor({ readOnly = false }) {
       </div>
 
       {!readOnly && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => { setMode("paint"); setSelTableId(null); setPendingCell(null); }}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={mode === "paint" ? { borderColor: "#C0392B", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            ✏️ Dessiner la salle
+          </button>
+          <button
+            onClick={() => { setMode("config"); }}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={mode === "config" ? { borderColor: "#C0392B", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+          >
+            🪑 Configurer les tables
+          </button>
+        </div>
+      )}
+
+      {!readOnly && mode === "paint" && (
         <>
           {/* Palette */}
           <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mb-4">
@@ -489,6 +561,12 @@ export default function RoomLayoutEditor({ readOnly = false }) {
         </div>
       )}
 
+      {!readOnly && mode === "config" && !selTable && !pendingCell && (
+        <div className="rounded-lg px-3 py-2 mb-2 text-sm" style={{ background: "#2c1c14", border: "1px solid #C0392B", color: "#fff5ea" }}>
+          Clique une <b>table posée</b> sur la grille pour la configurer, ou une <b>case vide</b> pour y placer une table.
+        </div>
+      )}
+
       {/* Grille — zone de défilement bornée (les deux axes, tactile compris) */}
       <div
         className="rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-3"
@@ -505,10 +583,18 @@ export default function RoomLayoutEditor({ readOnly = false }) {
             row.map((cell, c) => {
               const mark = endpointMarks.get(`${r},${c}`);
               const placed = placedTables.some((pt) => r === pt.gridRow && c === pt.gridCol);
+              const isSel = selTable && r === selTable.gridRow && c === selTable.gridCol;
+              const isPending = pendingCell && r === pendingCell.r && c === pendingCell.c;
               const split = isSplit(cell);
               const showHalves = split || halfMode;
               const axis = split ? cell.s : halfAxis;
-              const border = placed ? "2px solid #D9689F" : `1px solid ${mark ? "#7fb0ff" : (TOOL_BY_CODE[cellCode(cell)] || TOOL_BY_CODE.empty).color}`;
+              const border = isSel
+                ? "3px solid #fff5ea"
+                : isPending
+                ? "3px solid #e8622c"
+                : placed
+                ? "2px solid #D9689F"
+                : `1px solid ${mark ? "#7fb0ff" : (TOOL_BY_CODE[cellCode(cell)] || TOOL_BY_CODE.empty).color}`;
               const common = {
                 width: CELL_PX,
                 height: CELL_PX,
@@ -569,6 +655,81 @@ export default function RoomLayoutEditor({ readOnly = false }) {
           Table placée (config)
         </span>
       </div>
+
+      {/* Panneau de configuration des tables (mode « Configurer les tables ») */}
+      {!readOnly && mode === "config" && (
+        <div className="rounded-xl border-2 p-4 mt-4" style={{ borderColor: "#C0392B", background: "#211712" }}>
+          {selTable ? (
+            <>
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <div className="text-sm font-bold">
+                  Table sélectionnée · <span className="text-xs font-normal text-[#8a7561]">L{selTable.gridRow + 1} · C{selTable.gridCol + 1}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => unplaceTable(selTable.id)}
+                    className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f] text-[#a88f78]"
+                  >
+                    Retirer du plan
+                  </button>
+                  <button
+                    onClick={() => setTableActive(selTable.id, !selTable.active).catch((e) => console.error(e))}
+                    className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                    style={selTable.active ? { borderColor: "#4a2020", color: "#e8a8a8" } : { borderColor: "#204a3a", color: "#a8e8c8" }}
+                  >
+                    {selTable.active ? "Désactiver" : "Réactiver"}
+                  </button>
+                  <button onClick={() => setSelTableId(null)} className="tap-scale text-xs text-[#8a7561] font-bold">
+                    Fermer
+                  </button>
+                </div>
+              </div>
+              <TableConfigFields t={selTable} others={tables.filter((x) => x.active && x.id !== selTable.id)} showName />
+            </>
+          ) : pendingCell ? (
+            <>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="text-sm font-bold">
+                  Placer une table en <span className="text-xs font-normal text-[#8a7561]">L{pendingCell.r + 1} · C{pendingCell.c + 1}</span>
+                </div>
+                <button onClick={() => setPendingCell(null)} className="tap-scale text-xs text-[#8a7561] font-bold">
+                  Annuler
+                </button>
+              </div>
+              {unplacedTables.length === 0 ? (
+                <p className="text-xs text-[#8a7561]">
+                  Toutes les tables actives sont déjà placées sur ce plan. Crée-en une dans l'onglet « Tables ».
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {unplacedTables.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => placeTableAt(t.id, pendingCell.r, pendingCell.c)}
+                      className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]"
+                    >
+                      {tableDisplayName(t)}
+                      {t.layoutId && t.layoutId !== activeId ? " (autre plan)" : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-[#8a7561]">
+              Clique une table posée sur la grille pour la configurer, ou une case vide pour y placer une table.
+            </p>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-[#3a2b1f]">
+            <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Ordre de priorité de remplissage</div>
+            <div className="text-xs text-[#5a4a3a] mb-3">
+              Global à l'établissement. À choix équivalent, le moteur remplit d'abord les tables du haut.
+            </div>
+            <TablePriorityList tables={tables} />
+          </div>
+        </div>
+      )}
 
       {/* Contraintes de circulation */}
       <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mt-4">

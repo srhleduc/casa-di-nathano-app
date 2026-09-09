@@ -14,6 +14,8 @@ import {
 } from "@/lib/data";
 import { tableDisplayName, tableDisplayLabel, isTakeawayLike, isOrderPaid, isOrderActiveToday } from "@/lib/business";
 import { cellCode } from "@/lib/reservation/grid";
+import TableConfigFields from "./TableConfigFields";
+import TablePriorityList from "./TablePriorityList";
 
 // Le QR encode l'URL fixe du lien Service À Table (cahier des charges).
 const SAT_BASE_URL = "https://casa-di-nathano-app.vercel.app/sat";
@@ -56,66 +58,12 @@ function LayoutPicker({ layout, gridRow, gridCol, onPick }) {
   );
 }
 
-function RelationRow({ label, others, selected, onToggle }) {
-  return (
-    <div className="mb-2">
-      <div className="text-xs text-[#a88f78] mb-1">{label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {others.map((o) => {
-          const on = selected.includes(o.id);
-          return (
-            <button
-              key={o.id}
-              onClick={() => onToggle(o.id)}
-              className="tap-scale rounded-full px-2.5 py-1 text-xs font-bold border-2"
-              style={on ? { borderColor: "#C0392B", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
-            >
-              {on ? "✓ " : ""}
-              {tableDisplayName(o)}
-            </button>
-          );
-        })}
-        {others.length === 0 && <span className="text-xs text-[#5a4a3a]">Aucune autre table.</span>}
-      </div>
-    </div>
-  );
-}
-
 function ResaConfig({ t, others, layouts }) {
   const layout = layouts.find((l) => l.id === t.layoutId) || null;
 
-  function setArr(field, id) {
-    const cur = t[field] || [];
-    let next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-    const patch = { [field]: next };
-    // "Jamais combinée" est exclusif des deux autres relations.
-    if (field === "nonCombinableWith" && !cur.includes(id)) {
-      patch.usuallyCombinedWith = (t.usuallyCombinedWith || []).filter((x) => x !== id);
-      patch.combinableWith = (t.combinableWith || []).filter((x) => x !== id);
-    }
-    if ((field === "usuallyCombinedWith" || field === "combinableWith") && !cur.includes(id)) {
-      patch.nonCombinableWith = (t.nonCombinableWith || []).filter((x) => x !== id);
-    }
-    updateTable(t.id, patch).catch((e) => console.error(e));
-  }
-
   return (
     <div className="mt-3 pt-3 border-t border-[#3a2b1f]">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs text-[#a88f78]">Couverts (table seule)</span>
-        <input
-          type="number"
-          min={1}
-          value={t.capacityBase}
-          onChange={(e) => updateTable(t.id, { capacityBase: Math.max(1, parseInt(e.target.value, 10) || 1) }).catch((err) => console.error(err))}
-          className="w-16 rounded-lg px-2 py-1 text-sm"
-          style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-        />
-      </div>
-
-      <RelationRow label="Habituellement collée à" others={others} selected={t.usuallyCombinedWith || []} onToggle={(id) => setArr("usuallyCombinedWith", id)} />
-      <RelationRow label="Peut être rapprochée de" others={others} selected={t.combinableWith || []} onToggle={(id) => setArr("combinableWith", id)} />
-      <RelationRow label="Jamais combinée avec" others={others} selected={t.nonCombinableWith || []} onToggle={(id) => setArr("nonCombinableWith", id)} />
+      <TableConfigFields t={t} others={others} />
 
       <div className="mt-3">
         <div className="text-xs text-[#a88f78] mb-1">Position sur le plan</div>
@@ -216,8 +164,20 @@ function Row({ t, others, layouts, onRename, onToggle, onQr }) {
             </span>
           </div>
           <div className="text-xs text-[#8a7561] mt-1 font-mono">
-            QR : /sat?table={t.number} · {t.capacityBase} couv.
+            QR : /sat?table={t.number} · {t.capacityMin ?? 1}–{t.capacityPreferred ?? t.capacityBase ?? 2}–{t.capacityMax ?? t.capacityBase ?? 2} couv.
             {t.gridRow != null ? " · placée" : ""}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {t.blocked && (
+              <span className="text-xs font-bold rounded-full px-2 py-0.5" style={{ background: "#4a2020", color: "#e8a8a8" }}>
+                🔒 Bloquée
+              </span>
+            )}
+            {t.bookableOnline === false && (
+              <span className="text-xs font-bold rounded-full px-2 py-0.5" style={{ background: "#3a2b1f", color: "#c9b8a4" }}>
+                Hors réservation en ligne
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -324,9 +284,19 @@ export default function TablesAdmin() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="text-xs text-[#8a7561] mb-5 max-w-xl">
         Nom de table libre et renommable (le code du QR reste fixe). « ⚙️ Config réservation » sur chaque table :
-        couverts, tables habituellement collées / rapprochables / interdites, et position sur le plan de salle —
-        ces réglages alimentent le moteur de réservation.
+        places min / préférée / max, disponibilité en ligne, blocage, tables habituellement collées /
+        rapprochables / interdites, et position sur le plan de salle — ces réglages alimentent le moteur de réservation.
       </div>
+
+      {sorted.some((t) => t.active) && (
+        <details className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mb-6 max-w-xl">
+          <summary className="text-sm font-bold cursor-pointer">Ordre de priorité de remplissage</summary>
+          <div className="text-xs text-[#5a4a3a] mt-1 mb-3">
+            À choix équivalent, le moteur remplit d'abord les tables du haut. Glisser-déposer ou flèches ▲▼.
+          </div>
+          <TablePriorityList tables={sorted} />
+        </details>
+      )}
 
       <div className="flex flex-wrap items-end gap-3 mb-6 max-w-xl">
         <div className="flex-1 min-w-[160px]">

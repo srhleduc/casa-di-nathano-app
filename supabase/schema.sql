@@ -2044,6 +2044,16 @@ alter table tables add column if not exists usually_combined_with uuid[] not nul
 alter table tables add column if not exists combinable_with uuid[] not null default '{}';
 alter table tables add column if not exists non_combinable_with uuid[] not null default '{}';
 
+-- Panneau de config table (façon TheFork) : capacités min/préférée/max,
+-- visibilité réservation en ligne, blocage, ordre de priorité de remplissage.
+alter table tables add column if not exists capacity_min int not null default 1;
+alter table tables add column if not exists capacity_preferred int not null default 2;
+alter table tables add column if not exists capacity_max int not null default 2;
+alter table tables add column if not exists bookable_online boolean not null default true;
+alter table tables add column if not exists blocked boolean not null default false;
+alter table tables add column if not exists priority_order int;
+update tables set capacity_preferred = greatest(1, coalesce(capacity_base, 2)), capacity_max = greatest(1, coalesce(capacity_base, 2)) where capacity_base is not null;
+
 -- ---- Combinaisons de tables valides (précalculées ou à la volée) ---------
 create table if not exists table_combinations (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), table_ids uuid[] not null, capacity int not null, is_usual boolean not null default true, penalty_score int not null default 0, created_at timestamptz not null default now());
 
