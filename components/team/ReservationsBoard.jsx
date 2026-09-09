@@ -25,7 +25,7 @@ import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
-import { tableDisplayName, sortByFillPriority } from "@/lib/business";
+import { tableDisplayName, sortByFillPriority, sortByComboPriority } from "@/lib/business";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
@@ -50,10 +50,15 @@ const CELL = 46; // une case = une table (70 cm)
 // pour un service qu'on inspecte.
 const PINK = "#D9689F";
 
-function PlanView({ layout, placedTables, statuses, labelById, resById, highlightIds = null, noteByTable = null }) {
+const COMBO_LINK = "#3f6ab5"; // trait de liaison entre tables combinées (= « groupée »)
+
+function PlanView({ layout, placedTables, statuses, labelById, resById, highlightIds = null, noteByTable = null, comboGroups = null }) {
   if (!layout) return null;
   const cols = layout.gridCols || 12;
   const rows = layout.gridRows || 12;
+  const posById = Object.fromEntries(
+    placedTables.map((t) => [t.id, { cx: t.gridCol * CELL + CELL / 2, cy: t.gridRow * CELL + CELL / 2 }])
+  );
   return (
     <div className="overflow-auto rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-3">
       <div
@@ -69,6 +74,32 @@ function PlanView({ layout, placedTables, statuses, labelById, resById, highligh
             "px)",
         }}
       >
+        {comboGroups && comboGroups.length > 0 && (
+          <svg className="absolute inset-0 pointer-events-none" width={cols * CELL} height={rows * CELL}>
+            {comboGroups.map((g) => {
+              const pts = g.tableIds
+                .map((id) => posById[id])
+                .filter(Boolean)
+                .sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+              if (pts.length < 2) return null;
+              return (
+                <g key={g.reservationId}>
+                  <polyline
+                    points={pts.map((p) => `${p.cx},${p.cy}`).join(" ")}
+                    fill="none"
+                    stroke={COMBO_LINK}
+                    strokeWidth={3}
+                    strokeDasharray="5 3"
+                    strokeLinecap="round"
+                  />
+                  {pts.map((p, i) => (
+                    <circle key={i} cx={p.cx} cy={p.cy} r={4} fill={COMBO_LINK} />
+                  ))}
+                </g>
+              );
+            })}
+          </svg>
+        )}
         {placedTables.map((t) => {
           const st = statuses[t.id]?.status || "libre";
           const s = STATUS_STYLE[st];
@@ -204,7 +235,7 @@ export default function ReservationsBoard() {
         priorityOrder: t.priorityOrder,
         active: true,
       })),
-      combinations: combinations.map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
+      combinations: sortByComboPriority(combinations).map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
       reservations: existing,
       safetyMarginMinutes: settings.safetyMarginMinutes || 0,
       pinned,
@@ -276,6 +307,22 @@ export default function ReservationsBoard() {
     }
     return { reservations: rs, highlightIds, noteByTable, count: highlightIds.size };
   }, [selectedService, dayReservations, manualByRes, asgByRes]);
+
+  // Groupes de tables combinées (une réservation répartie sur ≥ 2 tables du
+  // plan) → trait de liaison sur le plan. Service inspecté : ses réservations ;
+  // sinon les réservations actives du jour (hors parties).
+  const comboGroups = useMemo(() => {
+    const placedIds = new Set(placedTables.map((t) => t.id));
+    const rs = selectedService
+      ? selectedServiceInfo?.reservations || []
+      : dayReservations.filter((r) => r.status !== "completed");
+    const out = [];
+    for (const r of rs) {
+      const tids = effectiveTables(r.id).filter((id) => placedIds.has(id));
+      if (tids.length >= 2) out.push({ reservationId: r.id, tableIds: tids });
+    }
+    return out;
+  }, [placedTables, selectedService, selectedServiceInfo, dayReservations, manualByRes, asgByRes]);
 
   const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
@@ -418,6 +465,7 @@ export default function ReservationsBoard() {
             resById={Object.fromEntries(dayReservations.map((r) => [r.id, r]))}
             highlightIds={selectedService ? selectedServiceInfo.highlightIds : null}
             noteByTable={selectedService ? selectedServiceInfo.noteByTable : null}
+            comboGroups={comboGroups}
           />
         </>
       ) : (
@@ -434,6 +482,10 @@ export default function ReservationsBoard() {
             {v.label}
           </span>
         ))}
+        <span className="flex items-center gap-1.5 text-xs text-[#a88f78]">
+          <span className="inline-block w-5" style={{ borderTop: `3px dashed ${COMBO_LINK}` }} />
+          Tables combinées (1 réservation)
+        </span>
       </div>
 
       {nonPlacedActive.length > 0 && (

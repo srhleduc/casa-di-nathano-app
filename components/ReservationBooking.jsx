@@ -29,7 +29,7 @@ import { servicesForDate } from "@/lib/reservation/services";
 import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from "@/lib/reservation/slots";
 import { solveReservations } from "@/lib/reservation/api";
 import { findUpcomingReservations } from "@/lib/reservation/booking-identity";
-import { sortByFillPriority } from "@/lib/business";
+import { sortByFillPriority, sortByComboPriority } from "@/lib/business";
 
 const REMINDER =
   "Petit rappel : afin de garantir un service fluide et de pouvoir accueillir l'ensemble de nos clients dans les meilleures conditions, nous prévoyons environ 1h30 dans la mesure du possible par table. Merci de votre compréhension 😊";
@@ -147,7 +147,7 @@ export default function ReservationBooking() {
         priorityOrder: t.priorityOrder,
         active: true,
       })),
-      combinations: combinations.map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
+      combinations: sortByComboPriority(combinations).map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
       reservations: reservationsForSolver(existing, targetDate),
       safetyMarginMinutes: settings.safetyMarginMinutes || 0,
       candidateSlots,
