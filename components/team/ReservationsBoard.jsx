@@ -704,8 +704,8 @@ export default function ReservationsBoard() {
           onClick={() => setAddForm(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl p-5"
-            style={{ background: "#1a120b", border: "1px solid #3a2b1f" }}
+            className="w-full max-w-sm rounded-2xl p-5 overflow-y-auto"
+            style={{ background: "#1a120b", border: "1px solid #3a2b1f", maxHeight: "88vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="font-bold text-sm mb-1">Ajouter une réservation</div>
@@ -730,6 +730,18 @@ export default function ReservationsBoard() {
                 onChange={(e) => setAf((x) => ({ ...x, phone: e.target.value }))}
                 type="tel"
                 placeholder="06 12 34 56 78"
+                className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
+                style={inputStyle}
+              />
+            </label>
+
+            <label className="block mb-3 text-xs text-[#a88f78]">
+              Note <span className="text-[#5a4a3a]">(facultatif — ex. chaise bébé, allergie)</span>
+              <textarea
+                value={af.note}
+                onChange={(e) => setAf((x) => ({ ...x, note: e.target.value }))}
+                rows={2}
+                placeholder="Ajouter une chaise bébé, allergie…"
                 className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
                 style={inputStyle}
               />
@@ -779,17 +791,6 @@ export default function ReservationsBoard() {
                   </option>
                 ))}
               </select>
-            </label>
-
-            <label className="block mb-4 text-xs text-[#a88f78]">
-              Note <span className="text-[#5a4a3a]">(facultatif — ex. chaise bébé)</span>
-              <textarea
-                value={af.note}
-                onChange={(e) => setAf((x) => ({ ...x, note: e.target.value }))}
-                rows={2}
-                className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
-                style={inputStyle}
-              />
             </label>
 
             {addErr && <div className="text-xs mb-3" style={{ color: "#e88a8a" }}>{addErr}</div>}

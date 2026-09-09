@@ -617,19 +617,19 @@ export default function ReservationBooking() {
         <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} placeholder="06 12 34 56 78" />
       </label>
 
+      <label className="block mb-3">
+        <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(facultatif)</span></span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Ex. ajouter une chaise bébé, allergie…" className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
+      </label>
+
       <div className="mb-3">
         <span className="text-xs text-[#a88f78] uppercase font-bold">Nombre de personnes</span>
         <PartyStepper value={party} onChange={setParty} />
       </div>
 
-      <label className="block mb-3">
+      <label className="block mb-5">
         <span className="text-xs text-[#a88f78] uppercase font-bold">Date</span>
         <input value={date} min={todayISO()} onChange={(e) => setDate(e.target.value)} type="date" className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
-      </label>
-
-      <label className="block mb-5">
-        <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(facultatif — ex. chaise bébé, allergie)</span></span>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
       </label>
 
       {err && <p className="text-sm mb-3" style={{ color: "#e88a8a" }}>{err}</p>}
