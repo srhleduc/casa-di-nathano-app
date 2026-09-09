@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useOrders } from "@/lib/data";
+import { useEffect, useMemo, useState } from "react";
+import {
+  useOrders,
+  useReservations,
+  useServiceTemplates,
+  useServiceOverrides,
+  useServiceExceptions,
+} from "@/lib/data";
 import { isOrderActiveToday } from "@/lib/business";
+import { servicesForDate } from "@/lib/reservation/services";
 import { eur } from "@/lib/menu";
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const resaStartMin = (r) => {
+  const m = /T(\d\d):(\d\d)/.exec(r.requestedAt || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+};
 import { RestaurantFilterContext, useRestaurantsList } from "@/lib/restaurant";
 import { signOutManager, useManagerSession } from "@/lib/managerAuth";
 import { supabase } from "@/lib/supabaseClient";
@@ -69,9 +82,59 @@ export default function DirectionDashboard() {
   // Un manager n'a pas de restaurant propre : RLS lui renvoie les commandes
   // des deux enseignes tant qu'aucun RestaurantFilterContext n'est posé.
   const { orders } = useOrders();
+  // Aucun RestaurantFilterContext ici → ces hooks renvoient les lignes des deux
+  // enseignes (RLS manager), on répartit ensuite par restaurantId.
+  const { reservations } = useReservations();
+  const { serviceTemplates } = useServiceTemplates();
+  const { serviceOverrides } = useServiceOverrides();
+  const { serviceExceptions } = useServiceExceptions();
   const restaurants = useRestaurantsList();
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState("overview"); // "overview" | "costprice" | "consumption" | "suppliers" | "messages" | "autonomy"
+
+  // Couverts réservés à afficher par enseigne : service en cours, sinon
+  // (si on est entre deux services) le prochain service du jour.
+  const coversByRestaurant = useMemo(() => {
+    const today = todayISO();
+    const d = new Date();
+    const nowMin = d.getHours() * 60 + d.getMinutes();
+    const out = {};
+    for (const r of restaurants) {
+      const svcs = servicesForDate(
+        today,
+        serviceTemplates.filter((t) => t.restaurantId === r.id),
+        serviceOverrides.filter((o) => o.restaurantId === r.id),
+        serviceExceptions.filter((e) => e.restaurantId === r.id)
+      );
+      const current = svcs.find((s) => nowMin >= s.startMin && nowMin < s.endMin) || null;
+      const next = svcs.filter((s) => s.startMin > nowMin).sort((a, b) => a.startMin - b.startMin)[0] || null;
+      const svc = current || next;
+      const covers = svc
+        ? reservations
+            .filter(
+              (x) =>
+                x.restaurantId === r.id &&
+                String(x.requestedAt || "").slice(0, 10) === today &&
+                !["cancelled", "no_show"].includes(x.status)
+            )
+            .filter((x) => {
+              const m = resaStartMin(x);
+              return m >= svc.startMin && m < svc.endMin;
+            })
+            .reduce((s, x) => s + (x.partySize || 0), 0)
+        : 0;
+      out[r.id] = {
+        covers,
+        label: current
+          ? `service en cours · ${current.label}`
+          : next
+          ? `prochain service · ${next.label} (${next.startTime})`
+          : "aucun service aujourd'hui",
+        hasService: Boolean(svc),
+      };
+    }
+    return out;
+  }, [restaurants, reservations, serviceTemplates, serviceOverrides, serviceExceptions]);
 
   if (selected) {
     return (
@@ -138,8 +201,18 @@ export default function DirectionDashboard() {
                     <span className="text-xs text-[#a88f78] uppercase font-bold">Chiffre du jour</span>
                     <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
                   </div>
-                  <div className="text-xs text-[#8a7561] mb-6">
+                  <div className="text-xs text-[#8a7561] mb-4">
                     {restaurantOrders.length} commande{restaurantOrders.length > 1 ? "s" : ""} · dont {eur(collected)} déjà encaissé
+                  </div>
+
+                  <div className="flex items-end justify-between mb-1">
+                    <span className="text-xs text-[#a88f78] uppercase font-bold">Couverts réservés</span>
+                    <span className="display-font text-3xl font-bold" style={{ color: "#D9689F" }}>
+                      {coversByRestaurant[r.id]?.covers ?? 0}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#8a7561] mb-6">
+                    {coversByRestaurant[r.id]?.label || "…"}
                   </div>
                   <button
                     onClick={() => setSelected(r.id)}
