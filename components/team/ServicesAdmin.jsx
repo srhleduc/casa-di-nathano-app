@@ -13,7 +13,7 @@ import {
   deleteServiceOverridesForDate,
   updateReservationSettings,
 } from "@/lib/data";
-import { servicesForDate, servicesOverlap } from "@/lib/reservation/services";
+import { servicesForDate, servicesOverlap, toMin } from "@/lib/reservation/services";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -60,9 +60,20 @@ export default function ServicesAdmin() {
   const overlap = servicesOverlap(resolved);
   const dateOverrides = serviceOverrides.filter((o) => o.date === date);
 
+  // Affichage chronologique : le numéro de service reste l'identité, mais on
+  // liste les services par heure de début (un service ajouté plus tard peut
+  // commencer plus tôt).
+  const sortedTemplates = useMemo(
+    () =>
+      [...serviceTemplates].sort(
+        (a, b) => (toMin(a.startTime) ?? 0) - (toMin(b.startTime) ?? 0) || a.serviceNumber - b.serviceNumber
+      ),
+    [serviceTemplates]
+  );
+
   function addTemplate() {
     const nextNum = (serviceTemplates.reduce((m, t) => Math.max(m, t.serviceNumber), 0) || 0) + 1;
-    const last = serviceTemplates[serviceTemplates.length - 1];
+    const last = sortedTemplates[sortedTemplates.length - 1];
     const start = last?.endTime || "19:00";
     createServiceTemplate({
       serviceNumber: nextNum,
@@ -98,7 +109,7 @@ export default function ServicesAdmin() {
     }).catch((e) => console.error(e));
   }
 
-  const inactiveTemplatesForDate = serviceTemplates.filter(
+  const inactiveTemplatesForDate = sortedTemplates.filter(
     (t) => !resolved.some((r) => r.serviceNumber === t.serviceNumber) && !dateOverrides.some((o) => o.serviceNumber === t.serviceNumber)
   );
 
@@ -114,7 +125,7 @@ export default function ServicesAdmin() {
       <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mb-4">
         <div className="text-xs text-[#a88f78] uppercase font-bold mb-3">Services par défaut</div>
         <div className="flex flex-col gap-2">
-          {serviceTemplates.map((t) => (
+          {sortedTemplates.map((t) => (
             <div key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-xs text-[#8a7561] w-5">#{t.serviceNumber}</span>
               <input
