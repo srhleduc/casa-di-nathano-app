@@ -25,7 +25,7 @@ import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
-import { tableDisplayName } from "@/lib/business";
+import { tableDisplayName, sortByFillPriority } from "@/lib/business";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
@@ -191,7 +191,10 @@ export default function ReservationsBoard() {
       pinned[rid] = { tableIds: tids, capacity: cap };
     }
     const input = {
-      tables: activeTables.map((t) => ({
+      // Tables triées dans l'ordre de remplissage voulu (priority_order puis
+      // nom) → le moteur suit cet ordre à choix équivalent, même si aucun
+      // priority_order n'est encore enregistré.
+      tables: sortByFillPriority(activeTables).map((t) => ({
         id: t.id,
         capacityMin: t.capacityMin,
         capacityPreferred: t.capacityPreferred,
