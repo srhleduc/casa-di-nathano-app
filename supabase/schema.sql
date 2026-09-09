@@ -2074,9 +2074,13 @@ create table if not exists service_templates (id uuid primary key default gen_ra
 -- de active_by_default (conservée comme repli). {} = jamais actif par défaut.
 alter table service_templates add column if not exists active_weekdays int[] not null default '{0,1,2,3,4,5,6}';
 update service_templates set active_weekdays = array[]::int[] where active_by_default = false and active_weekdays = '{0,1,2,3,4,5,6}';
+-- Couverts max par zone (= par room_layouts) : { "<layout_id>": 40, ... }.
+-- {} = pas de découpage → repli sur max_covers. max_covers = somme (côté app).
+alter table service_templates add column if not exists max_covers_by_layout jsonb not null default '{}'::jsonb;
 
 -- ---- Ajustements ponctuels par date (dont services auto-générés) ------
 create table if not exists service_overrides (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, max_covers int, is_active boolean not null default true, auto_generated boolean not null default false, unique (restaurant_id, date, service_number));
+alter table service_overrides add column if not exists max_covers_by_layout jsonb not null default '{}'::jsonb;
 
 -- ---- Planning annuel des fermetures / ouvertures exceptionnelles ------
 -- Plage [date_start, date_end] inclusive. service_number NULL = toute la

@@ -200,6 +200,8 @@ export default function ReservationsBoard() {
   );
 
   const labelById = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, tableDisplayName(t)])), [tables]);
+  const layoutById = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, t.layoutId || null])), [tables]);
+  const layoutNameById = useMemo(() => Object.fromEntries(layouts.map((l) => [l.id, l.name])), [layouts]);
   const activeTables = useMemo(() => tables.filter((t) => t.active), [tables]);
   const comboById = useMemo(() => Object.fromEntries(combinations.map((c) => [c.id, c])), [combinations]);
 
@@ -272,6 +274,13 @@ export default function ReservationsBoard() {
   }, [solveResult]);
 
   const effectiveTables = (rid) => manualByRes[rid] || asgByRes[rid]?.tableIds || [];
+  // Zone (plan de salle) d'une réservation = layout de sa 1re table affectée.
+  const zoneOf = (r) => {
+    for (const tid of effectiveTables(r.id)) {
+      if (layoutById[tid]) return layoutById[tid];
+    }
+    return null;
+  };
 
   const boardReservations = useMemo(
     () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize), status: r.status, partySize: r.partySize })),
@@ -469,7 +478,7 @@ export default function ReservationsBoard() {
           });
           const unassignedInService = (solveResult.unassigned || []).filter((id) => inService.some((r) => r.id === id)).length;
           const syn = serviceSynthesis(
-            inService.map((r) => ({ partySize: r.partySize, status: r.status })),
+            inService.map((r) => ({ partySize: r.partySize, status: r.status, layoutId: zoneOf(r) })),
             s,
             unassignedInService
           );
@@ -526,6 +535,15 @@ export default function ReservationsBoard() {
                     : `${syn.remaining} couverts encore possibles`
                   : `${syn.count} réservation${syn.count > 1 ? "s" : ""}`}
               </div>
+              {syn.zones && syn.zones.length > 1 && (
+                <div className="text-[11px] text-[#8a7561] mt-1 flex flex-wrap gap-x-2">
+                  {syn.zones.map((z) => (
+                    <span key={z.layoutId} style={z.full ? { color: "#e88a8a" } : undefined}>
+                      {layoutNameById[z.layoutId] || "Zone"} {z.reserved}/{z.capacity}
+                    </span>
+                  ))}
+                </div>
+              )}
               {syn.unassignedCount > 0 && (
                 <div className="text-xs mt-1" style={{ color: "#e88a8a" }}>
                   ⚠️ {syn.unassignedCount} non placée{syn.unassignedCount > 1 ? "s" : ""}
