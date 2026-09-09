@@ -96,11 +96,22 @@ ordre de priorité de remplissage, combinaisons par clic.
 Grille = une case = une table (70 cm), mode demi-case (35 cm) pour les passages,
 défilement borné (déjà en place).
 
-**À ajouter, inspiré de TheFork** :
+**Sélection et configuration d'une table** *(livré)* — l'éditeur a deux modes :
+« Dessiner la salle » (peinture) et « Configurer les tables ». En mode config, un
+clic sur une table posée ouvre le panneau (façon TheFork) : nom renommable,
+disponible pour les réservations en ligne (toggle), bloquer la table (toggle —
+non réservable sauf ajout manuel), places min / préféré / max, tables
+habituellement collées / rapprochables / jamais combinées. Un clic sur une case
+vide propose d'y poser une table non placée ; « Retirer du plan » l'en enlève.
+L'**ordre de priorité de remplissage** (glisser-déposer + flèches ▲▼) est global à
+l'établissement et affiché sous le panneau. Le même panneau est dispo dans
+l'onglet « Tables » (bouton « ⚙️ Config réservation »).
 
-**Sélection et configuration d'une table** — cliquer une case « Table » l'ouvre :
-nom, disponible en ligne (toggle), bloquer (toggle), places min/préféré/max,
-ordre de priorité de remplissage (glisser-déposer, global à l'établissement).
+Le moteur remplit vers la capacité **préférée** et ne pousse jusqu'au **max**
+qu'en cas de besoin ; à choix équivalent il suit `priority_order`. Les tables
+`blocked` ne sont jamais proposées automatiquement (affectation manuelle
+`pinned` toujours possible) ; `bookable_online = false` retire la table de la
+page `/reserver` uniquement.
 
 **Combinaisons** :
 - Chaque table déclare manuellement « Peut être rapprochée de » (`combinable_with`)

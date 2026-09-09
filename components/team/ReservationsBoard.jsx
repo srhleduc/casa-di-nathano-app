@@ -170,7 +170,16 @@ export default function ReservationsBoard() {
       pinned[rid] = { tableIds: tids, capacity: cap };
     }
     const input = {
-      tables: activeTables.map((t) => ({ id: t.id, capacityBase: t.capacityBase, active: true })),
+      tables: activeTables.map((t) => ({
+        id: t.id,
+        capacityMin: t.capacityMin,
+        capacityPreferred: t.capacityPreferred,
+        capacityMax: t.capacityMax,
+        capacityBase: t.capacityBase,
+        blocked: t.blocked,
+        priorityOrder: t.priorityOrder,
+        active: true,
+      })),
       combinations: combinations.map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
       reservations: existing,
       safetyMarginMinutes: settings.safetyMarginMinutes || 0,

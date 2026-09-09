@@ -93,7 +93,19 @@ export default function ReservationBooking() {
       const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : null;
       const candidateSlots = buildCandidateSlots(services, settings, party, { nowMin });
       const input = {
-        tables: tables.filter((t) => t.active).map((t) => ({ id: t.id, capacityBase: t.capacityBase, active: true })),
+        // Réservation en ligne : seules les tables actives, cochées « disponible
+        // en ligne » et non bloquées peuvent être proposées.
+        tables: tables
+          .filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked)
+          .map((t) => ({
+            id: t.id,
+            capacityMin: t.capacityMin,
+            capacityPreferred: t.capacityPreferred,
+            capacityMax: t.capacityMax,
+            capacityBase: t.capacityBase,
+            priorityOrder: t.priorityOrder,
+            active: true,
+          })),
         combinations: combinations.map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
         reservations: reservationsForSolver(reservations, date),
         safetyMarginMinutes: settings.safetyMarginMinutes || 0,
