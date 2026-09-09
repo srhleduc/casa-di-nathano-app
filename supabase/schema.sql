@@ -2078,6 +2078,13 @@ update service_templates set active_weekdays = array[]::int[] where active_by_de
 -- ---- Ajustements ponctuels par date (dont services auto-générés) ------
 create table if not exists service_overrides (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, max_covers int, is_active boolean not null default true, auto_generated boolean not null default false, unique (restaurant_id, date, service_number));
 
+-- ---- Planning annuel des fermetures / ouvertures exceptionnelles ------
+-- Plage [date_start, date_end] inclusive. service_number NULL = toute la
+-- pizzeria. mode 'off' = ferme, 'on' = ré-ouverture exceptionnelle.
+-- Priorité : service_overrides (date exacte) > exception la plus étroite
+--            (service précis > global, off > on) > jour de semaine du template.
+create table if not exists service_exceptions (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date_start date not null, date_end date not null, service_number int, mode text not null default 'off' check (mode in ('on', 'off')), label text, created_at timestamptz not null default now(), check (date_end >= date_start));
+
 -- ---- Réglages réservation par restaurant -----------------------------
 create table if not exists reservation_settings (restaurant_id text primary key references restaurants (id), earliest_service_time time not null default '12:00', latest_service_time time not null default '22:30', safety_margin_minutes int not null default 15, slot_granularity_minutes int not null default 15, booking_lead_minutes int not null default 30, online_booking_enabled boolean not null default false);
 alter table reservation_settings add column if not exists booking_lead_minutes int not null default 30;
@@ -2091,6 +2098,7 @@ alter table reservation_table_assignments enable row level security;
 alter table circulation_constraints enable row level security;
 alter table service_templates enable row level security;
 alter table service_overrides enable row level security;
+alter table service_exceptions enable row level security;
 alter table reservation_settings enable row level security;
 
 drop policy if exists "room_layouts_select" on room_layouts;
@@ -2128,6 +2136,11 @@ drop policy if exists "service_overrides_write" on service_overrides;
 create policy "service_overrides_select" on service_overrides for select to authenticated using (restaurant_id = my_restaurant_id() or is_manager());
 create policy "service_overrides_write" on service_overrides for all to authenticated using (restaurant_id = my_restaurant_id()) with check (restaurant_id = my_restaurant_id());
 
+drop policy if exists "service_exceptions_select" on service_exceptions;
+drop policy if exists "service_exceptions_write" on service_exceptions;
+create policy "service_exceptions_select" on service_exceptions for select to authenticated using (restaurant_id = my_restaurant_id() or is_manager());
+create policy "service_exceptions_write" on service_exceptions for all to authenticated using (restaurant_id = my_restaurant_id()) with check (restaurant_id = my_restaurant_id());
+
 drop policy if exists "reservation_settings_select" on reservation_settings;
 drop policy if exists "reservation_settings_write" on reservation_settings;
 create policy "reservation_settings_select" on reservation_settings for select to authenticated using (restaurant_id = my_restaurant_id() or is_manager());
@@ -2141,6 +2154,7 @@ alter publication supabase_realtime add table reservation_table_assignments;
 alter publication supabase_realtime add table circulation_constraints;
 alter publication supabase_realtime add table service_templates;
 alter publication supabase_realtime add table service_overrides;
+alter publication supabase_realtime add table service_exceptions;
 
 -- ---- Amorces ------------------------------------------------------
 insert into reservation_settings (restaurant_id) values ('riec'), ('quimperle') on conflict (restaurant_id) do nothing;
