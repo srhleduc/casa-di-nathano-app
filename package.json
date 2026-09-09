@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node lib/reservation/constraints.test.mjs && node lib/reservation/services.test.mjs && node lib/reservation/optimizer.test.mjs && node lib/reservation/slots.test.mjs && node lib/reservation/board.test.mjs && node lib/reservation/grid.test.mjs"
+    "test": "node lib/reservation/combinations.test.mjs && node lib/reservation/constraints.test.mjs && node lib/reservation/services.test.mjs && node lib/reservation/optimizer.test.mjs && node lib/reservation/slots.test.mjs && node lib/reservation/board.test.mjs && node lib/reservation/grid.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

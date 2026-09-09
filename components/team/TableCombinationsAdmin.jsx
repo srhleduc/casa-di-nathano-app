@@ -9,7 +9,7 @@ import {
   deleteTableCombination,
 } from "@/lib/data";
 import { tableDisplayName } from "@/lib/business";
-import { suggestCombinations } from "@/lib/reservation/combinations";
+import { suggestCombinations, validateCombination } from "@/lib/reservation/combinations";
 
 const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
 
@@ -18,6 +18,7 @@ export default function TableCombinationsAdmin() {
   const { combinations } = useTableCombinations();
   const [picked, setPicked] = useState([]); // table ids pour la création manuelle
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [err, setErr] = useState(null);
 
   const activeTables = useMemo(
     () => tables.filter((t) => t.active).sort((a, b) => collator.compare(tableDisplayName(a), tableDisplayName(b))),
@@ -33,10 +34,16 @@ export default function TableCombinationsAdmin() {
   const pickedCapacity = picked.reduce((s, id) => s + (tables.find((t) => t.id === id)?.capacityBase || 2), 0);
 
   function togglePick(id) {
+    setErr(null);
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   }
   function createManual() {
-    if (picked.length < 2) return;
+    const v = validateCombination(picked, tables, nameOf);
+    if (!v.ok) {
+      setErr(v.reason);
+      return;
+    }
+    setErr(null);
     createTableCombination({ tableIds: picked, capacity: pickedCapacity, isUsual: true, penaltyScore: 0 })
       .then(() => setPicked([]))
       .catch((e) => console.error(e));
@@ -53,6 +60,8 @@ export default function TableCombinationsAdmin() {
         Une combinaison = un groupe de tables rapprochées et sa capacité réelle (2 tables de 70×70 ≈ 4 couverts).
         Le moteur ne les additionne pas bêtement : seules les combinaisons listées ici sont utilisables. Une
         combinaison « exceptionnelle » (hors config habituelle) reçoit une pénalité et n'est choisie qu'en cas de besoin.
+        Un groupe est valide s'il forme une <b>chaîne</b> dans « Peut être rapprochée de » (onglet Tables) : chaque table
+        reliée à au moins une autre du groupe, de proche en proche — pas besoin de déclarer toutes les paires.
       </div>
 
       {/* Proposition automatique */}
@@ -113,6 +122,11 @@ export default function TableCombinationsAdmin() {
             Créer
           </button>
         </div>
+        {err && (
+          <div className="text-xs mt-2" style={{ color: "#e88a8a" }}>
+            ✕ {err}
+          </div>
+        )}
       </div>
 
       {/* Liste enregistrée */}
