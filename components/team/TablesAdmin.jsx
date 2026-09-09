@@ -13,6 +13,7 @@ import {
   updateOrder,
 } from "@/lib/data";
 import { tableDisplayName, tableDisplayLabel, isTakeawayLike, isOrderPaid, isOrderActiveToday } from "@/lib/business";
+import { cellCode } from "@/lib/reservation/grid";
 
 // Le QR encode l'URL fixe du lien Service À Table (cahier des charges).
 const SAT_BASE_URL = "https://casa-di-nathano-app.vercel.app/sat";
@@ -43,7 +44,7 @@ function LayoutPicker({ layout, gridRow, gridCol, onPick }) {
                   height: 14,
                   borderRadius: 2,
                   cursor: "pointer",
-                  background: here ? "#C0392B" : CELL_TINT[code] || CELL_TINT.empty,
+                  background: here ? "#C0392B" : CELL_TINT[cellCode(code)] || CELL_TINT.empty,
                   border: here ? "1px solid #fff5ea" : "1px solid #2a1f16",
                 }}
               />

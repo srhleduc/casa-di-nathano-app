@@ -2028,8 +2028,11 @@ drop table if exists menu_flavors;
 -- `tables` (SAT) est étendue, pas dupliquée.
 -- =====================================================================
 -- T (table 70x70) / D (porte) / W (zone travail-attente). Une table 70x70
--- occupe 2x2 cases à cell_size_cm = 35. Plusieurs plans nommés par resto.
-create table if not exists room_layouts (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), name text not null default 'Salle', grid_rows int not null default 10, grid_cols int not null default 10, cell_size_cm int not null default 35, cells jsonb not null default '[]'::jsonb, updated_at timestamptz not null default now(), unique (restaurant_id, name));
+-- 1 case = 1 table (cell_size_cm = 70). Une case peut être coupée en 2
+-- demi-cases (35 cm) — objet {s,a,b}. Plusieurs plans nommés par resto.
+create table if not exists room_layouts (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), name text not null default 'Salle', grid_rows int not null default 10, grid_cols int not null default 10, cell_size_cm int not null default 70, cells jsonb not null default '[]'::jsonb, updated_at timestamptz not null default now(), unique (restaurant_id, name));
+alter table room_layouts alter column cell_size_cm set default 70;
+update room_layouts set cell_size_cm = 70 where jsonb_typeof(cells) is null or cells = '[]'::jsonb or (jsonb_typeof(cells) = 'array' and jsonb_array_length(cells) = 0);
 
 -- ---- `tables` (SAT) : extension géométrie + capacité + combinaisons ------
 -- Colonnes nullables : une table SAT existante n'est pas encore placée.

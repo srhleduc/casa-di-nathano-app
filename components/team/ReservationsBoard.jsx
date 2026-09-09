@@ -41,7 +41,7 @@ const STATUS_STYLE = {
   groupee: { bg: "#241f3a", border: "#3a2a5a", label: "Groupée" },
   bloquee: { bg: "#1a120b", border: "#3a2b1f", label: "Bloquée" },
 };
-const CELL = 22;
+const CELL = 46; // une case = une table (70 cm)
 
 function PlanView({ layout, placedTables, statuses, labelById, resById }) {
   if (!layout) return null;
@@ -74,10 +74,10 @@ function PlanView({ layout, placedTables, statuses, labelById, resById }) {
               title={`${labelById[t.id]} — ${s.label}`}
               className="absolute flex flex-col items-center justify-center rounded-md text-center overflow-hidden"
               style={{
-                left: t.gridCol * CELL,
-                top: t.gridRow * CELL,
-                width: 2 * CELL,
-                height: 2 * CELL,
+                left: t.gridCol * CELL + 2,
+                top: t.gridRow * CELL + 2,
+                width: CELL - 4,
+                height: CELL - 4,
                 background: s.bg,
                 border: `2px solid ${s.border}`,
                 fontSize: 10,
