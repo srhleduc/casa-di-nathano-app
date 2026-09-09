@@ -2075,7 +2075,9 @@ create table if not exists service_templates (id uuid primary key default gen_ra
 create table if not exists service_overrides (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, max_covers int, is_active boolean not null default true, auto_generated boolean not null default false, unique (restaurant_id, date, service_number));
 
 -- ---- Réglages réservation par restaurant -----------------------------
-create table if not exists reservation_settings (restaurant_id text primary key references restaurants (id), earliest_service_time time not null default '18:00', latest_service_time time not null default '22:30', safety_margin_minutes int not null default 15, slot_granularity_minutes int not null default 15, online_booking_enabled boolean not null default false);
+create table if not exists reservation_settings (restaurant_id text primary key references restaurants (id), earliest_service_time time not null default '12:00', latest_service_time time not null default '22:30', safety_margin_minutes int not null default 15, slot_granularity_minutes int not null default 15, booking_lead_minutes int not null default 30, online_booking_enabled boolean not null default false);
+alter table reservation_settings add column if not exists booking_lead_minutes int not null default 30;
+alter table reservation_settings alter column earliest_service_time set default '12:00';
 
 -- ---- RLS -------------------------------------------------------------
 alter table room_layouts enable row level security;

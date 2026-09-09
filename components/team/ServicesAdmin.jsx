@@ -156,12 +156,8 @@ export default function ServicesAdmin() {
         <div className="text-xs text-[#a88f78] uppercase font-bold mb-3">Réglages réservation</div>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2 text-xs text-[#a88f78]">
-            Ouverture au plus tôt
-            <TimeInput value={settings.earliestServiceTime} onCommit={(v) => updateReservationSettings({ earliestServiceTime: v }).catch((e) => console.error(e))} />
-          </label>
-          <label className="flex items-center gap-2 text-xs text-[#a88f78]">
-            Dernier service au plus tard
-            <TimeInput value={settings.latestServiceTime} onCommit={(v) => updateReservationSettings({ latestServiceTime: v }).catch((e) => console.error(e))} />
+            Délai minimum avant réservation (min)
+            <NumInput value={settings.bookingLeadMinutes} min={0} onCommit={(v) => updateReservationSettings({ bookingLeadMinutes: v ?? 30 }).catch((e) => console.error(e))} />
           </label>
           <label className="flex items-center gap-2 text-xs text-[#a88f78]">
             Marge de sécurité (min)
@@ -178,6 +174,20 @@ export default function ServicesAdmin() {
           >
             {settings.onlineBookingEnabled ? "✓ Réservation en ligne activée" : "Réservation en ligne désactivée"}
           </button>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-[#3a2b1f]">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[#a88f78]">
+            Plage des services auto-générés — de
+            <TimeInput value={settings.earliestServiceTime} onCommit={(v) => updateReservationSettings({ earliestServiceTime: v }).catch((e) => console.error(e))} />
+            à
+            <TimeInput value={settings.latestServiceTime} onCommit={(v) => updateReservationSettings({ latestServiceTime: v }).catch((e) => console.error(e))} />
+          </div>
+          <div className="text-xs text-[#5a4a3a] mt-1 max-w-2xl">
+            Bornes utilisées uniquement quand une réservation tombe hors de tous les services actifs et qu'un service
+            est créé automatiquement pour l'accueillir. N'a aucun effet sur les créneaux proposés en ligne, qui
+            dépendent seulement des services actifs du jour et du pas des créneaux.
+          </div>
         </div>
       </div>
 
