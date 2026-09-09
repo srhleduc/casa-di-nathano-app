@@ -2059,6 +2059,9 @@ create table if not exists table_combinations (id uuid primary key default gen_r
 
 -- ---- Réservations -------------------------------------------------------
 create table if not exists reservations (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), customer_name text, customer_phone text, party_size int not null, requested_at timestamptz not null, estimated_duration_minutes int not null default 90, status text not null default 'confirmed' check (status in ('confirmed', 'seated', 'completed', 'cancelled', 'no_show')), arrived_at timestamptz, departed_at timestamptz, note text, source text not null default 'client', created_at timestamptz not null default now());
+-- Zone (plan de salle) souhaitée par le client sur /reserver quand il y a
+-- plusieurs room_layouts. null = pas de préférence.
+alter table reservations add column if not exists preferred_layout_id uuid references room_layouts (id) on delete set null;
 
 -- ---- Affectation table(s) <-> réservation -------------------------------
 -- restaurant_id dénormalisé pour aligner la RLS sur le reste du schéma.

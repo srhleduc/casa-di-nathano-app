@@ -22,6 +22,7 @@ import {
   useTables,
   useTableCombinations,
   useReservations,
+  useRoomLayouts,
   createReservation,
   updateReservation,
 } from "@/lib/data";
@@ -74,6 +75,11 @@ export default function ReservationBooking() {
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
+  const { layouts } = useRoomLayouts();
+
+  // Plusieurs plans de salle = plusieurs zones → le client doit en choisir une.
+  const multiZone = layouts.length > 1;
+  const layoutNameById = useMemo(() => Object.fromEntries(layouts.map((l) => [l.id, l.name])), [layouts]);
 
   // form | slots | done | manage-find | manage-list | manage-edit | manage-slots | manage-done
   const [screen, setScreen] = useState("form");
@@ -81,6 +87,7 @@ export default function ReservationBooking() {
   const [phone, setPhone] = useState("");
   const [party, setParty] = useState(2);
   const [date, setDate] = useState(todayISO());
+  const [zoneId, setZoneId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [slots, setSlots] = useState([]); // [{ startMin, durationMin, serviceLabel }]
@@ -95,6 +102,7 @@ export default function ReservationBooking() {
   const [editing, setEditing] = useState(null); // réservation en cours de modif
   const [editParty, setEditParty] = useState(2);
   const [editNote, setEditNote] = useState("");
+  const [editZoneId, setEditZoneId] = useState(null);
   const [manageOutcome, setManageOutcome] = useState(null); // "modified" | "cancelled"
   const [confirmCancelId, setConfirmCancelId] = useState(null);
 
@@ -132,17 +140,23 @@ export default function ReservationBooking() {
   // Créneaux réellement possibles pour (date, party). `excludeReservationId` :
   // ignore une réservation existante (elle ne doit pas bloquer son propre
   // créneau quand le client la modifie).
-  async function runFeasibility(targetDate, targetParty, { excludeReservationId } = {}) {
+  async function runFeasibility(targetDate, targetParty, { excludeReservationId, zoneLayoutId } = {}) {
     const svcs = servicesForDate(targetDate, serviceTemplates, serviceOverrides, serviceExceptions);
     if (svcs.length === 0) return [];
     const isToday = targetDate === todayISO();
     const now = new Date();
     const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : null;
-    const candidateSlots = buildCandidateSlots(svcs, settings, targetParty, { nowMin });
+    // Le créneau candidat porte la zone choisie → le moteur ne le retient que
+    // si une table de cette zone est libre.
+    const candidateSlots = buildCandidateSlots(svcs, settings, targetParty, { nowMin }).map((c) => ({
+      ...c,
+      preferredLayoutId: zoneLayoutId || null,
+    }));
     const existing = excludeReservationId ? reservations.filter((r) => r.id !== excludeReservationId) : reservations;
     const input = {
       tables: sortByFillPriority(tables.filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked)).map((t) => ({
         id: t.id,
+        layoutId: t.layoutId,
         capacityMin: t.capacityMin,
         capacityPreferred: t.capacityPreferred,
         capacityMax: t.capacityMax,
@@ -165,9 +179,13 @@ export default function ReservationBooking() {
       setErr("Merci d'indiquer votre nom et votre numéro de téléphone.");
       return;
     }
+    if (multiZone && !zoneId) {
+      setErr("Choisissez une zone (salle, terrasse…).");
+      return;
+    }
     setBusy(true);
     try {
-      setSlots(await runFeasibility(date, party));
+      setSlots(await runFeasibility(date, party, { zoneLayoutId: multiZone ? zoneId : null }));
       setScreen("slots");
     } catch (e) {
       console.error(e);
@@ -190,6 +208,7 @@ export default function ReservationBooking() {
         estimatedDurationMinutes: slot.durationMin,
         source: "client",
         note: note.trim() || null,
+        preferredLayoutId: multiZone ? zoneId : null,
       });
       setConfirmed({ name: name.trim(), party, date, startMin: slot.startMin });
       setScreen("done");
@@ -231,6 +250,7 @@ export default function ReservationBooking() {
     setEditing(r);
     setEditParty(r.partySize);
     setEditNote(r.note || "");
+    setEditZoneId(r.preferredLayoutId || null);
     setDate(String(r.requestedAt).slice(0, 10));
     setSlots([]);
     setErr(null);
@@ -252,9 +272,18 @@ export default function ReservationBooking() {
 
   async function loadEditSlots() {
     setErr(null);
+    if (multiZone && !editZoneId) {
+      setErr("Choisissez une zone.");
+      return;
+    }
     setBusy(true);
     try {
-      setSlots(await runFeasibility(date, editParty, { excludeReservationId: editing.id }));
+      setSlots(
+        await runFeasibility(date, editParty, {
+          excludeReservationId: editing.id,
+          zoneLayoutId: multiZone ? editZoneId : null,
+        })
+      );
       setScreen("manage-slots");
     } catch (e) {
       console.error(e);
@@ -274,6 +303,7 @@ export default function ReservationBooking() {
         requestedAt: buildRequestedAtISO(date, slot.startMin),
         estimatedDurationMinutes: slot.durationMin,
         note: editNote.trim() || null,
+        preferredLayoutId: multiZone ? editZoneId : null,
       });
       setConfirmed({ name: editing.customerName, party: editParty, date, startMin: slot.startMin });
       setManageOutcome("modified");
@@ -309,6 +339,7 @@ export default function ReservationBooking() {
     setPhone("");
     setParty(2);
     setDate(todayISO());
+    setZoneId(null);
     setSlots([]);
     setNote("");
     setConfirmed(null);
@@ -320,9 +351,31 @@ export default function ReservationBooking() {
     setEditing(null);
     setEditParty(2);
     setEditNote("");
+    setEditZoneId(null);
     setManageOutcome(null);
     setConfirmCancelId(null);
   }
+
+  // Puces de sélection de zone (plan de salle) — rendues seulement si multiZone.
+  const zoneChips = (value, onChange) => (
+    <div className="flex flex-wrap gap-2 mt-1">
+      {layouts.map((l) => {
+        const on = value === l.id;
+        return (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => onChange(l.id)}
+            className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+            style={on ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2a1f", color: "#c9b8a4" }}
+          >
+            {on ? "✓ " : ""}
+            {l.name}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const backBtn = (onClick, label = "← Retour") => (
     <button onClick={onClick} className="text-[#b9a692] text-sm font-semibold tap-scale mb-4">
@@ -387,6 +440,7 @@ export default function ReservationBooking() {
         <h1 className="display-font text-2xl font-semibold mb-1">{restaurant.name}</h1>
         <p className="text-[#b9a692] text-sm mb-4">
           {party} personne{party > 1 ? "s" : ""} · {prettyDate(date)}
+          {multiZone && zoneId ? ` · ${layoutNameById[zoneId] || "Zone"}` : ""}
         </p>
 
         <div className="rounded-xl p-4 mb-5 text-sm" style={{ background: "#1c1410", border: "1px solid #3a2a1f", color: "#c9b8a4" }}>
@@ -395,7 +449,8 @@ export default function ReservationBooking() {
 
         {slots.length === 0 ? (
           <p className="text-[#b9a692]">
-            Aucun créneau disponible ce jour-là pour {party} personne{party > 1 ? "s" : ""}. Essayez une autre date.
+            Aucun créneau disponible {multiZone && zoneId ? `en ${layoutNameById[zoneId] || "cette zone"} ` : ""}ce jour-là pour {party} personne
+            {party > 1 ? "s" : ""}. {multiZone ? "Essayez une autre zone ou une autre date." : "Essayez une autre date."}
           </p>
         ) : (
           <>
@@ -463,6 +518,7 @@ export default function ReservationBooking() {
               </p>
               <p className="text-[#b9a692] text-sm">
                 {r.partySize} personne{r.partySize > 1 ? "s" : ""} · {r.customerName}
+                {r.preferredLayoutId && layoutNameById[r.preferredLayoutId] ? ` · ${layoutNameById[r.preferredLayoutId]}` : ""}
               </p>
 
               <div className="mt-2">
@@ -525,6 +581,13 @@ export default function ReservationBooking() {
           <span className="text-xs text-[#a88f78] uppercase font-bold">Nombre de personnes</span>
           <PartyStepper value={editParty} onChange={setEditParty} />
         </div>
+
+        {multiZone && (
+          <div className="mb-3">
+            <span className="text-xs text-[#a88f78] uppercase font-bold">Zone</span>
+            {zoneChips(editZoneId, setEditZoneId)}
+          </div>
+        )}
 
         <label className="block mb-3">
           <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(ex. chaise bébé)</span></span>
@@ -621,6 +684,13 @@ export default function ReservationBooking() {
         <span className="text-xs text-[#a88f78] uppercase font-bold">Note <span className="normal-case text-[#5a4a3a]">(facultatif)</span></span>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Ex. ajouter une chaise bébé, allergie…" className="w-full rounded-xl px-4 py-3 mt-1" style={inputStyle} />
       </label>
+
+      {multiZone && (
+        <div className="mb-3">
+          <span className="text-xs text-[#a88f78] uppercase font-bold">Zone</span>
+          {zoneChips(zoneId, setZoneId)}
+        </div>
+      )}
 
       <div className="mb-3">
         <span className="text-xs text-[#a88f78] uppercase font-bold">Nombre de personnes</span>

@@ -238,6 +238,7 @@ export default function ReservationsBoard() {
       // priority_order n'est encore enregistré.
       tables: sortByFillPriority(activeTables).map((t) => ({
         id: t.id,
+        layoutId: t.layoutId,
         capacityMin: t.capacityMin,
         capacityPreferred: t.capacityPreferred,
         capacityMax: t.capacityMax,
@@ -274,12 +275,13 @@ export default function ReservationsBoard() {
   }, [solveResult]);
 
   const effectiveTables = (rid) => manualByRes[rid] || asgByRes[rid]?.tableIds || [];
-  // Zone (plan de salle) d'une réservation = layout de sa 1re table affectée.
+  // Zone (plan de salle) d'une réservation = layout de sa 1re table affectée,
+  // sinon la zone souhaitée par le client (préf. /reserver) si elle existe.
   const zoneOf = (r) => {
     for (const tid of effectiveTables(r.id)) {
       if (layoutById[tid]) return layoutById[tid];
     }
-    return null;
+    return r.preferredLayoutId || null;
   };
 
   const boardReservations = useMemo(
@@ -666,6 +668,11 @@ export default function ReservationsBoard() {
               {warn && (
                 <span className="text-xs" style={{ color: "#e8b23d" }}>
                   ⚠ Config inhabituelle : {warn}
+                </span>
+              )}
+              {r.preferredLayoutId && layoutNameById[r.preferredLayoutId] && (
+                <span className="text-xs" style={{ color: "#8a7561" }}>
+                  souhait : {layoutNameById[r.preferredLayoutId]}
                 </span>
               )}
 
