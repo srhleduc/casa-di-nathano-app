@@ -44,7 +44,11 @@ const STATUS_STYLE = {
 };
 const CELL = 46; // une case = une table (70 cm)
 
-function PlanView({ layout, placedTables, statuses, labelById, resById }) {
+// PINK = rose « service » : contour du service en cours + tables réservées
+// pour un service qu'on inspecte.
+const PINK = "#D9689F";
+
+function PlanView({ layout, placedTables, statuses, labelById, resById, highlightIds = null, noteByTable = null }) {
   if (!layout) return null;
   const cols = layout.gridCols || 12;
   const rows = layout.gridRows || 12;
@@ -69,6 +73,11 @@ function PlanView({ layout, placedTables, statuses, labelById, resById }) {
           const cur = statuses[t.id]?.current;
           const nxt = statuses[t.id]?.next;
           const sub = cur ? resById[cur] : nxt ? resById[nxt] : null;
+          // Mode « plan d'un service » : les tables réservées pour ce service
+          // sont entourées en rose, les autres estompées.
+          const highlighted = highlightIds ? highlightIds.has(t.id) : false;
+          const dim = highlightIds && !highlighted;
+          const note = noteByTable?.[t.id] || null;
           return (
             <div
               key={t.id}
@@ -79,15 +88,21 @@ function PlanView({ layout, placedTables, statuses, labelById, resById }) {
                 top: t.gridRow * CELL + 2,
                 width: CELL - 4,
                 height: CELL - 4,
-                background: s.bg,
-                border: `2px solid ${s.border}`,
+                background: highlighted ? "#2c1a24" : s.bg,
+                border: highlighted ? `2px solid ${PINK}` : `2px solid ${s.border}`,
+                boxShadow: highlighted ? `0 0 0 2px ${PINK}55` : "none",
+                opacity: dim ? 0.3 : 1,
                 fontSize: 10,
                 color: "#f5ebdd",
                 fontWeight: 700,
               }}
             >
               <span>{labelById[t.id]}</span>
-              {sub && <span className="text-[8px] font-normal opacity-80">{hhmm(startMinOf(sub))}</span>}
+              {note ? (
+                <span className="text-[8px] font-normal opacity-90">{note}</span>
+              ) : (
+                sub && <span className="text-[8px] font-normal opacity-80">{hhmm(startMinOf(sub))}</span>
+              )}
             </div>
           );
         })}
@@ -110,6 +125,7 @@ export default function ReservationsBoard() {
 
   const [date, setDate] = useState(todayISO());
   const [layoutId, setLayoutId] = useState(null);
+  const [selectedServiceNum, setSelectedServiceNum] = useState(null);
   const [nowMin, setNowMin] = useState(() => {
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
@@ -228,6 +244,32 @@ export default function ReservationsBoard() {
   );
   const nonPlacedActive = activeTables.filter((t) => !(t.layoutId === layoutId && t.gridRow != null));
 
+  // Service en cours (uniquement si on regarde aujourd'hui) + service inspecté
+  // en cliquant sur une carte de synthèse.
+  const isToday = date === todayISO();
+  const currentService = isToday ? services.find((s) => nowMin >= s.startMin && nowMin < s.endMin) || null : null;
+  const selectedService = services.find((s) => s.serviceNumber === selectedServiceNum) || null;
+  useEffect(() => setSelectedServiceNum(null), [date]);
+
+  // Tables réservées à l'avance pour le service inspecté (affectation auto ou forcée).
+  const selectedServiceInfo = useMemo(() => {
+    if (!selectedService) return null;
+    const rs = dayReservations.filter((r) => {
+      const st = startMinOf(r);
+      return st >= selectedService.startMin && st < selectedService.endMin;
+    });
+    const highlightIds = new Set();
+    const noteByTable = {};
+    for (const r of rs) {
+      for (const tid of effectiveTables(r.id)) {
+        highlightIds.add(tid);
+        const tag = `${hhmm(startMinOf(r))} ${(r.customerName || "").split(" ")[0].slice(0, 7)}`.trim();
+        noteByTable[tid] = noteByTable[tid] ? `${noteByTable[tid]} / ${tag}` : tag;
+      }
+    }
+    return { reservations: rs, highlightIds, noteByTable, count: highlightIds.size };
+  }, [selectedService, dayReservations, manualByRes, asgByRes]);
+
   const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
   function forceTables(rid, value) {
@@ -286,10 +328,34 @@ export default function ReservationsBoard() {
             s,
             unassignedInService
           );
+          const isCurrent = currentService?.serviceNumber === s.serviceNumber;
+          const isSelected = selectedServiceNum === s.serviceNumber;
           return (
-            <div key={s.serviceNumber} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-3 min-w-[180px]">
-              <div className="font-bold text-sm">
+            <div
+              key={s.serviceNumber}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedServiceNum((n) => (n === s.serviceNumber ? null : s.serviceNumber))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedServiceNum((n) => (n === s.serviceNumber ? null : s.serviceNumber));
+                }
+              }}
+              className="tap-scale cursor-pointer rounded-xl p-3 min-w-[180px]"
+              style={{
+                background: isSelected ? "#2a1a22" : "#211712",
+                border: isCurrent ? `2px solid ${PINK}` : "1px solid #3a2b1f",
+                boxShadow: isSelected ? `0 0 0 2px ${PINK}` : "none",
+              }}
+            >
+              <div className="font-bold text-sm flex items-center gap-2">
                 {s.label} {s.autoGenerated && <span className="text-xs" style={{ color: "#e8b23d" }}>· auto</span>}
+                {isCurrent && (
+                  <span className="text-[10px] font-bold rounded-full px-2 py-0.5" style={{ background: "#3a1e2e", color: PINK }}>
+                    ● en cours
+                  </span>
+                )}
               </div>
               <div className="text-xs text-[#8a7561]">
                 {s.startTime}–{s.endTime}
@@ -314,9 +380,39 @@ export default function ReservationsBoard() {
         })}
       </div>
 
+      {services.length > 0 && (
+        <div className="text-xs text-[#5a4a3a] mb-3">
+          Clique un service pour voir son plan et les tables réservées à l'avance.
+        </div>
+      )}
+
       {/* --- Plan visuel --- */}
       {layout && placedTables.length > 0 ? (
-        <PlanView layout={layout} placedTables={placedTables} statuses={statuses} labelById={labelById} resById={Object.fromEntries(dayReservations.map((r) => [r.id, r]))} />
+        <>
+          {selectedService && (
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <span className="text-sm font-bold" style={{ color: PINK }}>
+                Plan du {selectedService.label} — {selectedServiceInfo.count} table{selectedServiceInfo.count > 1 ? "s" : ""} réservée
+                {selectedServiceInfo.count > 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={() => setSelectedServiceNum(null)}
+                className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
+              >
+                ← état en direct
+              </button>
+            </div>
+          )}
+          <PlanView
+            layout={layout}
+            placedTables={placedTables}
+            statuses={statuses}
+            labelById={labelById}
+            resById={Object.fromEntries(dayReservations.map((r) => [r.id, r]))}
+            highlightIds={selectedService ? selectedServiceInfo.highlightIds : null}
+            noteByTable={selectedService ? selectedServiceInfo.noteByTable : null}
+          />
+        </>
       ) : (
         <div className="text-xs text-[#5a4a3a] mb-3">
           Aucune table placée sur ce plan — configure la position des tables dans l'onglet « Tables ».
@@ -352,8 +448,17 @@ export default function ReservationsBoard() {
           const isManual = !!manualByRes[r.id];
           const warn = isManual ? warnFor(r, tids) : null;
           const labels = tids.map((tid) => labelById[tid] || "?").join(" + ");
+          const st = startMinOf(r);
+          const inSelectedService = selectedService && st >= selectedService.startMin && st < selectedService.endMin;
           return (
-            <div key={r.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-3 flex flex-wrap items-center gap-3 text-sm">
+            <div
+              key={r.id}
+              className="rounded-xl border bg-[#211712] p-3 flex flex-wrap items-center gap-3 text-sm"
+              style={{
+                borderColor: inSelectedService ? PINK : "#3a2b1f",
+                opacity: selectedService && !inSelectedService ? 0.5 : 1,
+              }}
+            >
               <span className="font-bold w-14">{hhmm(startMinOf(r))}</span>
               <span className="font-bold min-w-[120px]">{r.customerName || "—"}</span>
               <span className="text-[#a88f78]">{r.partySize} pers.</span>
