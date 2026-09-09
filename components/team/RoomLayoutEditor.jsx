@@ -80,11 +80,16 @@ export default function RoomLayoutEditor({ readOnly = false }) {
   const [status, setStatus] = useState("");
   const [newName, setNewName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Mode fin : les outils Table / Vide peignent case par case (35 cm) au lieu
+  // de blocs de 2×2 alignés. Exception, pour les ajustements précis autour des
+  // passages. La résolution interne de la grille reste 35 cm dans tous les cas.
+  const [fineMode, setFineMode] = useState(false);
   // Ajout d'une contrainte de circulation : capture des extrémités sur la grille.
   const [ccDraft, setCcDraft] = useState(null); // { name, a, b, width, priority } | null
   const [pickMode, setPickMode] = useState(null); // "A" | "B" | null
 
   const painting = useRef(false);
+  const downInfo = useRef(null); // { x, y, type } du pointerdown en cours
   const saveTimer = useRef(null);
   const hydratedFor = useRef(null);
 
@@ -124,8 +129,8 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     }, 500);
   }
 
-  function paint(r, c) {
-    if (readOnly || r < 0 || r >= rows || c < 0 || c >= cols) return;
+  function paintCell(r, c) {
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return;
     setCells((prev) => {
       if (prev[r]?.[c] === tool) return prev;
       const next = prev.map((row) => row.slice());
@@ -133,6 +138,34 @@ export default function RoomLayoutEditor({ readOnly = false }) {
       queueSave(rows, cols, next);
       return next;
     });
+  }
+
+  // Peint un bloc de span×span cases aligné sur les paires (ancre = coin
+  // haut-gauche arrondi à un multiple de span) — pour poser/retirer une table.
+  function paintBlock(r, c, span = 2) {
+    const r0 = r - (r % span);
+    const c0 = c - (c % span);
+    setCells((prev) => {
+      const inGrid = [];
+      for (let dr = 0; dr < span; dr++) {
+        for (let dc = 0; dc < span; dc++) {
+          const rr = r0 + dr;
+          const cc = c0 + dc;
+          if (rr < rows && cc < cols) inGrid.push([rr, cc]);
+        }
+      }
+      if (!inGrid.length || inGrid.every(([rr, cc]) => prev[rr][cc] === tool)) return prev;
+      const next = prev.map((row) => row.slice());
+      for (const [rr, cc] of inGrid) next[rr][cc] = tool;
+      queueSave(rows, cols, next);
+      return next;
+    });
+  }
+
+  function paintAt(r, c) {
+    if (readOnly) return;
+    if ((tool === "T" || tool === "empty") && !fineMode) paintBlock(r, c, 2);
+    else paintCell(r, c);
   }
 
   function cellFromPoint(e) {
@@ -148,13 +181,29 @@ export default function RoomLayoutEditor({ readOnly = false }) {
       setPickMode(null);
       return;
     }
-    painting.current = true;
-    if (cell) paint(cell.r, cell.c);
+    downInfo.current = { x: e.clientX, y: e.clientY, type: e.pointerType };
+    // Souris / stylet : peinture au clic + au glissé. Tactile : on ne peint
+    // qu'au relâchement si c'était un tap (sinon le glissé fait défiler la grille).
+    if (e.pointerType !== "touch") {
+      painting.current = true;
+      if (cell) paintAt(cell.r, cell.c);
+    }
   }
   function onGridPointerMove(e) {
     if (!painting.current) return;
     const cell = cellFromPoint(e);
-    if (cell) paint(cell.r, cell.c);
+    if (cell) paintAt(cell.r, cell.c);
+  }
+  function onGridPointerUp(e) {
+    const d = downInfo.current;
+    downInfo.current = null;
+    if (d && d.type === "touch") {
+      const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12;
+      if (!moved) {
+        const cell = cellFromPoint(e);
+        if (cell) paintAt(cell.r, cell.c);
+      }
+    }
   }
   useEffect(() => {
     const stop = () => {
@@ -377,6 +426,20 @@ export default function RoomLayoutEditor({ readOnly = false }) {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                onClick={() => setFineMode((v) => !v)}
+                className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                style={fineMode ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+              >
+                {fineMode ? "✓ Mode fin (35 cm)" : "Mode fin (35 cm)"}
+              </button>
+              <span className="text-xs text-[#5a4a3a]">
+                {fineMode
+                  ? "Table et Vide peignent case par case."
+                  : "Table et Vide posent/retirent un bloc de 2×2 cases (70 cm). Les autres outils restent case par case."}
+              </span>
+            </div>
           </div>
 
           {/* Dimensions */}
@@ -414,13 +477,17 @@ export default function RoomLayoutEditor({ readOnly = false }) {
         </div>
       )}
 
-      {/* Grille */}
-      <div className="rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-3 overflow-auto">
+      {/* Grille — zone de défilement bornée (les deux axes, tactile compris) */}
+      <div
+        className="rounded-xl border border-[#3a2b1f] bg-[#1a120b] p-3"
+        style={{ overflow: "auto", maxHeight: "min(62vh, 560px)", WebkitOverflowScrolling: "touch" }}
+      >
         <div
           onPointerDown={onGridPointerDown}
           onPointerMove={onGridPointerMove}
-          className="grid mx-auto"
-          style={{ gridTemplateColumns: `repeat(${cols}, ${CELL_PX}px)`, gap: 2, width: "max-content", touchAction: "none", userSelect: "none" }}
+          onPointerUp={onGridPointerUp}
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${cols}, ${CELL_PX}px)`, gap: 2, width: "max-content", touchAction: "pan-x pan-y", userSelect: "none" }}
         >
           {cells.map((row, r) =>
             row.map((code, c) => {
