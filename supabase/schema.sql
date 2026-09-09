@@ -2070,6 +2070,10 @@ create table if not exists circulation_constraints (id uuid primary key default 
 
 -- ---- Services par défaut (1er, 2e, 3e...) -----------------------------
 create table if not exists service_templates (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), service_number int not null, label text, default_start_time time not null, default_end_time time not null, max_covers int, active_by_default boolean not null default true, unique (restaurant_id, service_number));
+-- Activation par jour de semaine (0 = dimanche … 6 = samedi). Remplace la lecture
+-- de active_by_default (conservée comme repli). {} = jamais actif par défaut.
+alter table service_templates add column if not exists active_weekdays int[] not null default '{0,1,2,3,4,5,6}';
+update service_templates set active_weekdays = array[]::int[] where active_by_default = false and active_weekdays = '{0,1,2,3,4,5,6}';
 
 -- ---- Ajustements ponctuels par date (dont services auto-générés) ------
 create table if not exists service_overrides (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, max_covers int, is_active boolean not null default true, auto_generated boolean not null default false, unique (restaurant_id, date, service_number));

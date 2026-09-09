@@ -30,6 +30,39 @@ function TimeInput({ value, onCommit }) {
     />
   );
 }
+// Jours de semaine : 0 = dimanche … 6 = samedi (comme Date.getDay()).
+const WEEKDAYS = [
+  { i: 1, l: "L", full: "Lundi" },
+  { i: 2, l: "M", full: "Mardi" },
+  { i: 3, l: "M", full: "Mercredi" },
+  { i: 4, l: "J", full: "Jeudi" },
+  { i: 5, l: "V", full: "Vendredi" },
+  { i: 6, l: "S", full: "Samedi" },
+  { i: 0, l: "D", full: "Dimanche" },
+];
+function WeekdayChips({ value, onChange }) {
+  const days = Array.isArray(value) ? value : [0, 1, 2, 3, 4, 5, 6];
+  const toggle = (i) =>
+    onChange(days.includes(i) ? days.filter((d) => d !== i) : [...days, i].sort((a, b) => a - b));
+  return (
+    <div className="flex gap-1">
+      {WEEKDAYS.map(({ i, l, full }) => {
+        const on = days.includes(i);
+        return (
+          <button
+            key={i}
+            onClick={() => toggle(i)}
+            title={full}
+            className="tap-scale w-7 h-7 rounded-full text-xs font-bold border-2"
+            style={on ? { borderColor: "#204a3a", background: "#16281c", color: "#a8e8c8" } : { borderColor: "#3a2b1f", color: "#5a4a3a" }}
+          >
+            {l}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 function NumInput({ value, min = 0, onCommit }) {
   return (
     <input
@@ -116,9 +149,10 @@ export default function ServicesAdmin() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="text-xs text-[#8a7561] mb-5 max-w-2xl">
-        Les <b>services par défaut</b> (1er, 2e…) s'appliquent chaque jour selon leur drapeau « actif par défaut ».
-        Les <b>ajustements par date</b> activent / désactivent ou décalent un service pour une date précise. Un service
-        <b> auto-généré</b> apparaît quand une réservation tombe hors des services actifs (Phase 7).
+        Les <b>services par défaut</b> (1er, 2e…) sont actifs les <b>jours de semaine cochés</b> (ex. 2e service le
+        week-end seulement). Les <b>ajustements par date</b> activent / désactivent ou décalent un service pour une
+        date précise (priment sur les jours cochés). Un service <b>auto-généré</b> apparaît quand une réservation
+        tombe hors des services actifs.
       </div>
 
       {/* --- Services par défaut --- */}
@@ -143,13 +177,10 @@ export default function ServicesAdmin() {
                 couv. max
                 <NumInput value={t.maxCovers} min={1} onCommit={(v) => updateServiceTemplate(t.id, { maxCovers: v }).catch((e) => console.error(e))} />
               </label>
-              <button
-                onClick={() => updateServiceTemplate(t.id, { activeByDefault: !t.activeByDefault }).catch((e) => console.error(e))}
-                className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2"
-                style={t.activeByDefault ? { borderColor: "#204a3a", color: "#a8e8c8" } : { borderColor: "#4a3a10", color: "#e8b23d" }}
-              >
-                {t.activeByDefault ? "actif par défaut" : "inactif par défaut"}
-              </button>
+              <WeekdayChips
+                value={t.activeWeekdays}
+                onChange={(w) => updateServiceTemplate(t.id, { activeWeekdays: w }).catch((e) => console.error(e))}
+              />
               <button onClick={() => deleteServiceTemplate(t.id).catch((e) => console.error(e))} className="tap-scale text-xs text-red-400 font-bold">
                 ✕
               </button>
