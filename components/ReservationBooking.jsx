@@ -62,6 +62,22 @@ export default function ReservationBooking() {
     [date, serviceTemplates, serviceOverrides, serviceExceptions]
   );
 
+  // Créneaux proposés regroupés par service (nom du service + ses horaires),
+  // groupes ordonnés par l'heure du premier créneau.
+  const slotGroups = useMemo(() => {
+    const by = new Map();
+    for (const s of slots) {
+      const key = s.serviceNumber ?? s.serviceLabel ?? "?";
+      if (!by.has(key)) by.set(key, { label: s.serviceLabel || "Service", minStart: s.startMin, items: [] });
+      const g = by.get(key);
+      g.items.push(s);
+      g.minStart = Math.min(g.minStart, s.startMin);
+    }
+    const groups = [...by.values()];
+    for (const g of groups) g.items.sort((a, b) => a.startMin - b.startMin);
+    return groups.sort((a, b) => a.minStart - b.minStart);
+  }, [slots]);
+
   const dark = { background: "#150e0a", color: "#f5ebdd" };
   const inputStyle = { background: "#1c1410", border: "1px solid #3a2a1f", color: "#f5ebdd" };
 
@@ -205,18 +221,27 @@ export default function ReservationBooking() {
           </p>
         ) : (
           <>
-            <div className="text-xs text-[#8a7561] uppercase font-bold mb-2">Créneaux disponibles</div>
-            <div className="grid grid-cols-3 gap-2">
-              {slots.map((s) => (
-                <button
-                  key={s.startMin}
-                  onClick={() => book(s)}
-                  disabled={busy}
-                  className="tap-scale rounded-xl py-3 font-bold border-2 disabled:opacity-40"
-                  style={{ borderColor: "#e8622c", color: "#f5ebdd" }}
-                >
-                  {hhmm(s.startMin)}
-                </button>
+            <div className="text-xs text-[#8a7561] uppercase font-bold mb-3">Créneaux disponibles</div>
+            <div className="flex flex-col gap-5">
+              {slotGroups.map((g) => (
+                <div key={`${g.label}-${g.minStart}`}>
+                  <div className="text-sm font-bold mb-2" style={{ color: "#e8622c" }}>
+                    {g.label}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {g.items.map((s) => (
+                      <button
+                        key={`${g.label}-${s.startMin}`}
+                        onClick={() => book(s)}
+                        disabled={busy}
+                        className="tap-scale rounded-xl py-3 font-bold border-2 disabled:opacity-40"
+                        style={{ borderColor: "#e8622c", color: "#f5ebdd" }}
+                      >
+                        {hhmm(s.startMin)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </>
