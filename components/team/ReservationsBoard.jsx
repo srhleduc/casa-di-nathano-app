@@ -35,11 +35,13 @@ const startMinOf = (r) => {
 };
 
 const STATUS_STYLE = {
-  libre: { bg: "#16281c", border: "#204a3a", label: "Libre" },
-  reservee: { bg: "#332a12", border: "#4a3a10", label: "Réservée" },
-  occupee: { bg: "#2c1c14", border: "#4a2020", label: "Occupée" },
-  bientot: { bg: "#3a2a12", border: "#8a5a10", label: "Bientôt dispo" },
-  groupee: { bg: "#241f3a", border: "#3a2a5a", label: "Groupée" },
+  libre: { bg: "#16281c", border: "#2f9e5e", label: "Disponible" },
+  reservee: { bg: "#33300f", border: "#c9a83a", label: "À venir" },
+  occupee: { bg: "#2c1c14", border: "#c0503a", label: "Occupée" },
+  bientot: { bg: "#3a2a12", border: "#d98a2b", label: "Bientôt dispo" },
+  groupee: { bg: "#1a2740", border: "#3f6ab5", label: "Groupée" },
+  a_renouveler: { bg: "#2b1a3a", border: "#9a5ad9", label: "À renouveler" },
+  terminee: { bg: "#4a4a47", border: "#f0ede6", label: "Terminée" },
   bloquee: { bg: "#1a120b", border: "#3a2b1f", label: "Bloquée" },
 };
 const CELL = 46; // une case = une table (70 cm)
@@ -141,6 +143,7 @@ export default function ReservationsBoard() {
     return () => clearInterval(id);
   }, []);
 
+  const isToday = date === todayISO();
   const services = useMemo(
     () => servicesForDate(date, serviceTemplates, serviceOverrides, serviceExceptions),
     [date, serviceTemplates, serviceOverrides, serviceExceptions]
@@ -238,15 +241,16 @@ export default function ReservationsBoard() {
         dayReservations.map((r) => ({ reservationId: r.id, tableIds: effectiveTables(r.id) })),
         boardReservations,
         nowMin,
-        { marginMin: settings.safetyMarginMinutes || 15 }
+        // Les états « à renouveler » / « terminée » ne valent que pour la
+        // journée en cours (« ce jour uniquement »).
+        { marginMin: settings.safetyMarginMinutes || 15, services: isToday ? services : [] }
       ),
-    [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes]
+    [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services]
   );
   const nonPlacedActive = activeTables.filter((t) => !(t.layoutId === layoutId && t.gridRow != null));
 
   // Service en cours (uniquement si on regarde aujourd'hui) + service inspecté
   // en cliquant sur une carte de synthèse.
-  const isToday = date === todayISO();
   const currentService = isToday ? services.find((s) => nowMin >= s.startMin && nowMin < s.endMin) || null : null;
   const selectedService = services.find((s) => s.serviceNumber === selectedServiceNum) || null;
   useEffect(() => setSelectedServiceNum(null), [date]);
