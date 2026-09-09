@@ -1,30 +1,32 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { reorderTablePriority } from "@/lib/data";
-import { tableDisplayName } from "@/lib/business";
+import { tableDisplayName, sortByFillPriority } from "@/lib/business";
 
 // Ordre de priorité de remplissage — global à l'établissement. Le moteur, à
 // choix équivalent, remplit d'abord les tables du haut de la liste. Glisser-
 // déposer (souris/stylet) + flèches ▲▼ (fiable au tactile).
 
-const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
-
 export default function TablePriorityList({ tables }) {
   const [dragId, setDragId] = useState(null);
   const [localOrder, setLocalOrder] = useState(null); // ids en cours de réarrangement
   const commitTimer = useRef(null);
+  const seededRef = useRef(false);
 
-  const baseOrder = useMemo(() => {
-    return [...(tables || [])]
-      .filter((t) => t.active)
-      .sort((a, b) => {
-        const pa = a.priorityOrder == null ? Infinity : a.priorityOrder;
-        const pb = b.priorityOrder == null ? Infinity : b.priorityOrder;
-        return pa - pb || collator.compare(tableDisplayName(a), tableDisplayName(b));
-      })
-      .map((t) => t.id);
-  }, [tables]);
+  const activeTables = useMemo(() => (tables || []).filter((t) => t.active), [tables]);
+  const baseOrder = useMemo(() => sortByFillPriority(activeTables).map((t) => t.id), [activeTables]);
+
+  // Si aucune table n'a encore de priority_order, on enregistre une bonne fois
+  // l'ordre affiché (tri naturel) : sinon l'écran « semble » configuré alors
+  // que la base est vide et le moteur n'a rien à suivre.
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (activeTables.length > 0 && activeTables.every((t) => t.priorityOrder == null)) {
+      seededRef.current = true;
+      reorderTablePriority(baseOrder).catch((e) => console.error(e));
+    }
+  }, [activeTables, baseOrder]);
 
   const order = localOrder || baseOrder;
   const byId = useMemo(() => Object.fromEntries((tables || []).map((t) => [t.id, t])), [tables]);

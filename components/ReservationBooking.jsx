@@ -23,6 +23,7 @@ import {
 import { servicesForDate } from "@/lib/reservation/services";
 import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from "@/lib/reservation/slots";
 import { solveReservations } from "@/lib/reservation/api";
+import { sortByFillPriority } from "@/lib/business";
 
 const REMINDER =
   "Petit rappel : afin de garantir un service fluide et de pouvoir accueillir l'ensemble de nos clients dans les meilleures conditions, nous prévoyons environ 1h30 dans la mesure du possible par table. Merci de votre compréhension 😊";
@@ -112,9 +113,8 @@ export default function ReservationBooking() {
       const candidateSlots = buildCandidateSlots(services, settings, party, { nowMin });
       const input = {
         // Réservation en ligne : seules les tables actives, cochées « disponible
-        // en ligne » et non bloquées peuvent être proposées.
-        tables: tables
-          .filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked)
+        // en ligne » et non bloquées ; triées dans l'ordre de remplissage voulu.
+        tables: sortByFillPriority(tables.filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked))
           .map((t) => ({
             id: t.id,
             capacityMin: t.capacityMin,
