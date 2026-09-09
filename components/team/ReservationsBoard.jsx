@@ -170,7 +170,7 @@ export default function ReservationsBoard() {
 
   // Ajout rapide d'une réservation depuis une carte de service (bouton « + »).
   const [addForm, setAddForm] = useState(null); // { service } | null
-  const [af, setAf] = useState({ name: "", phone: "", party: 2, slotMin: null, tableId: "", note: "" });
+  const [af, setAf] = useState({ name: "", phone: "", party: 2, slotMin: null, tableIds: [], note: "" });
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState(null);
   const [noteEditId, setNoteEditId] = useState(null); // réservation dont on édite la note
@@ -369,11 +369,46 @@ export default function ReservationsBoard() {
     () => [...activeTables].sort((a, b) => tableDisplayName(a).localeCompare(tableDisplayName(b), "fr", { numeric: true })),
     [activeTables]
   );
+  // Tables réellement libres sur la fenêtre d'occupation de la réservation en
+  // cours de saisie (créneau + durée estimée + marge). Une table déjà prise
+  // (affectation manuelle ou plan du moteur) qui chevauche n'est pas proposée.
+  const availableForAdd = useMemo(() => {
+    if (!addForm || af.slotMin == null) return tablesForPick;
+    const margin = settings.safetyMarginMinutes || 15;
+    const newStart = af.slotMin;
+    const newEnd = newStart + estimateDurationMin(af.party || 2) + margin;
+    const taken = new Set();
+    for (const r of dayReservations) {
+      if (r.status === "cancelled" || r.status === "completed") continue;
+      const rs = startMinOf(r);
+      const re = rs + (r.estimatedDurationMinutes || estimateDurationMin(r.partySize)) + margin;
+      if (!(newStart < re && rs < newEnd)) continue;
+      for (const tid of effectiveTables(r.id)) taken.add(tid);
+    }
+    return tablesForPick.filter((t) => !taken.has(t.id));
+  }, [addForm, af.slotMin, af.party, dayReservations, tablesForPick, settings.safetyMarginMinutes, manualByRes, asgByRes]);
+
+  // Retire de la sélection une table devenue indisponible (créneau changé).
+  useEffect(() => {
+    if (!addForm) return;
+    const okIds = new Set(availableForAdd.map((t) => t.id));
+    setAf((x) => {
+      const next = x.tableIds.filter((id) => okIds.has(id));
+      return next.length === x.tableIds.length ? x : { ...x, tableIds: next };
+    });
+  }, [availableForAdd, addForm]);
+
   function openAddForm(s) {
     const first = buildCandidateSlots([s], settings, 2, { nowMin: null })[0];
-    setAf({ name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableId: "", note: "" });
+    setAf({ name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableIds: [], note: "" });
     setAddErr(null);
     setAddForm({ service: s });
+  }
+  function toggleAfTable(id) {
+    setAf((x) => ({
+      ...x,
+      tableIds: x.tableIds.includes(id) ? x.tableIds.filter((y) => y !== id) : [...x.tableIds, id],
+    }));
   }
   function saveNote(id, value) {
     const v = value.trim();
@@ -397,7 +432,7 @@ export default function ReservationsBoard() {
         source: "walk_in",
         note: af.note.trim() || null,
       });
-      if (af.tableId) await setReservationTables(rid, [af.tableId], { manual: true });
+      if (af.tableIds.length) await setReservationTables(rid, af.tableIds, { manual: true });
       setAddForm(null);
     } catch (e) {
       console.error(e);
@@ -776,22 +811,41 @@ export default function ReservationsBoard() {
               </label>
             </div>
 
-            <label className="block mb-3 text-xs text-[#a88f78]">
-              Table <span className="text-[#5a4a3a]">(facultatif — automatique si non choisie)</span>
-              <select
-                value={af.tableId}
-                onChange={(e) => setAf((x) => ({ ...x, tableId: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
-                style={inputStyle}
-              >
-                <option value="">Affectation automatique</option>
-                {tablesForPick.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {tableDisplayName(t)} ({t.capacityMin ?? 1}–{t.capacityMax ?? t.capacityBase ?? 2} pl.)
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="block mb-3 text-xs text-[#a88f78]">
+              Table(s) <span className="text-[#5a4a3a]">(facultatif — automatique si rien de choisi ; plusieurs = combinaison)</span>
+              {availableForAdd.length === 0 ? (
+                <div className="text-xs text-[#5a4a3a] mt-1">Aucune table libre sur ce créneau — affectation automatique.</div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {availableForAdd.map((t) => {
+                    const on = af.tableIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleAfTable(t.id)}
+                        className="tap-scale rounded-full px-2.5 py-1 text-xs font-bold border-2"
+                        style={on ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                      >
+                        {on ? "✓ " : ""}
+                        {tableDisplayName(t)}
+                        {t.blocked ? " 🔒" : ""} · {t.capacityMax ?? t.capacityBase ?? 2}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {af.tableIds.length > 0 && (
+                <div className="text-xs mt-1" style={{ color: "#a8e8c8" }}>
+                  {af.tableIds.length} table{af.tableIds.length > 1 ? "s" : ""} ·{" "}
+                  {af.tableIds.reduce((s, id) => {
+                    const t = tables.find((x) => x.id === id);
+                    return s + (t?.capacityMax ?? t?.capacityBase ?? 2);
+                  }, 0)}{" "}
+                  places
+                </div>
+              )}
+            </div>
 
             {addErr && <div className="text-xs mb-3" style={{ color: "#e88a8a" }}>{addErr}</div>}
 
