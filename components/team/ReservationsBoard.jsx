@@ -11,6 +11,7 @@ import {
   useReservationSettings,
   useServiceTemplates,
   useServiceOverrides,
+  useServiceExceptions,
   useTables,
   useTableCombinations,
   useReservations,
@@ -100,6 +101,7 @@ export default function ReservationsBoard() {
   const { settings } = useReservationSettings();
   const { serviceTemplates } = useServiceTemplates();
   const { serviceOverrides } = useServiceOverrides();
+  const { serviceExceptions } = useServiceExceptions();
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
@@ -124,8 +126,8 @@ export default function ReservationsBoard() {
   }, []);
 
   const services = useMemo(
-    () => servicesForDate(date, serviceTemplates, serviceOverrides),
-    [date, serviceTemplates, serviceOverrides]
+    () => servicesForDate(date, serviceTemplates, serviceOverrides, serviceExceptions),
+    [date, serviceTemplates, serviceOverrides, serviceExceptions]
   );
 
   const dayReservations = useMemo(
