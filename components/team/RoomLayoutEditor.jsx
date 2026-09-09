@@ -15,6 +15,7 @@ import {
   deleteCirculationConstraint,
 } from "@/lib/data";
 import { evaluateConstraints } from "@/lib/reservation/constraints";
+import { cellCode, isSplit, normalizeGrid } from "@/lib/reservation/grid";
 
 const PRIORITIES = [
   { value: "obligatoire", label: "Obligatoire" },
@@ -22,21 +23,21 @@ const PRIORITIES = [
   { value: "preferable", label: "Préférable" },
 ];
 
-// Éditeur de plan de salle quadrillé (module Réservation). Porté du prototype
-// floorplan-editor.html : grille peignable, +/− lignes & colonnes sur chaque
-// bord, plans nommés multiples. Stockage → table room_layouts (Supabase).
-// Une table 70×70 = 2×2 cases à cell_size_cm = 35.
+// Éditeur de plan de salle quadrillé (module Réservation). Unité de base : une
+// case = une table (70 cm). Une case peut être coupée en 2 demi-cases (35 cm)
+// via le mode « Demi-cases », pour les ajustements de largeur de passage.
+// Stockage → table room_layouts (Supabase).
 
 const TOOLS = [
   { code: "empty", label: "Vide", color: "#3a2b1f", bg: "#1a120b" },
   { code: "S", label: "Siège", color: "#8A85D9", bg: "#241f3a" },
   { code: "P", label: "Passage", color: "#6FB583", bg: "#16281c" },
-  { code: "T", label: "Table 70×70", color: "#D9689F", bg: "#331526" },
+  { code: "T", label: "Table (70 cm)", color: "#D9689F", bg: "#331526" },
   { code: "D", label: "Porte", color: "#D9A72B", bg: "#332a12" },
   { code: "W", label: "Travail / attente", color: "#D9704F", bg: "#331d16" },
 ];
 const TOOL_BY_CODE = Object.fromEntries(TOOLS.map((t) => [t.code, t]));
-const CELL_PX = 28;
+const CELL_PX = 34;
 
 // Modèle repris du prototype (photo de la salle Casa discutée en amont) — sert
 // de point de départ, à ajuster ensuite dans l'éditeur.
@@ -53,20 +54,6 @@ const CASA_SEED = [
   ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
 ];
 
-const VALID = new Set(TOOLS.map((t) => t.code));
-
-// Force `cells` en matrice rows×cols de codes valides (le seed SQL arrive vide).
-function normalizeCells(cells, rows, cols) {
-  const out = [];
-  for (let r = 0; r < rows; r++) {
-    const src = Array.isArray(cells) && Array.isArray(cells[r]) ? cells[r] : [];
-    const row = [];
-    for (let c = 0; c < cols; c++) row.push(VALID.has(src[c]) ? src[c] : "empty");
-    out.push(row);
-  }
-  return out;
-}
-
 export default function RoomLayoutEditor({ readOnly = false }) {
   const { layouts, loading } = useRoomLayouts();
   const { tables } = useTables();
@@ -80,10 +67,11 @@ export default function RoomLayoutEditor({ readOnly = false }) {
   const [status, setStatus] = useState("");
   const [newName, setNewName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Mode fin : les outils Table / Vide peignent case par case (35 cm) au lieu
-  // de blocs de 2×2 alignés. Exception, pour les ajustements précis autour des
-  // passages. La résolution interne de la grille reste 35 cm dans tous les cas.
-  const [fineMode, setFineMode] = useState(false);
+  // Demi-cases : coupe une case (une table, 70 cm) en 2 moitiés de 35 cm pour
+  // les ajustements de largeur de passage. Exception, pas la norme. Le moteur
+  // de contraintes raisonne toujours en 35 cm (grid.js expandTo35).
+  const [halfMode, setHalfMode] = useState(false);
+  const [halfAxis, setHalfAxis] = useState("v"); // "v" = gauche/droite, "h" = haut/bas
   // Ajout d'une contrainte de circulation : capture des extrémités sur la grille.
   const [ccDraft, setCcDraft] = useState(null); // { name, a, b, width, priority } | null
   const [pickMode, setPickMode] = useState(null); // "A" | "B" | null
@@ -108,7 +96,7 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     const gc = active.gridCols || 12;
     setRows(gr);
     setCols(gc);
-    setCells(normalizeCells(active.cells, gr, gc));
+    setCells(normalizeGrid(active.cells, gr, gc));
     hydratedFor.current = active.id;
   }, [active]);
 
@@ -129,8 +117,8 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     }, 500);
   }
 
+  // Peint une case entière (recolle une éventuelle demi-case).
   function paintCell(r, c) {
-    if (r < 0 || r >= rows || c < 0 || c >= cols) return;
     setCells((prev) => {
       if (prev[r]?.[c] === tool) return prev;
       const next = prev.map((row) => row.slice());
@@ -140,38 +128,41 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     });
   }
 
-  // Peint un bloc de span×span cases aligné sur les paires (ancre = coin
-  // haut-gauche arrondi à un multiple de span) — pour poser/retirer une table.
-  function paintBlock(r, c, span = 2) {
-    const r0 = r - (r % span);
-    const c0 = c - (c % span);
+  // Peint une moitié d'une case (mode demi-cases). half = "a" | "b".
+  function paintHalf(r, c, half) {
     setCells((prev) => {
-      const inGrid = [];
-      for (let dr = 0; dr < span; dr++) {
-        for (let dc = 0; dc < span; dc++) {
-          const rr = r0 + dr;
-          const cc = c0 + dc;
-          if (rr < rows && cc < cols) inGrid.push([rr, cc]);
-        }
+      const cur = prev[r]?.[c];
+      let a, b, s;
+      if (isSplit(cur)) {
+        a = cur.a;
+        b = cur.b;
+        s = cur.s;
+      } else {
+        a = cellCode(cur);
+        b = cellCode(cur);
+        s = halfAxis;
       }
-      if (!inGrid.length || inGrid.every(([rr, cc]) => prev[rr][cc] === tool)) return prev;
+      if (half === "a") a = tool;
+      else b = tool;
+      const nextCell = a === b ? a : { s, a, b };
+      if (JSON.stringify(nextCell) === JSON.stringify(cur)) return prev;
       const next = prev.map((row) => row.slice());
-      for (const [rr, cc] of inGrid) next[rr][cc] = tool;
+      next[r][c] = nextCell;
       queueSave(rows, cols, next);
       return next;
     });
   }
 
-  function paintAt(r, c) {
-    if (readOnly) return;
-    if ((tool === "T" || tool === "empty") && !fineMode) paintBlock(r, c, 2);
+  function paintAt(r, c, half) {
+    if (readOnly || r < 0 || r >= rows || c < 0 || c >= cols) return;
+    if (halfMode && half) paintHalf(r, c, half);
     else paintCell(r, c);
   }
 
   function cellFromPoint(e) {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     if (!el || !el.dataset || el.dataset.r === undefined) return null;
-    return { r: Number(el.dataset.r), c: Number(el.dataset.c) };
+    return { r: Number(el.dataset.r), c: Number(el.dataset.c), half: el.dataset.h || null };
   }
   function onGridPointerDown(e) {
     if (readOnly) return;
@@ -186,13 +177,13 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     // qu'au relâchement si c'était un tap (sinon le glissé fait défiler la grille).
     if (e.pointerType !== "touch") {
       painting.current = true;
-      if (cell) paintAt(cell.r, cell.c);
+      if (cell) paintAt(cell.r, cell.c, cell.half);
     }
   }
   function onGridPointerMove(e) {
     if (!painting.current) return;
     const cell = cellFromPoint(e);
-    if (cell) paintAt(cell.r, cell.c);
+    if (cell) paintAt(cell.r, cell.c, cell.half);
   }
   function onGridPointerUp(e) {
     const d = downInfo.current;
@@ -201,7 +192,7 @@ export default function RoomLayoutEditor({ readOnly = false }) {
       const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12;
       if (!moved) {
         const cell = cellFromPoint(e);
-        if (cell) paintAt(cell.r, cell.c);
+        if (cell) paintAt(cell.r, cell.c, cell.half);
       }
     }
   }
@@ -297,7 +288,9 @@ export default function RoomLayoutEditor({ readOnly = false }) {
     () => tables.filter((t) => t.layoutId === activeId && t.gridRow != null && t.gridCol != null),
     [tables, activeId]
   );
-  const layoutForEngine = { gridRows: rows, gridCols: cols, cellSizeCm: active?.cellSizeCm || 35, cells };
+  // L'éditeur travaille toujours en « 1 case = 1 table » (70 cm), quel que
+  // soit le cell_size_cm stocké — le moteur détaille en 35 cm.
+  const layoutForEngine = { gridRows: rows, gridCols: cols, cellSizeCm: 70, cells };
   const diagnostic = useMemo(
     () => evaluateConstraints(layoutForEngine, placedTables, layoutConstraints, { combinations }),
     [rows, cols, cells, placedTables, layoutConstraints, combinations]
@@ -345,9 +338,10 @@ export default function RoomLayoutEditor({ readOnly = false }) {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <p className="text-xs text-[#8a7561] mb-4 max-w-2xl">
-        Grille de la salle. Peins les cases avec l'outil choisi : une <b>table</b> de 70×70 cm occupe 2×2 cases (case = 35 cm).
-        Les <b>passages</b> indiquent une obligation de circulation dont le tracé exact pourra bouger ; les <b>portes</b> et{" "}
-        <b>zones travail/attente</b> servent de repères au moteur. Sauvegarde automatique.
+        Grille de la salle : <b>une case = une table (70 cm)</b>. Un clic pose ou retire une table entière. Les{" "}
+        <b>passages</b> indiquent une obligation de circulation dont le tracé exact pourra bouger ; les <b>portes</b> et{" "}
+        <b>zones travail/attente</b> servent de repères au moteur. Pour les ajustements fins de largeur de passage,
+        active <b>« Demi-cases (35 cm) »</b>. Sauvegarde automatique.
       </p>
 
       {/* Sélecteur de plan */}
@@ -426,18 +420,36 @@ export default function RoomLayoutEditor({ readOnly = false }) {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               <button
-                onClick={() => setFineMode((v) => !v)}
+                onClick={() => setHalfMode((v) => !v)}
                 className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
-                style={fineMode ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                style={halfMode ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
               >
-                {fineMode ? "✓ Mode fin (35 cm)" : "Mode fin (35 cm)"}
+                {halfMode ? "✓ Demi-cases (35 cm)" : "Demi-cases (35 cm)"}
               </button>
+              {halfMode && (
+                <>
+                  <button
+                    onClick={() => setHalfAxis("v")}
+                    className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                    style={halfAxis === "v" ? { borderColor: "#e8622c", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                  >
+                    ◧ gauche / droite
+                  </button>
+                  <button
+                    onClick={() => setHalfAxis("h")}
+                    className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                    style={halfAxis === "h" ? { borderColor: "#e8622c", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                  >
+                    ⬒ haut / bas
+                  </button>
+                </>
+              )}
               <span className="text-xs text-[#5a4a3a]">
-                {fineMode
-                  ? "Table et Vide peignent case par case."
-                  : "Table et Vide posent/retirent un bloc de 2×2 cases (70 cm). Les autres outils restent case par case."}
+                {halfMode
+                  ? "Clique une moitié de case pour la peindre à 35 cm. Deux moitiés identiques recollent la case."
+                  : "Une case = une table (70 cm). Un clic = une table entière."}
               </span>
             </div>
           </div>
@@ -490,30 +502,49 @@ export default function RoomLayoutEditor({ readOnly = false }) {
           style={{ gridTemplateColumns: `repeat(${cols}, ${CELL_PX}px)`, gap: 2, width: "max-content", touchAction: "pan-x pan-y", userSelect: "none" }}
         >
           {cells.map((row, r) =>
-            row.map((code, c) => {
-              const t = TOOL_BY_CODE[code] || TOOL_BY_CODE.empty;
+            row.map((cell, c) => {
               const mark = endpointMarks.get(`${r},${c}`);
-              const placed = placedTables.some((pt) => r >= pt.gridRow && r < pt.gridRow + 2 && c >= pt.gridCol && c < pt.gridCol + 2);
+              const placed = placedTables.some((pt) => r === pt.gridRow && c === pt.gridCol);
+              const split = isSplit(cell);
+              const showHalves = split || halfMode;
+              const axis = split ? cell.s : halfAxis;
+              const border = placed ? "2px solid #D9689F" : `1px solid ${mark ? "#7fb0ff" : (TOOL_BY_CODE[cellCode(cell)] || TOOL_BY_CODE.empty).color}`;
+              const common = {
+                width: CELL_PX,
+                height: CELL_PX,
+                borderRadius: 4,
+                border,
+                overflow: "hidden",
+                cursor: readOnly ? "default" : "pointer",
+              };
+              if (!showHalves) {
+                const tc = TOOL_BY_CODE[cellCode(cell)] || TOOL_BY_CODE.empty;
+                return (
+                  <div
+                    key={`${r}-${c}`}
+                    data-r={r}
+                    data-c={c}
+                    title={`L${r + 1} · C${c + 1}`}
+                    className="flex items-center justify-center"
+                    style={{ ...common, background: mark ? "#1f5aa8" : tc.bg, color: "#fff5ea", fontSize: 11, fontWeight: 700 }}
+                  >
+                    {mark || (placed ? "▦" : "")}
+                  </div>
+                );
+              }
+              const codeA = split ? cell.a : cellCode(cell);
+              const codeB = split ? cell.b : cellCode(cell);
+              const tA = TOOL_BY_CODE[codeA] || TOOL_BY_CODE.empty;
+              const tB = TOOL_BY_CODE[codeB] || TOOL_BY_CODE.empty;
               return (
-                <div
-                  key={`${r}-${c}`}
-                  data-r={r}
-                  data-c={c}
-                  title={`L${r + 1} · C${c + 1}`}
-                  className="flex items-center justify-center"
-                  style={{
-                    width: CELL_PX,
-                    height: CELL_PX,
-                    borderRadius: 4,
-                    background: mark ? "#1f5aa8" : t.bg,
-                    border: placed ? "2px solid #D9689F" : `1px solid ${mark ? "#7fb0ff" : t.color}`,
-                    color: "#fff5ea",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: readOnly ? "default" : "pointer",
-                  }}
-                >
-                  {mark || (placed ? "▦" : "")}
+                <div key={`${r}-${c}`} title={`L${r + 1} · C${c + 1}`} className="relative flex" style={{ ...common, flexDirection: axis === "h" ? "column" : "row" }}>
+                  <div data-r={r} data-c={c} data-h="a" style={{ flex: 1, background: tA.bg }} />
+                  <div data-r={r} data-c={c} data-h="b" style={{ flex: 1, background: tB.bg }} />
+                  {(mark || placed) && (
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ color: "#fff5ea", fontSize: 10, fontWeight: 700 }}>
+                      {mark || "▦"}
+                    </span>
+                  )}
                 </div>
               );
             })
@@ -564,6 +595,7 @@ export default function RoomLayoutEditor({ readOnly = false }) {
                     className="w-12 rounded px-1.5 py-0.5"
                     style={inputStyle}
                   />
+                  <span className="text-[#5a4a3a]">≈ {c.minWidthCells * 35} cm</span>
                 </label>
                 <select
                   value={c.priority}
@@ -620,6 +652,7 @@ export default function RoomLayoutEditor({ readOnly = false }) {
                   className="w-12 rounded px-1.5 py-0.5"
                   style={inputStyle}
                 />
+                <span className="text-[#5a4a3a]">≈ {ccDraft.width * 35} cm</span>
               </label>
               <select value={ccDraft.priority} onChange={(e) => setCcDraft((d) => ({ ...d, priority: e.target.value }))} className="rounded px-1.5 py-0.5 text-xs" style={inputStyle}>
                 {PRIORITIES.map((p) => (
