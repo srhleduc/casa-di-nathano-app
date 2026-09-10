@@ -41,8 +41,9 @@ import {
   appendItemsToOrder,
   updateOrder,
   updateReservation,
+  fetchOpenDineInOrderForTables,
 } from "@/lib/data";
-import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
+import { assignmentsByReservation, matchReservationForOrder, tablesLinkedTo } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
 function nowWall() {
@@ -122,8 +123,14 @@ export default function ServiceATable() {
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
   const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
 
+  // Groupe de tables solidaires de `id` (combinaison « Passage » / réservation
+  // multi-tables) — /sat de n'importe laquelle vise la même commande.
+  function tableGroup(id) {
+    return id ? tablesLinkedTo(id, reservations, assignmentsByReservation(resaAssignments), nowWall().slice(0, 10)) : [];
+  }
   function openOrderForTable(id) {
-    return id ? findOpenDineInOrderForTables(orders, { tableIds: [id] }) : null;
+    const grp = tableGroup(id);
+    return grp.length ? findOpenDineInOrderForTables(orders, { tableIds: grp }) : null;
   }
 
   function addItem(item, note) {
@@ -172,13 +179,22 @@ export default function ServiceATable() {
     const items = cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({
       id, name, price, cat, qty, note, modifiers, source: "sat", satNew: true,
     }));
+    // Tables solidaires de celle-ci (combinaison « Passage » posée par
+    // l'équipe, réservation multi-tables) → /sat de T8 et /sat de T9 tombent
+    // sur une seule commande, intitulée « T8 + T9 ».
+    const groupIds = tablesLinkedTo(
+      tableId,
+      reservations,
+      assignmentsByReservation(resaAssignments),
+      nowWall().slice(0, 10)
+    );
     // On relit la commande ouverte AU MOMENT de valider : une serveuse a pu
     // ouvrir (ou encaisser) la table pendant que le client composait son panier.
-    const existing = findOpenDineInOrderForTables(orders, { tableIds: [tableId] });
+    const existing = findOpenDineInOrderForTables(orders, { tableIds: groupIds });
 
     // Réservation confirmée posée sur cette table ? → arrivée + lien.
     const matchedResId = matchReservationForOrder(
-      { tableIds: [tableId] },
+      { tableIds: groupIds },
       reservations,
       assignmentsByReservation(resaAssignments),
       nowWall()
@@ -195,44 +211,58 @@ export default function ServiceATable() {
     // dessus. Posé sur la commande créée (payload) ou celle complétée (après
     // coup, non bloquant — purement un indicateur visuel).
     const nowIso = new Date().toISOString();
+    const appendTo = (orderId) =>
+      appendItemsToOrder(orderId, {
+        newItems: items,
+        addedTotal: total,
+        addedPizzaCount: pizzaCount,
+        reopenKitchen: kitchenPendingQty(items) > 0,
+        extraTableIds: [tableId],
+      });
 
     setScreen("done");
-    submitWithRetry(() => {
-      if (existing) {
-        return appendItemsToOrder(existing.id, {
-          newItems: items,
-          addedTotal: total,
-          addedPizzaCount: pizzaCount,
-          reopenKitchen: kitchenPendingQty(items) > 0,
-          extraTableIds: [tableId],
-        });
-      }
+    submitWithRetry(async () => {
+      if (existing) return appendTo(existing.id);
       // Créneau réservé silencieusement (comme le sur place borne) — sauf si le
       // pizzaiolo a désactivé le décompte des créneaux pour le sur place, ou
       // s'il n'y a aucune pizza.
       const skipsSlot = serviceTypeSettings.dineInCountsTowardSlots === false;
       const finalPlan =
         pizzaCount === 0 || skipsSlot ? [] : earliestSlotPlan(computeSlotOptions(orders, slots, pizzaCount), pizzaCount) || [];
-      return insertOrder({
-        items,
-        serviceType: DINE_IN,
-        name: tableDisplayLabel({ tableIds: [tableId] }, tables),
-        tableIds: [tableId],
-        tableLabel: null,
-        reservationId: matchedResId || null,
-        slotAllocations: finalPlan,
-        pizzaCount,
-        total,
-        status: "attente",
-        satAdditionAt: nowIso,
-      });
-    }).then(() => {
-      if (existing) {
-        updateOrder(existing.id, {
+      try {
+        return await insertOrder({
+          items,
+          serviceType: DINE_IN,
+          name: tableDisplayLabel({ tableIds: groupIds }, tables),
+          tableIds: groupIds,
+          tableLabel: null,
+          reservationId: matchedResId || null,
+          slotAllocations: finalPlan,
+          pizzaCount,
+          total,
+          status: "attente",
           satAdditionAt: nowIso,
-          ...(matchedResId && !existing.reservationId ? { reservationId: matchedResId } : {}),
-        }).catch((e) => console.error(e));
+        });
+      } catch (e) {
+        // Une autre commande /sat vient d'être créée pour la même table au même
+        // instant (index d'unicité) → on s'y rattache au lieu d'en faire une 2e.
+        if (e?.code === "23505") {
+          const fresh = await fetchOpenDineInOrderForTables(groupIds);
+          if (fresh) {
+            await appendTo(fresh.id);
+            return { concurrentOrderId: fresh.id, concurrentReservationId: fresh.reservationId };
+          }
+        }
+        throw e;
       }
+    }).then((result) => {
+      const mergedId = existing ? existing.id : result?.concurrentOrderId || null;
+      if (!mergedId) return;
+      const mergedResId = existing ? existing.reservationId : result?.concurrentReservationId;
+      updateOrder(mergedId, {
+        satAdditionAt: nowIso,
+        ...(matchedResId && !mergedResId ? { reservationId: matchedResId } : {}),
+      }).catch((e) => console.error(e));
     });
   }
 

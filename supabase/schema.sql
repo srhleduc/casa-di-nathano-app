@@ -1766,6 +1766,19 @@ alter publication supabase_realtime add table tables;
 alter table orders add column if not exists table_ids text[] not null default '{}';
 alter table orders add column if not exists table_label text;
 
+-- Une seule commande sur place ouverte par (jeu de) table(s) : deux /sat
+-- concurrents sur la même table (ou /sat T8 + /sat T9 d'une combinaison) ne
+-- créent qu'une commande, la 2e insertion échoue (23505) et l'app se rabat
+-- sur un ajout. Clé = table_ids complet, trié à l'écriture (app +
+-- sat_append_items). Repris dans migrations_manual/orders_one_open_dinein.sql.
+create unique index if not exists orders_one_open_dinein_tables
+  on orders (restaurant_id, table_ids)
+  where service_type = '🍽️ Sur place'
+    and status <> 'servie'
+    and coalesce(paid, false) = false
+    and coalesce(is_test, false) = false
+    and coalesce(array_length(table_ids, 1), 0) >= 1;
+
 -- Ajout ATOMIQUE d'articles à une commande sur place déjà ouverte —
 -- appelé par la prise de commande serveuse (StaffOrderFlow) ET le lien
 -- client /sat. Un seul UPDATE : aucune course si serveuse et client

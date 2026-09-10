@@ -367,14 +367,16 @@ export default function ReservationsBoard() {
   }, [orders]);
 
   // Boucle fermée : une réservation « à table » dont la commande liée est
-  // servie / payée passe « terminée » (départ horodaté). L'arrivée, elle, est
-  // déclenchée côté prise de commande donc fiable même board fermé.
+  // servie (status "servie" — pas seulement payée d'avance : la table reste
+  // occupée tant que le repas n'est pas fini) passe « terminée », départ
+  // horodaté. L'arrivée, elle, est déclenchée côté prise de commande donc
+  // fiable même board fermé.
   const closingRef = useRef(new Set());
   useEffect(() => {
     for (const r of dayReservations) {
       if (r.status !== "seated") continue;
       const o = linkedOrderByRes[r.id];
-      if (!o || !isOrderPaid(o)) continue;
+      if (!o || o.status !== "servie") continue;
       if (closingRef.current.has(r.id)) continue;
       closingRef.current.add(r.id);
       updateReservation(r.id, { status: "completed", departedAt: new Date().toISOString() })
@@ -924,7 +926,11 @@ export default function ReservationsBoard() {
                   title="Commande sur place liée à cette réservation"
                 >
                   🍽️ {Number(linkedOrderByRes[r.id].total || 0).toFixed(2)} € ·{" "}
-                  {isOrderPaid(linkedOrderByRes[r.id]) ? "servie / payée" : "en cours"}
+                  {linkedOrderByRes[r.id].status === "servie"
+                    ? "servie"
+                    : isOrderPaid(linkedOrderByRes[r.id])
+                    ? "payée"
+                    : "en cours"}
                 </span>
               )}
               <span className="text-xs">
