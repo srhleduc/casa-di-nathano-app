@@ -16,6 +16,11 @@ import {
   useTableCombinations,
   useReservations,
   useOrders,
+  useMenu,
+  useRuptures,
+  useDessertStock,
+  usePizzaStock,
+  useSlots,
   useRoomLayouts,
   useReservationTableAssignments,
   useLoyaltyByPhones,
@@ -45,6 +50,7 @@ import { eur } from "@/lib/menu";
 import ResaNote from "@/components/ResaNote";
 import GroupedItemList from "@/components/GroupedItemList";
 import OrderNote from "@/components/OrderNote";
+import EditOrderModal from "./EditOrderModal";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
@@ -200,6 +206,11 @@ export default function ReservationsBoard() {
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
   const { orders } = useOrders();
+  const { menuItems } = useMenu();
+  const { ruptures } = useRuptures();
+  const { dessertStock } = useDessertStock();
+  const { pizzaStock } = usePizzaStock();
+  const { slots } = useSlots();
   const { layouts } = useRoomLayouts();
   const { assignments: manualRows } = useReservationTableAssignments();
 
@@ -447,6 +458,7 @@ export default function ReservationsBoard() {
   // sur la commande → pointer ici l'efface sur l'écran Service en temps réel,
   // et inversement.
   const [selectedTableId, setSelectedTableId] = useState(null);
+  const [editingOrder, setEditingOrder] = useState(null);
 
   const activeDineInOrders = useMemo(
     () =>
@@ -788,12 +800,23 @@ export default function ReservationsBoard() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => setSelectedTableId(null)}
-                  className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
-                >
-                  ✕ Fermer
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedOrder && (
+                    <button
+                      onClick={() => setEditingOrder(selectedOrder)}
+                      aria-label="Modifier la commande"
+                      className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedTableId(null)}
+                    className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
+                  >
+                    ✕ Fermer
+                  </button>
+                </div>
               </div>
               {selectedTableResa?.note && (
                 <div className="mb-2">
@@ -1137,6 +1160,19 @@ export default function ReservationsBoard() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          menu={menuItems}
+          orders={orders}
+          slots={slots}
+          ruptures={ruptures}
+          dessertStock={dessertStock}
+          pizzaStock={pizzaStock}
+          onClose={() => setEditingOrder(null)}
+        />
       )}
     </div>
   );
