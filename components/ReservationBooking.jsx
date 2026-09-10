@@ -77,8 +77,12 @@ export default function ReservationBooking() {
   const { reservations } = useReservations();
   const { layouts } = useRoomLayouts();
 
-  // Plusieurs plans de salle = plusieurs zones → le client doit en choisir une.
-  const multiZone = layouts.length > 1;
+  // Zones ouvertes (une zone fermée — ex. terrasse s'il pleut — n'est pas
+  // proposée et ses tables sont retirées du moteur). Plusieurs zones ouvertes
+  // → le client doit en choisir une.
+  const openLayouts = useMemo(() => layouts.filter((l) => l.active !== false), [layouts]);
+  const closedLayoutIds = useMemo(() => new Set(layouts.filter((l) => l.active === false).map((l) => l.id)), [layouts]);
+  const multiZone = openLayouts.length > 1;
   const layoutNameById = useMemo(() => Object.fromEntries(layouts.map((l) => [l.id, l.name])), [layouts]);
 
   // form | slots | done | manage-find | manage-list | manage-edit | manage-slots | manage-done
@@ -154,7 +158,9 @@ export default function ReservationBooking() {
     }));
     const existing = excludeReservationId ? reservations.filter((r) => r.id !== excludeReservationId) : reservations;
     const input = {
-      tables: sortByFillPriority(tables.filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked)).map((t) => ({
+      tables: sortByFillPriority(
+        tables.filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked && !closedLayoutIds.has(t.layoutId))
+      ).map((t) => ({
         id: t.id,
         layoutId: t.layoutId,
         capacityMin: t.capacityMin,
@@ -250,7 +256,8 @@ export default function ReservationBooking() {
     setEditing(r);
     setEditParty(r.partySize);
     setEditNote(r.note || "");
-    setEditZoneId(r.preferredLayoutId || null);
+    // Si la zone souhaitée est fermée aujourd'hui, on redemande le choix.
+    setEditZoneId(openLayouts.some((l) => l.id === r.preferredLayoutId) ? r.preferredLayoutId : null);
     setDate(String(r.requestedAt).slice(0, 10));
     setSlots([]);
     setErr(null);
@@ -359,7 +366,7 @@ export default function ReservationBooking() {
   // Puces de sélection de zone (plan de salle) — rendues seulement si multiZone.
   const zoneChips = (value, onChange) => (
     <div className="flex flex-wrap gap-2 mt-1">
-      {layouts.map((l) => {
+      {openLayouts.map((l) => {
         const on = value === l.id;
         return (
           <button
