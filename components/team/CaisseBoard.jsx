@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots,
   updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended,
-  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone,
+  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone, fetchReservationPhoneForOrder,
 } from "@/lib/data";
 import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
@@ -324,7 +324,9 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
     setOpen(true);
     setMsg(null);
     try {
-      const ccPhone = await fetchOrderCommitmentPhone(order.id);
+      const ccPhone =
+        (await fetchOrderCommitmentPhone(order.id)) ||
+        (await fetchReservationPhoneForOrder(order.id));
       if (ccPhone) {
         setTerm(ccPhone);
         runSearch(ccPhone);
