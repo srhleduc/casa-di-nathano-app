@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, sortOrdersByTime, sortByTableName, isTakeawayLike } from "@/lib/business";
+import { isOrderActiveToday, sortOrdersByTime, sortByTableName, isTakeawayLike, hasUnseenSatAddition } from "@/lib/business";
 import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
@@ -43,7 +43,7 @@ export default function ServiceBoard() {
   // Un ajout client via /sat n'est "vu" que quand la serveuse a pointé la
   // pastille ET chaque ligne concernée (point rose par article). Tant qu'il
   // reste quelque chose de non pointé, la table passe tout devant.
-  const isFlagged = (o) => Boolean(o.satAdditionAt) || (o.items || []).some((it) => it.satNew);
+  const isFlagged = hasUnseenSatAddition;
   const tablePills = [
     ...sortByTableName(dineInActive.filter(isFlagged)),
     ...sortByTableName(dineInActive.filter((o) => !isFlagged(o))),
