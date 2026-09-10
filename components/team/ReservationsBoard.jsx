@@ -400,6 +400,29 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize), status: r.status, partySize: r.partySize })),
     [dayReservations]
   );
+  // Commandes sur place ouvertes (non encaissées) du jour, par table — sert au
+  // plan (couleur), aux points roses /sat et au résumé du panneau.
+  const activeDineInOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => !isTakeawayLike(o.serviceType) && o.status !== "servie" && !isOrderPaid(o) && isOrderActiveToday(o)
+      ),
+    [orders]
+  );
+  // table.id -> commande sur place ouverte (une table = une commande active).
+  const orderByTableId = useMemo(() => {
+    const m = {};
+    for (const o of activeDineInOrders) {
+      for (const tid of o.tableIds || []) if (!m[tid]) m[tid] = o;
+      const lbl = (o.tableLabel || "").trim().toLowerCase();
+      if (lbl) {
+        const t = tables.find((x) => tableDisplayName(x).trim().toLowerCase() === lbl);
+        if (t && !m[t.id]) m[t.id] = o;
+      }
+    }
+    return m;
+  }, [activeDineInOrders, tables]);
+
   const statuses = useMemo(
     () =>
       computeTableStatuses(
@@ -409,9 +432,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         nowMin,
         // Les états « à renouveler » / « terminée » ne valent que pour la
         // journée en cours (« ce jour uniquement »).
-        { marginMin: settings.safetyMarginMinutes || 15, services: isToday ? services : [] }
+        {
+          marginMin: settings.safetyMarginMinutes || 15,
+          services: isToday ? services : [],
+          occupiedTableIds: isToday ? new Set(Object.keys(orderByTableId)) : null,
+        }
       ),
-    [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services]
+    [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services, orderByTableId]
   );
   const nonPlacedActive = activeTables.filter((t) => !(t.layoutId === layoutId && t.gridRow != null));
 
@@ -459,31 +486,10 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   // --- Commandes sur place par table : plan cliquable + point rose /sat ---
   // Même mécanique que l'écran Service. L'état (satAdditionAt / it.satNew) vit
   // sur la commande → pointer ici l'efface sur l'écran Service en temps réel,
-  // et inversement.
+  // et inversement. (activeDineInOrders / orderByTableId sont calculés plus
+  // haut, avant `statuses`.)
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
-
-  const activeDineInOrders = useMemo(
-    () =>
-      orders.filter(
-        (o) => !isTakeawayLike(o.serviceType) && o.status !== "servie" && !isOrderPaid(o) && isOrderActiveToday(o)
-      ),
-    [orders]
-  );
-
-  // table.id -> commande sur place ouverte (une table = une commande active).
-  const orderByTableId = useMemo(() => {
-    const m = {};
-    for (const o of activeDineInOrders) {
-      for (const tid of o.tableIds || []) if (!m[tid]) m[tid] = o;
-      const lbl = (o.tableLabel || "").trim().toLowerCase();
-      if (lbl) {
-        const t = tables.find((x) => tableDisplayName(x).trim().toLowerCase() === lbl);
-        if (t && !m[t.id]) m[t.id] = o;
-      }
-    }
-    return m;
-  }, [activeDineInOrders, tables]);
 
   // Tables dont la commande porte un ajout /sat pas encore pointé.
   const flaggedTableIds = useMemo(() => {
