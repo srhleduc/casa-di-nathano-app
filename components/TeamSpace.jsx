@@ -43,6 +43,9 @@ export default function TeamSpace({ onExit }) {
   const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "reservation" | "logistique" | "fidelite"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
+  // Table pré-cochée quand la prise de commande est lancée depuis le plan du
+  // board réservations (« Prise de commande » sur une table sans commande).
+  const [orderPrefillTableIds, setOrderPrefillTableIds] = useState(null);
   const { orders } = useOrders();
   const { slots } = useSlots();
   const { testMode } = useTestMode();
@@ -216,7 +219,9 @@ export default function TeamSpace({ onExit }) {
           {tab === "dessert-cafe" && <DessertCafeBoard />}
           {tab === "service" && <ServiceBoard />}
           {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
-          {tab === "staff-order" && <StaffOrderFlow />}
+          {tab === "staff-order" && (
+            <StaffOrderFlow initialTableIds={orderPrefillTableIds} onConsumed={() => setOrderPrefillTableIds(null)} />
+          )}
         </>
       )}
 
@@ -228,7 +233,9 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
           </div>
-          {tab === "staff-order" && <StaffOrderFlow />}
+          {tab === "staff-order" && (
+            <StaffOrderFlow initialTableIds={orderPrefillTableIds} onConsumed={() => setOrderPrefillTableIds(null)} />
+          )}
           {tab === "service" && <ServiceBoard />}
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
@@ -256,7 +263,14 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("combos")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "combos" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔗 Combinaisons</button>
             <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Services</button>
           </div>
-          {tab === "resaboard" && <ReservationsBoard />}
+          {tab === "resaboard" && (
+            <ReservationsBoard
+              onTakeOrder={(tableId) => {
+                setOrderPrefillTableIds([tableId]);
+                goZone("commandes", "staff-order");
+              }}
+            />
+          )}
           {tab === "layout" && <RoomLayoutEditor readOnly={readOnly} />}
           {tab === "tables" && <TablesAdmin />}
           {tab === "combos" && <TableCombinationsAdmin />}

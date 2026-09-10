@@ -29,6 +29,7 @@ import {
   clearReservationTables,
   updateReservation,
   createReservation,
+  createWalkInReservationForTables,
   setRoomLayoutActive,
   updateOrder,
 } from "@/lib/data";
@@ -196,7 +197,7 @@ function PlanView({
   );
 }
 
-export default function ReservationsBoard() {
+export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const restaurant = useRestaurant();
   const { settings } = useReservationSettings();
   const { serviceTemplates } = useServiceTemplates();
@@ -518,6 +519,83 @@ export default function ReservationsBoard() {
   const selectedTableResa = selectedTableId
     ? dayReservations.find((r) => r.status !== "completed" && effectiveTables(r.id).includes(selectedTableId)) || null
     : null;
+  // Réservations (toutes, y c. terminées) effectivement posées sur la table
+  // sélectionnée — sert au bouton « Libérer ».
+  const resasOnSelectedTable = selectedTableId
+    ? dayReservations.filter((r) => effectiveTables(r.id).includes(selectedTableId))
+    : [];
+
+  // --- Actions rapides sur une table du plan (statut + combinaison) ---
+  const [combineOpen, setCombineOpen] = useState(false);
+  const [combinePick, setCombinePick] = useState([]);
+  const [tableActionBusy, setTableActionBusy] = useState(false);
+
+  useEffect(() => {
+    setCombineOpen(false);
+    setCombinePick([]);
+  }, [selectedTableId]);
+
+  // « Marquer occupée » : réservation « Passage » installée, sans commande.
+  function markSelectedTableOccupied() {
+    if (!selectedTableId || tableActionBusy) return;
+    setTableActionBusy(true);
+    createWalkInReservationForTables([selectedTableId], { tables })
+      .catch((e) => console.error(e))
+      .finally(() => setTableActionBusy(false));
+  }
+
+  // « Libérer » : clôt toute réservation encore en cours sur la table (départ
+  // horodaté) et retire les assignations des « Passage » déjà terminées → la
+  // table repasse au vert.
+  function freeSelectedTable() {
+    if (!selectedTableId || tableActionBusy) return;
+    setTableActionBusy(true);
+    const now = new Date().toISOString();
+    Promise.all(
+      resasOnSelectedTable.map((r) => {
+        if (r.status !== "completed") return updateReservation(r.id, { status: "completed", departedAt: now });
+        if (r.source === "walk_in") return clearReservationTables(r.id);
+        return null;
+      })
+    )
+      .catch((e) => console.error(e))
+      .finally(() => setTableActionBusy(false));
+  }
+
+  // « Combiner » : regroupe la table sélectionnée avec celles cochées. On
+  // étend la réservation en cours si elle existe, sinon on crée une « Passage »
+  // commune (combinaison éphémère : « groupée » + trait, se défait à
+  // l'encaissement).
+  function combineSelectedTableWith(pickIds) {
+    if (!selectedTableId || !pickIds.length || tableActionBusy) return;
+    setTableActionBusy(true);
+    const all = [...new Set([selectedTableId, ...pickIds])];
+    const done = () => {
+      setTableActionBusy(false);
+      setCombineOpen(false);
+      setCombinePick([]);
+    };
+    if (selectedTableResa) {
+      const merged = [...new Set([...effectiveTables(selectedTableResa.id), ...all])];
+      const jobs = [setReservationTables(selectedTableResa.id, merged, { manual: true })];
+      // « Passage » : le nb de couverts est une estimation → on le recale sur
+      // les places des tables. Vraie réservation client : on n'y touche pas.
+      if (selectedTableResa.source === "walk_in") {
+        const party = merged.reduce((s, tid) => {
+          const t = tables.find((x) => x.id === tid);
+          return s + (t?.capacityPreferred || t?.capacityBase || 2);
+        }, 0);
+        jobs.push(updateReservation(selectedTableResa.id, { partySize: party }));
+      }
+      Promise.all(jobs)
+        .catch((e) => console.error(e))
+        .finally(done);
+    } else {
+      createWalkInReservationForTables(all, { tables })
+        .catch((e) => console.error(e))
+        .finally(done);
+    }
+  }
 
   const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
@@ -820,6 +898,78 @@ export default function ReservationsBoard() {
                   </button>
                 </div>
               </div>
+              {/* Actions rapides sur la table (statut + combinaison) */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {!selectedTableResa && !selectedOrder && (
+                  <button
+                    onClick={markSelectedTableOccupied}
+                    disabled={tableActionBusy}
+                    className="tap-scale text-xs font-bold rounded-full px-3 py-1.5 border-2 border-[#c0503a] text-[#e8a894] disabled:opacity-40"
+                  >
+                    Marquer occupée
+                  </button>
+                )}
+                {resasOnSelectedTable.length > 0 && (
+                  <button
+                    onClick={freeSelectedTable}
+                    disabled={tableActionBusy}
+                    className="tap-scale text-xs font-bold rounded-full px-3 py-1.5 border-2 border-[#2f9e5e] text-[#9fe0bd] disabled:opacity-40"
+                  >
+                    Libérer
+                  </button>
+                )}
+                <button
+                  onClick={() => setCombineOpen((v) => !v)}
+                  disabled={tableActionBusy}
+                  className="tap-scale text-xs font-bold rounded-full px-3 py-1.5 border-2 border-[#3f6ab5] text-[#a8c0e8] disabled:opacity-40"
+                >
+                  🪑 Combiner
+                </button>
+              </div>
+
+              {combineOpen && (
+                <div className="mb-3 rounded-lg p-3" style={{ background: "#1a120b", border: "1px solid #3a2b1f" }}>
+                  <div className="text-xs text-[#a88f78] mb-2">
+                    Cocher les tables à combiner avec {selectedTable ? tableDisplayName(selectedTable) : "cette table"} :
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {placedTables
+                      .filter(
+                        (t) =>
+                          t.id !== selectedTableId &&
+                          !["occupee", "groupee", "bientot"].includes(statuses[t.id]?.status)
+                      )
+                      .map((t) => {
+                        const on = combinePick.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() =>
+                              setCombinePick((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))
+                            }
+                            className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2"
+                            style={
+                              on
+                                ? { borderColor: "#3f6ab5", background: "#1a2740", color: "#cfe0ff" }
+                                : { borderColor: "#3a2b1f", color: "#c9b8a4" }
+                            }
+                          >
+                            {tableDisplayName(t)}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  <button
+                    onClick={() => combineSelectedTableWith(combinePick)}
+                    disabled={tableActionBusy || combinePick.length === 0}
+                    className="tap-scale text-xs font-bold rounded-full px-4 py-1.5 disabled:opacity-40"
+                    style={{ background: "#3f6ab5", color: "#0e141f" }}
+                  >
+                    Combiner
+                  </button>
+                </div>
+              )}
+
               {selectedTableResa?.note && (
                 <div className="mb-2">
                   <ResaNote note={selectedTableResa.note} />
@@ -839,7 +989,18 @@ export default function ReservationsBoard() {
                   <OrderNote note={selectedOrder.note} />
                 </>
               ) : (
-                <p className="text-sm text-[#8a7561]">Aucune commande en cours sur cette table.</p>
+                <>
+                  <p className="text-sm text-[#8a7561]">Aucune commande en cours sur cette table.</p>
+                  {onTakeOrder && (
+                    <button
+                      onClick={() => onTakeOrder(selectedTableId)}
+                      className="tap-scale mt-2 rounded-full px-4 py-2 text-sm font-bold"
+                      style={{ background: "#e8622c", color: "#150e0a" }}
+                    >
+                      📞 Prise de commande
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
