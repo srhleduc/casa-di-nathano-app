@@ -212,6 +212,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
             <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
+            <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📋 Réservations</button>
           </div>
           {tab === "kitchen" && <KitchenBoard />}
           {tab === "finition" && <FinitionBoard />}
@@ -221,6 +222,14 @@ export default function TeamSpace({ onExit }) {
           {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
           {tab === "staff-order" && (
             <StaffOrderFlow initialTableIds={orderPrefillTableIds} onConsumed={() => setOrderPrefillTableIds(null)} />
+          )}
+          {tab === "resaboard" && (
+            <ReservationsBoard
+              onTakeOrder={(tableId) => {
+                setOrderPrefillTableIds([tableId]);
+                setTab("staff-order");
+              }}
+            />
           )}
         </>
       )}
