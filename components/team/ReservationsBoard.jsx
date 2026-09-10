@@ -21,6 +21,7 @@ import {
   clearReservationTables,
   updateReservation,
   createReservation,
+  setRoomLayoutActive,
 } from "@/lib/data";
 import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
@@ -203,6 +204,10 @@ export default function ReservationsBoard() {
   const layoutById = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, t.layoutId || null])), [tables]);
   const layoutNameById = useMemo(() => Object.fromEntries(layouts.map((l) => [l.id, l.name])), [layouts]);
   const activeTables = useMemo(() => tables.filter((t) => t.active), [tables]);
+  // Zones fermées (interrupteur rapide) → leurs tables sont retirées du moteur
+  // d'affectation automatique (mais restent forçables à la main par l'équipe).
+  const closedLayoutIds = useMemo(() => new Set(layouts.filter((l) => l.active === false).map((l) => l.id)), [layouts]);
+  const solverTables = useMemo(() => activeTables.filter((t) => !closedLayoutIds.has(t.layoutId)), [activeTables, closedLayoutIds]);
   const comboById = useMemo(() => Object.fromEntries(combinations.map((c) => [c.id, c])), [combinations]);
 
   const manualByRes = useMemo(() => {
@@ -236,7 +241,7 @@ export default function ReservationsBoard() {
       // Tables triées dans l'ordre de remplissage voulu (priority_order puis
       // nom) → le moteur suit cet ordre à choix équivalent, même si aucun
       // priority_order n'est encore enregistré.
-      tables: sortByFillPriority(activeTables).map((t) => ({
+      tables: sortByFillPriority(solverTables).map((t) => ({
         id: t.id,
         layoutId: t.layoutId,
         capacityMin: t.capacityMin,
@@ -266,7 +271,7 @@ export default function ReservationsBoard() {
     return () => {
       cancelled = true;
     };
-  }, [reservations, date, manualByRes, activeTables, combinations, settings.safetyMarginMinutes, tables]);
+  }, [reservations, date, manualByRes, solverTables, combinations, settings.safetyMarginMinutes, tables]);
 
   const asgByRes = useMemo(() => {
     const m = {};
@@ -377,8 +382,8 @@ export default function ReservationsBoard() {
     [addForm, settings, af.party]
   );
   const tablesForPick = useMemo(
-    () => [...activeTables].sort((a, b) => tableDisplayName(a).localeCompare(tableDisplayName(b), "fr", { numeric: true })),
-    [activeTables]
+    () => [...solverTables].sort((a, b) => tableDisplayName(a).localeCompare(tableDisplayName(b), "fr", { numeric: true })),
+    [solverTables]
   );
   // Tables réellement libres sur la fenêtre d'occupation de la réservation en
   // cours de saisie (créneau + durée estimée + marge). Une table déjà prise
@@ -463,12 +468,34 @@ export default function ReservationsBoard() {
             {layouts.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
+                {l.active === false ? " (fermée)" : ""}
               </option>
             ))}
           </select>
         )}
+        {layouts.length > 1 && layout && (
+          <button
+            onClick={() => setRoomLayoutActive(layout.id, layout.active === false).catch((e) => console.error(e))}
+            className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2"
+            style={
+              layout.active === false
+                ? { borderColor: "#204a3a", color: "#a8e8c8" }
+                : { borderColor: "#4a2020", color: "#e8a8a8" }
+            }
+          >
+            {layout.active === false ? `☀️ Rouvrir ${layout.name}` : `🌧️ Fermer ${layout.name}`}
+          </button>
+        )}
         <span className="text-xs text-[#8a7561]">{restaurant.name}</span>
       </div>
+
+      {layout && layout.active === false && (
+        <div className="rounded-lg px-3 py-2 mb-3 text-sm font-bold" style={{ background: "#2c1c14", border: "1px solid #4a2020", color: "#e8a8a8" }}>
+          Zone « {layout.name} » fermée — ses tables ne sont plus proposées ({" "}
+          {dayReservations.filter((r) => r.status !== "cancelled" && r.status !== "completed" && r.preferredLayoutId === layout.id && effectiveTables(r.id).length === 0).length}{" "}
+          réservation(s) souhaitant cette zone à replacer).
+        </div>
+      )}
 
       {/* --- Synthèse de service --- */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -540,8 +567,9 @@ export default function ReservationsBoard() {
               {syn.zones && syn.zones.length > 1 && (
                 <div className="text-[11px] text-[#8a7561] mt-1 flex flex-wrap gap-x-2">
                   {syn.zones.map((z) => (
-                    <span key={z.layoutId} style={z.full ? { color: "#e88a8a" } : undefined}>
+                    <span key={z.layoutId} style={z.full || closedLayoutIds.has(z.layoutId) ? { color: "#e88a8a" } : undefined}>
                       {layoutNameById[z.layoutId] || "Zone"} {z.reserved}/{z.capacity}
+                      {closedLayoutIds.has(z.layoutId) ? " (fermée)" : ""}
                     </span>
                   ))}
                 </div>

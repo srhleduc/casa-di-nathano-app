@@ -7,6 +7,7 @@ import {
   saveRoomLayout,
   renameRoomLayout,
   deleteRoomLayout,
+  setRoomLayoutActive,
   useTables,
   useTableCombinations,
   useCirculationConstraints,
@@ -418,6 +419,19 @@ export default function RoomLayoutEditor({ readOnly = false }) {
           </select>
           {!readOnly && (
             <>
+              {layouts.length > 1 && active && (
+                <button
+                  onClick={() => setRoomLayoutActive(active.id, active.active === false).catch((err) => console.error(err))}
+                  className="tap-scale text-xs font-bold rounded-full px-3 py-2 border-2"
+                  style={
+                    active.active === false
+                      ? { borderColor: "#204a3a", color: "#a8e8c8" }
+                      : { borderColor: "#4a2020", color: "#e8a8a8" }
+                  }
+                >
+                  {active.active === false ? "☀️ Zone fermée — rouvrir" : "🌧️ Fermer cette zone"}
+                </button>
+              )}
               <button onClick={doDuplicate} className="tap-scale text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
                 Dupliquer
               </button>
