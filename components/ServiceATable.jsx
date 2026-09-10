@@ -35,11 +35,21 @@ import {
   useTables,
   useServiceTypeSettings,
   useCategoryOrder,
+  useReservations,
+  useReservationTableAssignments,
   insertOrder,
   appendItemsToOrder,
   updateOrder,
+  updateReservation,
 } from "@/lib/data";
+import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
+
+function nowWall() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+}
 
 import OrderScreen from "./OrderScreen";
 import PizzaCustomizeModal from "./PizzaCustomizeModal";
@@ -95,6 +105,8 @@ export default function ServiceATable() {
   const { tables, loading: tablesLoading } = useTables();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
+  const { reservations } = useReservations();
+  const { assignments: resaAssignments } = useReservationTableAssignments();
   const restaurant = useRestaurant();
 
   const activeTables = useMemo(
@@ -164,6 +176,20 @@ export default function ServiceATable() {
     // ouvrir (ou encaisser) la table pendant que le client composait son panier.
     const existing = findOpenDineInOrderForTables(orders, { tableIds: [tableId] });
 
+    // Réservation confirmée posée sur cette table ? → arrivée + lien.
+    const matchedResId = matchReservationForOrder(
+      { tableIds: [tableId] },
+      reservations,
+      assignmentsByReservation(resaAssignments),
+      nowWall()
+    );
+    if (matchedResId) {
+      const res = reservations.find((r) => r.id === matchedResId);
+      if (res && res.status === "confirmed") {
+        updateReservation(matchedResId, { status: "seated", arrivedAt: new Date().toISOString() }).catch((e) => console.error(e));
+      }
+    }
+
     // Horodatage "ajout client" : l'écran Service met alors la pastille de la
     // table tout devant, avec un point rose, jusqu'à ce que la serveuse clique
     // dessus. Posé sur la commande créée (payload) ou celle complétée (après
@@ -193,6 +219,7 @@ export default function ServiceATable() {
         name: tableDisplayLabel({ tableIds: [tableId] }, tables),
         tableIds: [tableId],
         tableLabel: null,
+        reservationId: matchedResId || null,
         slotAllocations: finalPlan,
         pizzaCount,
         total,
@@ -200,7 +227,12 @@ export default function ServiceATable() {
         satAdditionAt: nowIso,
       });
     }).then(() => {
-      if (existing) updateOrder(existing.id, { satAdditionAt: nowIso }).catch((e) => console.error(e));
+      if (existing) {
+        updateOrder(existing.id, {
+          satAdditionAt: nowIso,
+          ...(matchedResId && !existing.reservationId ? { reservationId: matchedResId } : {}),
+        }).catch((e) => console.error(e));
+      }
     });
   }
 

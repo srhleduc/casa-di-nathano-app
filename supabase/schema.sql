@@ -2064,6 +2064,9 @@ create table if not exists reservations (id uuid primary key default gen_random_
 -- Zone (plan de salle) souhaitée par le client sur /reserver quand il y a
 -- plusieurs room_layouts. null = pas de préférence.
 alter table reservations add column if not exists preferred_layout_id uuid references room_layouts (id) on delete set null;
+-- Lien commande sur place -> réservation honorée (marque l'arrivée, la fin,
+-- pré-remplit la fidélité en caisse). Placé après la DDL de reservations.
+alter table orders add column if not exists reservation_id uuid references reservations (id) on delete set null;
 
 -- ---- Affectation table(s) <-> réservation -------------------------------
 -- restaurant_id dénormalisé pour aligner la RLS sur le reste du schéma.

@@ -18,6 +18,7 @@ import {
   useRoomLayouts,
   useReservationTableAssignments,
   useLoyaltyByPhones,
+  syncAutoReservationTables,
   setReservationTables,
   clearReservationTables,
   updateReservation,
@@ -219,9 +220,11 @@ export default function ReservationsBoard() {
   const loyaltyByPhone = useLoyaltyByPhones(resaPhones);
   const loyaltyFor = (r) => loyaltyByPhone[canonicalLoyaltyPhone(r.customerPhone) || ""] || null;
 
+  // Forçages manuels de l'équipe uniquement (les lignes auto persistées
+  // — assigned_manually = false — ne doivent pas figer le solveur).
   const manualByRes = useMemo(() => {
     const m = {};
-    for (const a of manualRows) (m[a.reservationId] = m[a.reservationId] || []).push(a.tableId);
+    for (const a of manualRows) if (a.manual) (m[a.reservationId] = m[a.reservationId] || []).push(a.tableId);
     return m;
   }, [manualRows]);
 
@@ -287,6 +290,21 @@ export default function ReservationsBoard() {
     for (const a of solveResult.assignments || []) m[a.reservationId] = a;
     return m;
   }, [solveResult]);
+
+  // Persiste le plan du solveur du JOUR (assigned_manually = false), après
+  // stabilisation, pour que la prise de commande puisse rapprocher une table
+  // d'une réservation même board fermé.
+  const syncTimer = useRef(null);
+  useEffect(() => {
+    if (!isToday) return undefined;
+    clearTimeout(syncTimer.current);
+    const pairs = (solveResult.assignments || []).map((a) => ({ reservationId: a.reservationId, tableIds: a.tableIds }));
+    const manualIds = Object.keys(manualByRes);
+    syncTimer.current = setTimeout(() => {
+      syncAutoReservationTables(pairs, { manualReservationIds: manualIds }).catch((e) => console.error(e));
+    }, 3000);
+    return () => clearTimeout(syncTimer.current);
+  }, [solveResult, isToday, manualByRes]);
 
   const effectiveTables = (rid) => manualByRes[rid] || asgByRes[rid]?.tableIds || [];
   // Zone (plan de salle) d'une réservation = layout de sa 1re table affectée,
