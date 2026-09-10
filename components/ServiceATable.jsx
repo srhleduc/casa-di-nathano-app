@@ -43,7 +43,7 @@ import {
   updateReservation,
   fetchOpenDineInOrderForTables,
 } from "@/lib/data";
-import { assignmentsByReservation, matchReservationForOrder, tablesLinkedTo } from "@/lib/reservation/order-link";
+import { assignmentsByReservation, matchReservationForOrder, tablesLinkedTo, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
 function nowWall() {
@@ -192,13 +192,12 @@ export default function ServiceATable() {
     // ouvrir (ou encaisser) la table pendant que le client composait son panier.
     const existing = findOpenDineInOrderForTables(orders, { tableIds: groupIds });
 
-    // Réservation confirmée posée sur cette table ? → arrivée + lien.
-    const matchedResId = matchReservationForOrder(
-      { tableIds: groupIds },
-      reservations,
-      assignmentsByReservation(resaAssignments),
-      nowWall()
-    );
+    // Réservation confirmée posée sur cette table (→ arrivée + lien), ou
+    // occupation déjà créée à la main sur le board (« Marquer occupée »).
+    const asgByRes = assignmentsByReservation(resaAssignments);
+    const matchedResId =
+      matchReservationForOrder({ tableIds: groupIds }, reservations, asgByRes, nowWall()) ||
+      seatedReservationForTables({ tableIds: groupIds }, reservations, asgByRes, nowWall());
     if (matchedResId) {
       const res = reservations.find((r) => r.id === matchedResId);
       if (res && res.status === "confirmed") {

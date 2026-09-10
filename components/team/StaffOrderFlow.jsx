@@ -1,20 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createReservation, setReservationTables, fetchOpenDineInOrderForTables } from "@/lib/data";
-import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
-import { estimateDurationMin } from "@/lib/reservation/slots";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
+import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
 // "YYYY-MM-DDTHH:MM:00" heure murale locale — même repère que requested_at.
-function wallClock(d) {
+function nowWall() {
+  const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
-}
-function nowWall() {
-  return wallClock(new Date());
 }
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
@@ -66,7 +63,16 @@ async function submitWithRetry(order, attempt = 1) {
   }
 }
 
-export default function StaffOrderFlow() {
+export default function StaffOrderFlow({ initialTableIds = null, onConsumed = null } = {}) {
+  // Lancé depuis le plan du board (« Prise de commande » sur une table) :
+  // sur place, table pré-cochée, on saute l'écran type de service / apéro.
+  const prefilled = Array.isArray(initialTableIds) && initialTableIds.length > 0;
+  // La pré-sélection est lue une fois dans les états initiaux — on la vide côté
+  // parent pour qu'un retour ultérieur sur cet onglet reparte propre.
+  useEffect(() => {
+    if (prefilled) onConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { orders } = useOrders();
   const { slots } = useSlots();
   const { ruptures } = useRuptures();
@@ -92,33 +98,12 @@ export default function StaffOrderFlow() {
   }
 
   // Table libre sur laquelle on prend une commande sans réservation préalable :
-  // on crée une réservation « Passage » déjà installée (seated) et forcée sur
-  // la/les table(s) cochée(s). La/les table(s) passent « occupée » sur le board
-  // et ne sont plus proposées (moteur + /reserver) jusqu'à l'encaissement, qui
-  // bascule la réservation en « terminée » (boucle du board). Plusieurs tables
-  // → assignation multiple = combinaison automatique (trait de liaison + statut
-  // « groupée »).
+  // réservation « Passage » installée (seated) forcée sur la/les table(s) →
+  // « occupée » (ou « groupée » à ≥2) sur le board, plus proposée jusqu'à
+  // l'encaissement (boucle du board). Voir createWalkInReservationForTables.
   async function createWalkInReservation(tableIds) {
-    const party =
-      tableIds.reduce((s, tid) => {
-        const t = tables.find((x) => x.id === tid);
-        return s + (t?.capacityPreferred || t?.capacityBase || 2);
-      }, 0) || 2;
-    const layoutId = tables.find((x) => x.id === tableIds[0])?.layoutId || null;
     try {
-      const rid = await createReservation({
-        customerName: "Passage",
-        customerPhone: null,
-        partySize: party,
-        requestedAt: wallClock(new Date(Date.now() - 60000)),
-        estimatedDurationMinutes: estimateDurationMin(party),
-        source: "walk_in",
-        status: "seated",
-        arrivedAt: new Date().toISOString(),
-        preferredLayoutId: layoutId,
-      });
-      await setReservationTables(rid, tableIds, { manual: true });
-      return rid;
+      return await createWalkInReservationForTables(tableIds, { tables });
     } catch (e) {
       console.error("Création de la réservation « Passage » échouée", e);
       return null;
@@ -131,12 +116,12 @@ export default function StaffOrderFlow() {
     [tables, tableNameCollator]
   );
 
-  const [screen, setScreen] = useState("service"); // service | apero-ask | order | checkout | slot | done
-  const [activeCat, setActiveCat] = useState("boisson");
+  const [screen, setScreen] = useState(prefilled ? "order" : "service"); // service | apero-ask | order | checkout | slot | done
+  const [activeCat, setActiveCat] = useState(prefilled ? "pizza" : "boisson");
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
   const [tableName, setTableName] = useState(""); // nom du client — cas "à emporter"
-  const [selectedTableIds, setSelectedTableIds] = useState([]); // sur place : tables cochées
+  const [selectedTableIds, setSelectedTableIds] = useState(prefilled ? [...initialTableIds] : []); // sur place : tables cochées
   const [otherTableLabel, setOtherTableLabel] = useState(""); // sur place : table hors registre
   const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
@@ -236,20 +221,18 @@ export default function StaffOrderFlow() {
     // concurrente — même chemin atomique (sat_append_items) que le lien /sat.
     // Jamais en mode test (on ne veut pas greffer des lignes test sur une vraie
     // commande, ni l'inverse).
-    // Réservation confirmée posée sur l'une des tables cochées ?
+    // Réservation confirmée posée sur l'une des tables cochées, ou occupation
+    // déjà créée à la main sur le board (« Marquer occupée » / « Combiner »).
+    const asgByRes = assignmentsByReservation(resaAssignments);
     const matchedResId =
       isDineIn && !testMode.enabled && selectedTableIds.length
-        ? matchReservationForOrder(
-            { tableIds: selectedTableIds },
-            reservations,
-            assignmentsByReservation(resaAssignments),
-            nowWall()
-          )
+        ? matchReservationForOrder({ tableIds: selectedTableIds }, reservations, asgByRes, nowWall()) ||
+          seatedReservationForTables({ tableIds: selectedTableIds }, reservations, asgByRes, nowWall())
         : null;
 
-    // Table réelle occupée sans réservation préalable → on crée une réservation
-    // « Passage » pour l'occuper (une seule table = "occupée", plusieurs =
-    // combinaison automatique). Pas en libellé libre (pas de table registre).
+    // Table réelle occupée sans réservation ni occupation préalable → on crée
+    // une réservation « Passage » pour l'occuper (1 table = "occupée",
+    // plusieurs = combinaison auto). Pas en libellé libre (pas de table registre).
     const needsWalkIn = isDineIn && !testMode.enabled && selectedTableIds.length > 0 && !matchedResId;
 
     const existing =
