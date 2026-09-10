@@ -15,6 +15,7 @@ import {
   useTables,
   useTableCombinations,
   useReservations,
+  useOrders,
   useRoomLayouts,
   useReservationTableAssignments,
   useLoyaltyByPhones,
@@ -29,7 +30,7 @@ import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
-import { tableDisplayName, sortByFillPriority, sortByComboPriority, canonicalLoyaltyPhone } from "@/lib/business";
+import { tableDisplayName, sortByFillPriority, sortByComboPriority, canonicalLoyaltyPhone, isOrderPaid } from "@/lib/business";
 import ResaNote from "@/components/ResaNote";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -158,6 +159,7 @@ export default function ReservationsBoard() {
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
+  const { orders } = useOrders();
   const { layouts } = useRoomLayouts();
   const { assignments: manualRows } = useReservationTableAssignments();
 
@@ -305,6 +307,30 @@ export default function ReservationsBoard() {
     }, 3000);
     return () => clearTimeout(syncTimer.current);
   }, [solveResult, isToday, manualByRes]);
+
+  // Commande sur place liée à chaque réservation (orders.reservation_id).
+  const linkedOrderByRes = useMemo(() => {
+    const m = {};
+    for (const o of orders) if (o.reservationId) m[o.reservationId] = o;
+    return m;
+  }, [orders]);
+
+  // Boucle fermée : une réservation « à table » dont la commande liée est
+  // servie / payée passe « terminée » (départ horodaté). L'arrivée, elle, est
+  // déclenchée côté prise de commande donc fiable même board fermé.
+  const closingRef = useRef(new Set());
+  useEffect(() => {
+    for (const r of dayReservations) {
+      if (r.status !== "seated") continue;
+      const o = linkedOrderByRes[r.id];
+      if (!o || !isOrderPaid(o)) continue;
+      if (closingRef.current.has(r.id)) continue;
+      closingRef.current.add(r.id);
+      updateReservation(r.id, { status: "completed", departedAt: new Date().toISOString() })
+        .catch((e) => console.error(e))
+        .finally(() => closingRef.current.delete(r.id));
+    }
+  }, [dayReservations, linkedOrderByRes]);
 
   const effectiveTables = (rid) => manualByRes[rid] || asgByRes[rid]?.tableIds || [];
   // Zone (plan de salle) d'une réservation = layout de sa 1re table affectée,
@@ -720,6 +746,16 @@ export default function ReservationsBoard() {
               >
                 {r.status === "seated" ? "à table" : r.status === "completed" ? "parti" : "confirmée"}
               </span>
+              {linkedOrderByRes[r.id] && (
+                <span
+                  className="text-xs rounded-full px-2 py-0.5"
+                  style={{ background: "#1c2c3a", color: "#a8c8e8" }}
+                  title="Commande sur place liée à cette réservation"
+                >
+                  🍽️ {Number(linkedOrderByRes[r.id].total || 0).toFixed(2)} € ·{" "}
+                  {isOrderPaid(linkedOrderByRes[r.id]) ? "servie / payée" : "en cours"}
+                </span>
+              )}
               <span className="text-xs">
                 {tids.length ? (
                   <>
