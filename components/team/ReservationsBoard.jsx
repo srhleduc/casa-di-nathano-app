@@ -17,6 +17,7 @@ import {
   useReservations,
   useRoomLayouts,
   useReservationTableAssignments,
+  useLoyaltyByPhones,
   setReservationTables,
   clearReservationTables,
   updateReservation,
@@ -27,7 +28,7 @@ import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
-import { tableDisplayName, sortByFillPriority, sortByComboPriority } from "@/lib/business";
+import { tableDisplayName, sortByFillPriority, sortByComboPriority, canonicalLoyaltyPhone } from "@/lib/business";
 import ResaNote from "@/components/ResaNote";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -209,6 +210,14 @@ export default function ReservationsBoard() {
   const closedLayoutIds = useMemo(() => new Set(layouts.filter((l) => l.active === false).map((l) => l.id)), [layouts]);
   const solverTables = useMemo(() => activeTables.filter((t) => !closedLayoutIds.has(t.layoutId)), [activeTables, closedLayoutIds]);
   const comboById = useMemo(() => Object.fromEntries(combinations.map((c) => [c.id, c])), [combinations]);
+
+  // Comptes fidélité rapprochés du téléphone des réservations du jour.
+  const resaPhones = useMemo(
+    () => [...new Set(dayReservations.map((r) => canonicalLoyaltyPhone(r.customerPhone)).filter(Boolean))],
+    [dayReservations]
+  );
+  const loyaltyByPhone = useLoyaltyByPhones(resaPhones);
+  const loyaltyFor = (r) => loyaltyByPhone[canonicalLoyaltyPhone(r.customerPhone) || ""] || null;
 
   const manualByRes = useMemo(() => {
     const m = {};
@@ -672,6 +681,15 @@ export default function ReservationsBoard() {
               <span className="font-bold min-w-[120px]">{r.customerName || "—"}</span>
               <span className="text-[#a88f78]">{r.partySize} pers.</span>
               <span className="text-xs text-[#8a7561]">{r.customerPhone || ""}</span>
+              {loyaltyFor(r) && (
+                <span
+                  className="text-xs font-bold rounded-full px-2 py-0.5"
+                  style={{ background: "#3a2f12", color: "#f0c860" }}
+                  title="Compte fidélité rattaché à ce numéro"
+                >
+                  ⭐ {loyaltyFor(r).nom || "fidèle"} · {loyaltyFor(r).soldePoints} pts
+                </span>
+              )}
               <span
                 className="text-xs rounded-full px-2 py-0.5"
                 style={
