@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createReservation, setReservationTables } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createReservation, setReservationTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
 import { estimateDurationMin } from "@/lib/reservation/slots";
 import { useRestaurant } from "@/lib/restaurant";
@@ -37,6 +37,26 @@ async function submitWithRetry(order, attempt = 1) {
   try {
     return await insertOrder(order);
   } catch (err) {
+    // Une commande sur place vient d'être ouverte pour cette table au même
+    // instant (/sat client, autre poste) → l'index d'unicité rejette la 2e.
+    // On bascule en ajout à la commande existante plutôt que d'en créer une 2e.
+    if (err?.code === "23505" && (order.tableIds || []).length && !order.isTest) {
+      try {
+        const fresh = await fetchOpenDineInOrderForTables(order.tableIds);
+        if (fresh) {
+          await appendItemsToOrder(fresh.id, {
+            newItems: order.items,
+            addedTotal: order.total,
+            addedPizzaCount: order.pizzaCount,
+            reopenKitchen: kitchenPendingQty(order.items) > 0,
+            extraTableIds: order.tableIds,
+          });
+          return null;
+        }
+      } catch (mergeErr) {
+        console.error("Fusion après conflit d'insertion échouée", mergeErr);
+      }
+    }
     if (attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(order, attempt + 1);
@@ -273,7 +293,8 @@ export default function StaffOrderFlow() {
       name: isDineIn
         ? tableDisplayLabel({ tableIds: selectedTableIds, tableLabel: otherTableLabel }, tables)
         : tableName || "Commande équipe",
-      tableIds: isDineIn ? selectedTableIds : [],
+      // trié : clé stable pour l'index d'unicité orders_one_open_dinein_tables.
+      tableIds: isDineIn ? [...selectedTableIds].sort() : [],
       tableLabel: isDineIn ? otherTableLabel.trim() || null : null,
       reservationId: matchedResId || null,
       note: note.trim() || null,
