@@ -3,15 +3,18 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createReservation, setReservationTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
+import { estimateDurationMin } from "@/lib/reservation/slots";
 import { useRestaurant } from "@/lib/restaurant";
 
 // "YYYY-MM-DDTHH:MM:00" heure murale locale — même repère que requested_at.
-function nowWall() {
-  const d = new Date();
+function wallClock(d) {
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+}
+function nowWall() {
+  return wallClock(new Date());
 }
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
@@ -65,6 +68,40 @@ export default function StaffOrderFlow() {
     const res = reservations.find((r) => r.id === resId);
     if (res && res.status === "confirmed") {
       updateReservation(resId, { status: "seated", arrivedAt: new Date().toISOString() }).catch((e) => console.error(e));
+    }
+  }
+
+  // Table libre sur laquelle on prend une commande sans réservation préalable :
+  // on crée une réservation « Passage » déjà installée (seated) et forcée sur
+  // la/les table(s) cochée(s). La/les table(s) passent « occupée » sur le board
+  // et ne sont plus proposées (moteur + /reserver) jusqu'à l'encaissement, qui
+  // bascule la réservation en « terminée » (boucle du board). Plusieurs tables
+  // → assignation multiple = combinaison automatique (trait de liaison + statut
+  // « groupée »).
+  async function createWalkInReservation(tableIds) {
+    const party =
+      tableIds.reduce((s, tid) => {
+        const t = tables.find((x) => x.id === tid);
+        return s + (t?.capacityPreferred || t?.capacityBase || 2);
+      }, 0) || 2;
+    const layoutId = tables.find((x) => x.id === tableIds[0])?.layoutId || null;
+    try {
+      const rid = await createReservation({
+        customerName: "Passage",
+        customerPhone: null,
+        partySize: party,
+        requestedAt: wallClock(new Date(Date.now() - 60000)),
+        estimatedDurationMinutes: estimateDurationMin(party),
+        source: "walk_in",
+        status: "seated",
+        arrivedAt: new Date().toISOString(),
+        preferredLayoutId: layoutId,
+      });
+      await setReservationTables(rid, tableIds, { manual: true });
+      return rid;
+    } catch (e) {
+      console.error("Création de la réservation « Passage » échouée", e);
+      return null;
     }
   }
 
@@ -190,6 +227,11 @@ export default function StaffOrderFlow() {
           )
         : null;
 
+    // Table réelle occupée sans réservation préalable → on crée une réservation
+    // « Passage » pour l'occuper (une seule table = "occupée", plusieurs =
+    // combinaison automatique). Pas en libellé libre (pas de table registre).
+    const needsWalkIn = isDineIn && !testMode.enabled && selectedTableIds.length > 0 && !matchedResId;
+
     const existing =
       isDineIn && !testMode.enabled
         ? findOpenDineInOrderForTables(orders, { tableIds: selectedTableIds, tableLabel: otherTableLabel })
@@ -208,6 +250,11 @@ export default function StaffOrderFlow() {
         updateOrder(existing.id, { reservationId: matchedResId }).catch((e) => console.error(e));
       }
       linkReservationSeated(matchedResId);
+      if (needsWalkIn && !existing.reservationId) {
+        createWalkInReservation(selectedTableIds).then((rid) => {
+          if (rid) updateOrder(existing.id, { reservationId: rid }).catch((e) => console.error(e));
+        });
+      }
       return;
     }
 
@@ -240,8 +287,14 @@ export default function StaffOrderFlow() {
       isTest: testMode.enabled,
     };
     setScreen("done");
-    submitWithRetry(newOrder).then(setConfirmedNumber);
-    linkReservationSeated(matchedResId);
+    if (needsWalkIn) {
+      createWalkInReservation(selectedTableIds).then((rid) => {
+        submitWithRetry({ ...newOrder, reservationId: rid || null }).then(setConfirmedNumber);
+      });
+    } else {
+      submitWithRetry(newOrder).then(setConfirmedNumber);
+      linkReservationSeated(matchedResId);
+    }
   }
 
   function goToSlot() {
