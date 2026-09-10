@@ -25,13 +25,26 @@ import {
   updateReservation,
   createReservation,
   setRoomLayoutActive,
+  updateOrder,
 } from "@/lib/data";
 import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
-import { tableDisplayName, sortByFillPriority, sortByComboPriority, canonicalLoyaltyPhone, isOrderPaid } from "@/lib/business";
+import {
+  tableDisplayName,
+  sortByFillPriority,
+  sortByComboPriority,
+  canonicalLoyaltyPhone,
+  isOrderPaid,
+  isOrderActiveToday,
+  isTakeawayLike,
+  hasUnseenSatAddition,
+} from "@/lib/business";
+import { eur } from "@/lib/menu";
 import ResaNote from "@/components/ResaNote";
+import GroupedItemList from "@/components/GroupedItemList";
+import OrderNote from "@/components/OrderNote";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
@@ -58,7 +71,19 @@ const PINK = "#D9689F";
 
 const COMBO_LINK = "#3f6ab5"; // trait de liaison entre tables combinées (= « groupée »)
 
-function PlanView({ layout, placedTables, statuses, labelById, resById, highlightIds = null, noteByTable = null, comboGroups = null }) {
+function PlanView({
+  layout,
+  placedTables,
+  statuses,
+  labelById,
+  resById,
+  highlightIds = null,
+  noteByTable = null,
+  comboGroups = null,
+  onSelectTable = null,
+  selectedTableId = null,
+  flaggedTableIds = null,
+}) {
   if (!layout) return null;
   const cols = layout.gridCols || 12;
   const rows = layout.gridRows || 12;
@@ -117,10 +142,13 @@ function PlanView({ layout, placedTables, statuses, labelById, resById, highligh
           const highlighted = highlightIds ? highlightIds.has(t.id) : false;
           const dim = highlightIds && !highlighted;
           const note = noteByTable?.[t.id] || null;
+          const flagged = flaggedTableIds ? flaggedTableIds.has(t.id) : false;
+          const selected = selectedTableId === t.id;
           return (
             <div
               key={t.id}
               title={`${labelById[t.id]} — ${s.label}`}
+              onClick={onSelectTable ? () => onSelectTable(t.id) : undefined}
               className="absolute flex flex-col items-center justify-center rounded-md text-center overflow-hidden"
               style={{
                 left: t.gridCol * CELL + 2,
@@ -129,13 +157,25 @@ function PlanView({ layout, placedTables, statuses, labelById, resById, highligh
                 height: CELL - 4,
                 background: highlighted ? "#2c1a24" : s.bg,
                 border: highlighted ? `2px solid ${PINK}` : `2px solid ${s.border}`,
-                boxShadow: highlighted ? `0 0 0 2px ${PINK}55` : "none",
+                boxShadow: selected
+                  ? "0 0 0 3px #e8622c"
+                  : highlighted
+                  ? `0 0 0 2px ${PINK}55`
+                  : "none",
                 opacity: dim ? 0.3 : 1,
                 fontSize: 10,
                 color: "#f5ebdd",
                 fontWeight: 700,
+                cursor: onSelectTable ? "pointer" : "default",
               }}
             >
+              {flagged && (
+                <span
+                  className="absolute rounded-full"
+                  style={{ top: 2, right: 2, width: 8, height: 8, background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                  aria-label="Ajout client /sat non pointé"
+                />
+              )}
               <span>{labelById[t.id]}</span>
               {note ? (
                 <span className="text-[8px] font-normal opacity-90">{note}</span>
@@ -401,6 +441,69 @@ export default function ReservationsBoard() {
     }
     return out;
   }, [placedTables, selectedService, selectedServiceInfo, dayReservations, manualByRes, asgByRes]);
+
+  // --- Commandes sur place par table : plan cliquable + point rose /sat ---
+  // Même mécanique que l'écran Service. L'état (satAdditionAt / it.satNew) vit
+  // sur la commande → pointer ici l'efface sur l'écran Service en temps réel,
+  // et inversement.
+  const [selectedTableId, setSelectedTableId] = useState(null);
+
+  const activeDineInOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => !isTakeawayLike(o.serviceType) && o.status !== "servie" && !isOrderPaid(o) && isOrderActiveToday(o)
+      ),
+    [orders]
+  );
+
+  // table.id -> commande sur place ouverte (une table = une commande active).
+  const orderByTableId = useMemo(() => {
+    const m = {};
+    for (const o of activeDineInOrders) {
+      for (const tid of o.tableIds || []) if (!m[tid]) m[tid] = o;
+      const lbl = (o.tableLabel || "").trim().toLowerCase();
+      if (lbl) {
+        const t = tables.find((x) => tableDisplayName(x).trim().toLowerCase() === lbl);
+        if (t && !m[t.id]) m[t.id] = o;
+      }
+    }
+    return m;
+  }, [activeDineInOrders, tables]);
+
+  // Tables dont la commande porte un ajout /sat pas encore pointé.
+  const flaggedTableIds = useMemo(() => {
+    const s = new Set();
+    for (const [tid, o] of Object.entries(orderByTableId)) if (hasUnseenSatAddition(o)) s.add(tid);
+    return s;
+  }, [orderByTableId]);
+
+  // Clic sur un carré : ouvre / referme le résumé et éteint la pastille
+  // commande (comme la pastille de l'écran Service). Les points roses par
+  // article restent à pointer un par un.
+  function toggleTablePanel(tid) {
+    setSelectedTableId((cur) => (cur === tid ? null : tid));
+    const o = orderByTableId[tid];
+    if (o && o.satAdditionAt) updateOrder(o.id, { satAdditionAt: null }).catch((e) => console.error(e));
+  }
+
+  // Point rose d'une ligne pointée par la serveuse (clic sur le point ou la
+  // ligne). Quand plus aucune ligne n'attend, on efface aussi la pastille.
+  function ackSatItem(order, targetItem) {
+    const updatedItems = order.items.map((it) => (it === targetItem ? { ...it, satNew: false } : it));
+    const patch = { items: updatedItems };
+    if (order.satAdditionAt && !updatedItems.some((it) => it.satNew)) patch.satAdditionAt = null;
+    updateOrder(order.id, patch).catch((e) => console.error(e));
+  }
+
+  // Le résumé se referme quand on change de plan ou de jour (le carré
+  // sélectionné n'est plus à l'écran).
+  useEffect(() => setSelectedTableId(null), [layoutId, date]);
+
+  const selectedOrder = selectedTableId ? orderByTableId[selectedTableId] || null : null;
+  const selectedTable = selectedTableId ? tables.find((t) => t.id === selectedTableId) || null : null;
+  const selectedTableResa = selectedTableId
+    ? dayReservations.find((r) => r.status !== "completed" && effectiveTables(r.id).includes(selectedTableId)) || null
+    : null;
 
   const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
@@ -669,7 +772,52 @@ export default function ReservationsBoard() {
             highlightIds={selectedService ? selectedServiceInfo.highlightIds : null}
             noteByTable={selectedService ? selectedServiceInfo.noteByTable : null}
             comboGroups={comboGroups}
+            onSelectTable={toggleTablePanel}
+            selectedTableId={selectedTableId}
+            flaggedTableIds={flaggedTableIds}
           />
+          {selectedTableId && (
+            <div className="mt-3 rounded-xl border-2 p-4" style={{ borderColor: "#e8622c", background: "#211712" }}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="font-bold">
+                  {selectedTable ? tableDisplayName(selectedTable) : "Table"}
+                  {selectedTableResa && (
+                    <span className="ml-2 text-xs font-normal text-[#a88f78]">
+                      résa {selectedTableResa.customerName || "—"} · {selectedTableResa.partySize} pers. ·{" "}
+                      {hhmm(startMinOf(selectedTableResa))}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedTableId(null)}
+                  className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
+                >
+                  ✕ Fermer
+                </button>
+              </div>
+              {selectedTableResa?.note && (
+                <div className="mb-2">
+                  <ResaNote note={selectedTableResa.note} />
+                </div>
+              )}
+              {selectedOrder ? (
+                <>
+                  <div className="display-font text-lg font-bold mb-1">{selectedOrder.name}</div>
+                  <GroupedItemList
+                    items={selectedOrder.items}
+                    className="mb-2"
+                    onAckItem={(it) => ackSatItem(selectedOrder, it)}
+                  />
+                  <div className="text-sm font-bold" style={{ color: "#E8B23D" }}>
+                    {eur(selectedOrder.total)}
+                  </div>
+                  <OrderNote note={selectedOrder.note} />
+                </>
+              ) : (
+                <p className="text-sm text-[#8a7561]">Aucune commande en cours sur cette table.</p>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <div className="text-xs text-[#5a4a3a] mb-3">
