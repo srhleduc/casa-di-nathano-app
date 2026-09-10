@@ -3,8 +3,16 @@
 import { useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, insertOrder, appendItemsToOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation } from "@/lib/data";
+import { assignmentsByReservation, matchReservationForOrder } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
+
+// "YYYY-MM-DDTHH:MM:00" heure murale locale — même repère que requested_at.
+function nowWall() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+}
 
 import ServiceTypeScreen from "../ServiceTypeScreen";
 import AperoAskScreen from "../AperoAskScreen";
@@ -46,7 +54,19 @@ export default function StaffOrderFlow() {
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
   const { tables } = useTables();
+  const { reservations } = useReservations();
+  const { assignments: resaAssignments } = useReservationTableAssignments();
   const restaurant = useRestaurant();
+
+  // Rapproche une commande sur place d'une réservation confirmée posée sur la
+  // même table → la marque « arrivée » et la lie à la commande.
+  function linkReservationSeated(resId) {
+    if (!resId) return;
+    const res = reservations.find((r) => r.id === resId);
+    if (res && res.status === "confirmed") {
+      updateReservation(resId, { status: "seated", arrivedAt: new Date().toISOString() }).catch((e) => console.error(e));
+    }
+  }
 
   const tableNameCollator = useMemo(() => new Intl.Collator("fr", { numeric: true, sensitivity: "base" }), []);
   const activeTables = useMemo(
@@ -159,6 +179,17 @@ export default function StaffOrderFlow() {
     // concurrente — même chemin atomique (sat_append_items) que le lien /sat.
     // Jamais en mode test (on ne veut pas greffer des lignes test sur une vraie
     // commande, ni l'inverse).
+    // Réservation confirmée posée sur l'une des tables cochées ?
+    const matchedResId =
+      isDineIn && !testMode.enabled && selectedTableIds.length
+        ? matchReservationForOrder(
+            { tableIds: selectedTableIds },
+            reservations,
+            assignmentsByReservation(resaAssignments),
+            nowWall()
+          )
+        : null;
+
     const existing =
       isDineIn && !testMode.enabled
         ? findOpenDineInOrderForTables(orders, { tableIds: selectedTableIds, tableLabel: otherTableLabel })
@@ -173,6 +204,10 @@ export default function StaffOrderFlow() {
         reopenKitchen: kitchenPendingQty(items) > 0,
         extraTableIds: selectedTableIds,
       }).catch((err) => console.error("Échec de l'ajout à la commande ouverte", err));
+      if (matchedResId && !existing.reservationId) {
+        updateOrder(existing.id, { reservationId: matchedResId }).catch((e) => console.error(e));
+      }
+      linkReservationSeated(matchedResId);
       return;
     }
 
@@ -193,6 +228,7 @@ export default function StaffOrderFlow() {
         : tableName || "Commande équipe",
       tableIds: isDineIn ? selectedTableIds : [],
       tableLabel: isDineIn ? otherTableLabel.trim() || null : null,
+      reservationId: matchedResId || null,
       note: note.trim() || null,
       slotAllocations: finalPlan || [],
       slotForced: !!forced,
@@ -205,6 +241,7 @@ export default function StaffOrderFlow() {
     };
     setScreen("done");
     submitWithRetry(newOrder).then(setConfirmedNumber);
+    linkReservationSeated(matchedResId);
   }
 
   function goToSlot() {
