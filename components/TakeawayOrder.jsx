@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, normalizePhoneFr, TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useCategoryOrder, useTakeawayLinkStatus, submitTakeawayOrderWithCommitment } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useCategoryOrder, useTakeawayLinkStatus, useActiveMenuServiceGroups, submitTakeawayOrderWithCommitment } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -77,6 +77,7 @@ export default function TakeawayOrder() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const activeServiceGroups = useActiveMenuServiceGroups();
   const { categoryOrder } = useCategoryOrder();
   const { suspended, loading: suspendedLoading } = useTakeawayLinkStatus();
   const restaurant = useRestaurant();
@@ -254,6 +255,7 @@ export default function TakeawayOrder() {
           showPhotos={true}
           clientView
           serviceType={serviceType}
+          activeServiceGroups={activeServiceGroups}
           topBanner={availabilityBanner}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}

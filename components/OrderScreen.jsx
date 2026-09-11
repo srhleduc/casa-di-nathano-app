@@ -35,6 +35,11 @@ export default function OrderScreen({
   // Ordre des catégories choisi en Direction pour ce contexte (client / équipe).
   // Absent ou vide → ordre naturel de CATEGORIES.
   categoryOrder,
+  // Groupes de service ("midi"/"soir") actuellement ouverts (voir
+  // useActiveMenuServiceGroups) — filtre les produits restreints à un seul
+  // service (menu_items.serviceRestriction). Prop absente/non fournie =
+  // aucun filtrage (repli permissif, pour les écrans pas encore branchés).
+  activeServiceGroups,
 }) {
   const fullMenu = menu || [];
   const { forItem: optionGroupsForItem } = useOptionGroups();
@@ -49,12 +54,16 @@ export default function OrderScreen({
   // Drapeaux de disponibilité de l'admin Menu (Direction) : "sur place
   // uniquement" (dineInOnly) masqué en à emporter, "à emporter uniquement"
   // (takeawayOnly) masqué en sur place, "réservé espace équipe" (staffOnly)
-  // masqué de tout parcours client. Structurel — à distinguer des ruptures et
-  // stocks du jour épuisés, qui gardent leur onglet avec un message dédié.
+  // masqué de tout parcours client, "service du midi/soir uniquement"
+  // (serviceRestriction) masqué tant que ce groupe de service n'est pas
+  // ouvert (activeServiceGroups — absent = pas de filtrage, écran pas encore
+  // branché). Structurel — à distinguer des ruptures et stocks du jour
+  // épuisés, qui gardent leur onglet avec un message dédié.
   function isStructurallyAvailable(m) {
     if (m.staffOnly && !staffMode) return false;
     if (isTakeaway && m.dineInOnly) return false;
     if (!isTakeaway && m.takeawayOnly) return false;
+    if (m.serviceRestriction && activeServiceGroups && !activeServiceGroups.has(m.serviceRestriction)) return false;
     return true;
   }
 

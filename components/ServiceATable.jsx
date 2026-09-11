@@ -32,6 +32,7 @@ import {
   useDessertStock,
   usePizzaStock,
   useMenu,
+  useActiveMenuServiceGroups,
   useTables,
   useServiceTypeSettings,
   useCategoryOrder,
@@ -103,6 +104,7 @@ export default function ServiceATable() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const activeServiceGroups = useActiveMenuServiceGroups();
   const { tables, loading: tablesLoading } = useTables();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
@@ -327,6 +329,7 @@ export default function ServiceATable() {
           showPhotos={true}
           clientView
           serviceType={DINE_IN}
+          activeServiceGroups={activeServiceGroups}
           onFinishApero={() => {}}
         />
       )}

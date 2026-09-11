@@ -1921,6 +1921,16 @@ alter table menu_items add column if not exists takeaway_only boolean not null d
 alter table menu_items add column if not exists staff_only boolean not null default false;
 
 -- =====================================================================
+-- Menu — restriction à un service (admin Menu, Direction). "midi" | "soir"
+-- | null (tous les services). Masqué partout où l'on commande tant que ce
+-- groupe de service n'est pas ouvert d'après les services de réservation
+-- résolus du jour (lib/reservation/services.js activeServiceGroups),
+-- coupure identique à la formule du midi (PANUZZO_CUTOFF_HOUR).
+-- (Repris dans supabase/migrations_manual/menu_item_service_restriction.sql.)
+-- =====================================================================
+alter table menu_items add column if not exists service_restriction text;
+
+-- =====================================================================
 -- Parfums des glaces / sirops — éditables depuis l'admin Menu (Direction),
 -- au lieu des listes codées en dur dans lib/menu.js (conservées comme repli).
 -- Catalogue partagé, lecture ouverte, écriture managers.

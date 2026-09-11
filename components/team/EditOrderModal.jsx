@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder } from "@/lib/data";
+import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
 import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
@@ -20,6 +20,7 @@ const SERVICE_OPTIONS = [
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
+  const activeServiceGroups = useActiveMenuServiceGroups();
   const [view, setView] = useState("summary"); // summary | add | slot
   const [activeCat, setActiveCat] = useState("pizza");
   const [items, setItems] = useState(order.items);
@@ -191,6 +192,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           menu={menu}
           restaurantName={name || order.name}
           serviceType={serviceType}
+          activeServiceGroups={activeServiceGroups}
           staffMode
           onFinishApero={() => {}}
         />
