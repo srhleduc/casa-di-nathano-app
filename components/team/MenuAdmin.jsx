@@ -25,7 +25,18 @@ function ingredientNamesFromMenu(menuItems) {
     .sort();
 }
 
-const EMPTY_FORM = { name: "", cat: "pizza", price: "", ingredients: [], photoUrl: "", dineInOnly: false, takeawayOnly: false, staffOnly: false, featured: false };
+const EMPTY_FORM = {
+  name: "",
+  cat: "pizza",
+  price: "",
+  ingredients: [],
+  photoUrl: "",
+  dineInOnly: false,
+  takeawayOnly: false,
+  staffOnly: false,
+  featured: false,
+  serviceRestriction: null, // null | "midi" | "soir"
+};
 
 // Éditeur des sous-catégories (« options ») d'un produit : rattacher / créer une
 // sous-catégorie, régler son nombre de choix et son caractère obligatoire,
@@ -233,6 +244,7 @@ export default function MenuAdmin({ canEdit = false }) {
       takeawayOnly: item.takeawayOnly || false,
       staffOnly: item.staffOnly || false,
       featured: item.featured || false,
+      serviceRestriction: item.serviceRestriction || null,
     });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -272,6 +284,7 @@ export default function MenuAdmin({ canEdit = false }) {
       takeawayOnly: form.takeawayOnly,
       staffOnly: form.staffOnly,
       featured: form.featured,
+      serviceRestriction: form.serviceRestriction,
     };
     try {
       if (editingId) {
@@ -328,6 +341,8 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
                 {item.takeawayOnly ? " · 🥡 à emporter" : ""}
                 {item.staffOnly ? " · 👥 équipe" : ""}
+                {item.serviceRestriction === "midi" ? " · ☀️ midi" : ""}
+                {item.serviceRestriction === "soir" ? " · 🌙 soir" : ""}
                 {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>
@@ -400,6 +415,28 @@ export default function MenuAdmin({ canEdit = false }) {
             {form.staffOnly ? "✓ " : ""}👥 Disponible uniquement pour l'espace équipe
           </button>
           <div className="text-xs text-[#5a4a3a] mt-1">Jamais visible côté client (borne, lien /commande, lien /sat) — seulement en prise de commande, édition et commande programmée.</div>
+        </div>
+
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setForm({ ...form, serviceRestriction: form.serviceRestriction === "midi" ? null : "midi" })}
+              className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+              style={form.serviceRestriction === "midi" ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+            >
+              {form.serviceRestriction === "midi" ? "✓ " : ""}☀️ Uniquement pour le service du midi
+            </button>
+            <button
+              onClick={() => setForm({ ...form, serviceRestriction: form.serviceRestriction === "soir" ? null : "soir" })}
+              className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+              style={form.serviceRestriction === "soir" ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+            >
+              {form.serviceRestriction === "soir" ? "✓ " : ""}🌙 Uniquement pour le service du soir
+            </button>
+          </div>
+          <div className="text-xs text-[#5a4a3a] mt-1">
+            Masqué partout où l'on commande tant que ce service n'est pas ouvert (d'après les services de l'écran Réservations) — jour de fermeture inclus. Les deux boutons sont exclusifs ; aucun des deux = tous les services.
+          </div>
         </div>
 
         <div className="mb-4">
@@ -504,6 +541,8 @@ export default function MenuAdmin({ canEdit = false }) {
                 {item.dineInOnly ? " · 🍽️ sur place" : ""}
                 {item.takeawayOnly ? " · 🥡 à emporter" : ""}
                 {item.staffOnly ? " · 👥 équipe" : ""}
+                {item.serviceRestriction === "midi" ? " · ☀️ midi" : ""}
+                {item.serviceRestriction === "soir" ? " · 🌙 soir" : ""}
                 {item.featured ? " · ★ mis en avant" : ""}
               </div>
             </div>

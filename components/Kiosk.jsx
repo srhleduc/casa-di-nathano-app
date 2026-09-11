@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -54,6 +54,7 @@ export default function Kiosk() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const activeServiceGroups = useActiveMenuServiceGroups();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
   const restaurant = useRestaurant();
@@ -222,6 +223,7 @@ export default function Kiosk() {
           showPhotos={true}
           clientView
           serviceType={serviceType}
+          activeServiceGroups={activeServiceGroups}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {
             setAperoMode(false);

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useActiveMenuServiceGroups, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -79,6 +79,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
+  const activeServiceGroups = useActiveMenuServiceGroups();
   const { testMode } = useTestMode();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
@@ -421,6 +422,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           menu={menuItems}
           restaurantName={restaurant.name}
           serviceType={serviceType}
+          activeServiceGroups={activeServiceGroups}
           topBanner={availabilityBanner}
           staffMode
           onFinishApero={() => {
