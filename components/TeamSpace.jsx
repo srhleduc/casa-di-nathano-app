@@ -29,6 +29,8 @@ import ServiceTypesAdmin from "./team/ServiceTypesAdmin";
 import TablesAdmin from "./team/TablesAdmin";
 import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
 import LoyaltyAdmin from "./team/LoyaltyAdmin";
+import PointageKiosk from "./team/PointageKiosk";
+import StaffManagement from "./team/StaffManagement";
 
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
@@ -37,10 +39,11 @@ const ZONE_LABELS = {
   reservation: " · Tables / Réservation",
   logistique: " · Logistique service",
   fidelite: " · Fidélité",
+  personnel: " · Personnel",
 };
 
 export default function TeamSpace({ onExit }) {
-  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "reservation" | "logistique" | "fidelite"
+  const [zone, setZone] = useState(null); // null | "equipe" | "commandes" | "avant-service" | "reservation" | "logistique" | "fidelite" | "personnel"
   const [tab, setTab] = useState(null);
   const [schedulingNew, setSchedulingNew] = useState(false);
   // Table pré-cochée quand la prise de commande est lancée depuis le plan du
@@ -199,6 +202,11 @@ export default function TeamSpace({ onExit }) {
             <span className="display-font text-3xl font-bold">Fidélité</span>
             <span className="text-[#a88f78]">Clients · Points · Bons</span>
           </button>
+          <button onClick={() => goZone("personnel", "kiosk")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+            <span className="text-5xl mb-2">🕐</span>
+            <span className="display-font text-3xl font-bold">Personnel</span>
+            <span className="text-[#a88f78]">Badgeuse · Gestion du personnel</span>
+          </button>
         </div>
       )}
 
@@ -314,6 +322,17 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("clients")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "clients" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Clients</button>
           </div>
           {tab === "clients" && <LoyaltyAdmin readOnly={readOnly} />}
+        </>
+      )}
+
+      {zone === "personnel" && (
+        <>
+          <div className="flex gap-3 px-6 py-4 overflow-x-auto">
+            <button onClick={() => setTab("kiosk")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kiosk" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🕐 Badgeuse</button>
+            <button onClick={() => setTab("staff")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Personnel</button>
+          </div>
+          {tab === "kiosk" && <PointageKiosk readOnly={readOnly} />}
+          {tab === "staff" && <StaffManagement readOnly={readOnly} />}
         </>
       )}
     </div>
