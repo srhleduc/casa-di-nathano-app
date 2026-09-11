@@ -35,7 +35,7 @@ import {
 } from "@/lib/data";
 import { servicesForDate } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
-import { computeTableStatuses, serviceSynthesis } from "@/lib/reservation/board";
+import { computeTableStatuses, serviceSynthesis, reservationsToAutoLock } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
 import {
   tableDisplayName,
@@ -371,20 +371,43 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     return m;
   }, [solveResult]);
 
+  const boardReservations = useMemo(
+    () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize), status: r.status, partySize: r.partySize })),
+    [dayReservations]
+  );
+
   // Persiste le plan du solveur du JOUR (assigned_manually = false), après
   // stabilisation, pour que la prise de commande puisse rapprocher une table
   // d'une réservation même board fermé.
+  //
+  // Avant le début de son service, l'affectation d'une réservation reste
+  // libre — réoptimisée par le moteur à chaque changement (nouvelle résa,
+  // annulation…), et échangeable à la main par l'équipe. Dès que le service
+  // commence, sa place doit être définie jusqu'à l'arrivée des clients : on
+  // la verrouille (comme un forçage manuel) telle qu'elle est à cet instant,
+  // AVANT de persister le plan auto — pour que la table verrouillée ne soit
+  // pas réécrite en auto par la même passe (reservationsToAutoLock exclut
+  // déjà les réservations en manualByRes ; on ajoute ici celles qu'on vient
+  // de verrouiller, avant que le realtime ne les fasse apparaître).
   const syncTimer = useRef(null);
   useEffect(() => {
     if (!isToday) return undefined;
     clearTimeout(syncTimer.current);
-    const pairs = (solveResult.assignments || []).map((a) => ({ reservationId: a.reservationId, tableIds: a.tableIds }));
-    const manualIds = Object.keys(manualByRes);
-    syncTimer.current = setTimeout(() => {
-      syncAutoReservationTables(pairs, { manualReservationIds: manualIds }).catch((e) => console.error(e));
+    syncTimer.current = setTimeout(async () => {
+      try {
+        const toLock = reservationsToAutoLock(boardReservations, services, asgByRes, manualByRes, nowMin);
+        for (const { reservationId, tableIds } of toLock) {
+          await setReservationTables(reservationId, tableIds, { manual: true });
+        }
+        const pairs = (solveResult.assignments || []).map((a) => ({ reservationId: a.reservationId, tableIds: a.tableIds }));
+        const manualIds = [...Object.keys(manualByRes), ...toLock.map((x) => x.reservationId)];
+        await syncAutoReservationTables(pairs, { manualReservationIds: manualIds });
+      } catch (e) {
+        console.error(e);
+      }
     }, 3000);
     return () => clearTimeout(syncTimer.current);
-  }, [solveResult, isToday, manualByRes]);
+  }, [solveResult, isToday, manualByRes, boardReservations, services, asgByRes, nowMin]);
 
   // Commande sur place liée à chaque réservation (orders.reservation_id).
   const linkedOrderByRes = useMemo(() => {
@@ -422,10 +445,6 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     return r.preferredLayoutId || null;
   };
 
-  const boardReservations = useMemo(
-    () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize), status: r.status, partySize: r.partySize })),
-    [dayReservations]
-  );
   // Commandes sur place ouvertes (non encaissées) du jour, par table — sert au
   // plan (couleur), aux points roses /sat et au résumé du panneau.
   const activeDineInOrders = useMemo(
