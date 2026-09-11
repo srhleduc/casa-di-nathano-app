@@ -72,6 +72,19 @@ const STATUS_STYLE = {
 };
 const CELL = 46; // une case = une table (70 cm)
 
+// Statuts d'une réservation dans la liste du bas — tous affichés en pastilles
+// cliquables (celle du statut actuel en évidence) pour pouvoir revenir en
+// arrière en un clic après un clic involontaire, sans passer par un menu.
+const RESA_STATUS_OPTIONS = [
+  { key: "confirmed", label: "Confirmée", color: "#e8b23d", bg: "#332a12" },
+  { key: "seated", label: "À table", color: "#a8e8c8", bg: "#204a3a" },
+  { key: "completed", label: "Terminée", color: "#c9b8a4", bg: "#2c1c14" },
+  { key: "cancelled", label: "Annulée", color: "#e88a8a", bg: "#3a1414" },
+];
+// Tri de la liste : celles pas encore arrivées tout en haut, puis à table,
+// puis terminées — chronologique à l'intérieur de chaque groupe.
+const RESA_STATUS_RANK = { confirmed: 0, seated: 1, completed: 2 };
+
 // PINK = rose « service » : contour du service en cours + tables réservées
 // pour un service qu'on inspecte.
 const PINK = "#D9689F";
@@ -254,6 +267,19 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         .slice()
         .sort((a, b) => startMinOf(a) - startMinOf(b)),
     [reservations, date]
+  );
+
+  // Liste du bas uniquement : pas encore arrivées d'abord (RESA_STATUS_RANK),
+  // chronologique dans chaque groupe. `dayReservations` reste chronologique
+  // pur pour tout le reste (plan, synthèses, affectations…).
+  const reservationListRows = useMemo(
+    () =>
+      dayReservations
+        .slice()
+        .sort(
+          (a, b) => (RESA_STATUS_RANK[a.status] ?? 3) - (RESA_STATUS_RANK[b.status] ?? 3) || startMinOf(a) - startMinOf(b)
+        ),
+    [dayReservations]
   );
 
   const labelById = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, tableDisplayName(t)])), [tables]);
@@ -686,6 +712,16 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     if (v === (dayReservations.find((x) => x.id === id)?.note || "")) return;
     updateReservation(id, { note: v || null }).catch((e) => console.error(e));
   }
+  // Pastille de statut cliquée dans la liste : bascule directement sur ce
+  // statut (permet de revenir en arrière après un clic involontaire, sans
+  // repasser par les boutons « Arrivé »/« Parti » un par un).
+  function changeResaStatus(r, newStatus) {
+    if (newStatus === r.status) return;
+    const patch = { status: newStatus };
+    if (newStatus === "seated") patch.arrivedAt = new Date().toISOString();
+    if (newStatus === "completed") patch.departedAt = new Date().toISOString();
+    updateReservation(r.id, patch).catch((e) => console.error(e));
+  }
   async function submitAdd() {
     if (addBusy) return;
     if (!af.party || af.party < 1) return setAddErr("Indiquez le nombre de personnes.");
@@ -1043,9 +1079,10 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       )}
 
       {/* --- Liste des réservations --- */}
+      <div className="text-xs text-[#5a4a3a] mb-1">Pas encore arrivées en premier, puis à table, puis terminées.</div>
       <div className="flex flex-col gap-2">
         {dayReservations.length === 0 && <p className="text-[#8a7561] text-sm">Aucune réservation ce jour-là.</p>}
-        {dayReservations.map((r) => {
+        {reservationListRows.map((r) => {
           const tids = effectiveTables(r.id);
           const isManual = !!manualByRes[r.id];
           const warn = isManual ? warnFor(r, tids) : null;
@@ -1074,18 +1111,27 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   ⭐ {loyaltyFor(r).nom || "fidèle"} · {loyaltyFor(r).soldePoints} pts
                 </span>
               )}
-              <span
-                className="text-xs rounded-full px-2 py-0.5"
-                style={
-                  r.status === "seated"
-                    ? { background: "#204a3a", color: "#a8e8c8" }
-                    : r.status === "completed"
-                    ? { background: "#2c1c14", color: "#8a7561" }
-                    : { background: "#332a12", color: "#e8b23d" }
-                }
-              >
-                {r.status === "seated" ? "à table" : r.status === "completed" ? "parti" : "confirmée"}
-              </span>
+              <div className="flex items-center gap-1">
+                {RESA_STATUS_OPTIONS.filter((s) => s.key !== "cancelled").map((s) => {
+                  const active = r.status === s.key;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => changeResaStatus(r, s.key)}
+                      disabled={active}
+                      title={active ? `Statut actuel : ${s.label}` : `Passer à « ${s.label} »`}
+                      className="tap-scale text-xs font-bold rounded-full px-2.5 py-1 border-2"
+                      style={
+                        active
+                          ? { background: s.bg, borderColor: s.color, color: s.color, boxShadow: `0 0 0 2px ${s.color}55` }
+                          : { borderColor: "#3a2b1f", color: "#6b5a48" }
+                      }
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
               {linkedOrderByRes[r.id] && (
                 <span
                   className="text-xs rounded-full px-2 py-0.5"
@@ -1121,22 +1167,6 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               )}
 
               <div className="flex items-center gap-2 ml-auto">
-                {r.status === "confirmed" && (
-                  <button
-                    onClick={() => updateReservation(r.id, { status: "seated", arrivedAt: new Date().toISOString() }).catch((e) => console.error(e))}
-                    className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2 border-[#204a3a] text-[#a8e8c8]"
-                  >
-                    Arrivé
-                  </button>
-                )}
-                {r.status === "seated" && (
-                  <button
-                    onClick={() => updateReservation(r.id, { status: "completed", departedAt: new Date().toISOString() }).catch((e) => console.error(e))}
-                    className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2 border-[#3a2b1f]"
-                  >
-                    Parti
-                  </button>
-                )}
                 <select
                   value={isManual ? (tids.length > 1 ? `combo:${combinations.find((c) => c.tableIds.length === tids.length && c.tableIds.every((x) => tids.includes(x)))?.id || ""}` : tids[0]) : "auto"}
                   onChange={(e) => forceTables(r.id, e.target.value)}
@@ -1162,10 +1192,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   )}
                 </select>
                 {r.status !== "completed" && (
-                  <button
-                    onClick={() => updateReservation(r.id, { status: "cancelled" }).catch((e) => console.error(e))}
-                    className="tap-scale text-xs text-red-400 font-bold"
-                  >
+                  <button onClick={() => changeResaStatus(r, "cancelled")} className="tap-scale text-xs text-red-400 font-bold">
                     Annuler
                   </button>
                 )}
