@@ -486,6 +486,24 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       ),
     [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services, orderByTableId]
   );
+  // Couverts occupés en ce moment sans qu'aucune réservation ne les tienne
+  // (clients de passage — /sat, ou avant qu'une « Passage » ne soit posée) :
+  // ne comptent dans aucune réservation (statuses[].current reste null dans
+  // ce cas — cf. computeTableStatuses) mais consomment bien de la capacité
+  // du service en cours. Estimé sur les places de la table (comme pour une
+  // réservation « Passage »).
+  const occupiedWithoutReservationCovers = useMemo(() => {
+    if (!isToday) return 0;
+    let sum = 0;
+    for (const t of placedTables) {
+      const st = statuses[t.id];
+      if (!st || st.current != null) continue;
+      if (!["occupee", "bientot", "groupee"].includes(st.status)) continue;
+      sum += t.capacityPreferred || t.capacityBase || 2;
+    }
+    return sum;
+  }, [placedTables, statuses, isToday]);
+
   const nonPlacedActive = activeTables.filter((t) => !(t.layoutId === layoutId && t.gridRow != null));
 
   // Service en cours (uniquement si on regarde aujourd'hui) + service inspecté
@@ -829,12 +847,15 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
             return st >= s.startMin && st < s.endMin;
           });
           const unassignedInService = (solveResult.unassigned || []).filter((id) => inService.some((r) => r.id === id)).length;
+          const isCurrent = currentService?.serviceNumber === s.serviceNumber;
+          // Les couverts occupés sans réservation ne comptent que sur le
+          // service en cours (le seul où « maintenant » a un sens).
           const syn = serviceSynthesis(
             inService.map((r) => ({ partySize: r.partySize, status: r.status, layoutId: zoneOf(r) })),
             s,
-            unassignedInService
+            unassignedInService,
+            isCurrent ? occupiedWithoutReservationCovers : 0
           );
-          const isCurrent = currentService?.serviceNumber === s.serviceNumber;
           const isSelected = selectedServiceNum === s.serviceNumber;
           return (
             <div
@@ -880,6 +901,11 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               <div className="text-sm mt-1">
                 <b>{syn.reserved}</b> couverts réservés{syn.capacity != null ? ` / ${syn.capacity}` : ""}
               </div>
+              {syn.occupied > 0 && (
+                <div className="text-sm" style={{ color: "#e8b23d" }}>
+                  <b>{syn.occupied}</b> couverts occupés sans réservation (clients de passage)
+                </div>
+              )}
               <div className="text-xs" style={{ color: syn.full ? "#e88a8a" : "#a8e8c8" }}>
                 {syn.capacity != null
                   ? syn.full
