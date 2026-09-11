@@ -34,7 +34,7 @@ import {
   setRoomLayoutActive,
   updateOrder,
 } from "@/lib/data";
-import { servicesForDate } from "@/lib/reservation/services";
+import { servicesForDate, applyAutoZoneCovers } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis, reservationsToAutoLock } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
@@ -255,9 +255,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   }, []);
 
   const isToday = date === todayISO();
+  // Couverts max non saisis (par service, par zone) = capacité physique
+  // réelle des tables actives placées dans la zone, recalculée à chaque
+  // ajout/retrait de table ou changement de capacité — l'équipe garde la
+  // main pour un service précis en saisissant un nombre (écran Services).
   const services = useMemo(
-    () => servicesForDate(date, serviceTemplates, serviceOverrides, serviceExceptions),
-    [date, serviceTemplates, serviceOverrides, serviceExceptions]
+    () => applyAutoZoneCovers(servicesForDate(date, serviceTemplates, serviceOverrides, serviceExceptions), tables, layouts),
+    [date, serviceTemplates, serviceOverrides, serviceExceptions, tables, layouts]
   );
 
   const dayReservations = useMemo(
@@ -320,6 +324,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const placedTables = useMemo(
     () => tables.filter((t) => t.layoutId === layoutId && t.gridRow != null && t.gridCol != null),
     [tables, layoutId]
+  );
+  // Tables placées de TOUTES les zones (pas seulement celle affichée) — sert
+  // au calcul des couverts occupés par zone (synthèse de service), qui doit
+  // rester correct même quand on regarde le plan d'une autre zone.
+  const allPlacedTables = useMemo(
+    () => tables.filter((t) => t.layoutId && t.gridRow != null && t.gridCol != null),
+    [tables]
   );
 
   // --- appel du moteur (débouncé par signature) ---
@@ -469,10 +480,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     return m;
   }, [activeDineInOrders, tables]);
 
+  // Calculé sur TOUTES les zones (allPlacedTables), pas seulement celle
+  // affichée — PlanView ne regarde que les entrées de ses propres tables,
+  // et la synthèse de service (par zone) a besoin des autres.
   const statuses = useMemo(
     () =>
       computeTableStatuses(
-        placedTables,
+        allPlacedTables,
         dayReservations.map((r) => ({ reservationId: r.id, tableIds: effectiveTables(r.id) })),
         boardReservations,
         nowMin,
@@ -484,25 +498,29 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
           occupiedTableIds: isToday ? new Set(Object.keys(orderByTableId)) : null,
         }
       ),
-    [placedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services, orderByTableId]
+    [allPlacedTables, dayReservations, boardReservations, nowMin, manualByRes, asgByRes, settings.safetyMarginMinutes, isToday, services, orderByTableId]
   );
   // Couverts occupés en ce moment sans qu'aucune réservation ne les tienne
   // (clients de passage — /sat, ou avant qu'une « Passage » ne soit posée) :
   // ne comptent dans aucune réservation (statuses[].current reste null dans
   // ce cas — cf. computeTableStatuses) mais consomment bien de la capacité
   // du service en cours. Estimé sur les places de la table (comme pour une
-  // réservation « Passage »).
-  const occupiedWithoutReservationCovers = useMemo(() => {
-    if (!isToday) return 0;
-    let sum = 0;
-    for (const t of placedTables) {
+  // réservation « Passage »). Regroupé par zone pour la synthèse filtrée.
+  const occupiedWithoutReservationByLayout = useMemo(() => {
+    const m = {};
+    if (!isToday) return m;
+    for (const t of allPlacedTables) {
       const st = statuses[t.id];
       if (!st || st.current != null) continue;
       if (!["occupee", "bientot", "groupee"].includes(st.status)) continue;
-      sum += t.capacityPreferred || t.capacityBase || 2;
+      m[t.layoutId] = (m[t.layoutId] || 0) + (t.capacityPreferred || t.capacityBase || 2);
     }
-    return sum;
-  }, [placedTables, statuses, isToday]);
+    return m;
+  }, [allPlacedTables, statuses, isToday]);
+  const occupiedWithoutReservationTotal = useMemo(
+    () => Object.values(occupiedWithoutReservationByLayout).reduce((a, b) => a + b, 0),
+    [occupiedWithoutReservationByLayout]
+  );
 
   const nonPlacedActive = activeTables.filter((t) => !(t.layoutId === layoutId && t.gridRow != null));
 
@@ -854,9 +872,15 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
             inService.map((r) => ({ partySize: r.partySize, status: r.status, layoutId: zoneOf(r) })),
             s,
             unassignedInService,
-            isCurrent ? occupiedWithoutReservationCovers : 0
+            isCurrent ? occupiedWithoutReservationTotal : 0,
+            isCurrent ? occupiedWithoutReservationByLayout : {}
           );
           const isSelected = selectedServiceNum === s.serviceNumber;
+          // Zone actuellement affichée sur le plan (sélecteur en haut) : à
+          // plusieurs zones, la case bascule sur SES couverts
+          // réservés/occupés/encore possibles plutôt que le total.
+          const zoneStat = layouts.length > 1 && layoutId ? syn.zones?.find((z) => z.layoutId === layoutId) : null;
+          const shown = zoneStat || syn;
           return (
             <div
               key={s.serviceNumber}
@@ -899,24 +923,34 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                 {s.startTime}–{s.endTime}
               </div>
               <div className="text-sm mt-1">
-                <b>{syn.reserved}</b> couverts réservés{syn.capacity != null ? ` / ${syn.capacity}` : ""}
+                <b>{shown.reserved}</b> couverts réservés{shown.capacity != null ? ` / ${shown.capacity}` : ""}
+                {zoneStat && <span className="text-[#8a7561]"> · {layoutNameById[layoutId] || "zone"}</span>}
               </div>
-              {syn.occupied > 0 && (
+              {shown.occupied > 0 && (
                 <div className="text-sm" style={{ color: "#e8b23d" }}>
-                  <b>{syn.occupied}</b> couverts occupés sans réservation (clients de passage)
+                  <b>{shown.occupied}</b> couverts occupés sans réservation (clients de passage)
                 </div>
               )}
-              <div className="text-xs" style={{ color: syn.full ? "#e88a8a" : "#a8e8c8" }}>
-                {syn.capacity != null
-                  ? syn.full
+              <div className="text-xs" style={{ color: shown.full ? "#e88a8a" : "#a8e8c8" }}>
+                {shown.capacity != null
+                  ? shown.full
                     ? "service complet"
-                    : `${syn.remaining} couverts encore possibles`
+                    : `${shown.remaining} couverts encore possibles`
                   : `${syn.count} réservation${syn.count > 1 ? "s" : ""}`}
               </div>
               {syn.zones && syn.zones.length > 1 && (
                 <div className="text-[11px] text-[#8a7561] mt-1 flex flex-wrap gap-x-2">
                   {syn.zones.map((z) => (
-                    <span key={z.layoutId} style={z.full || closedLayoutIds.has(z.layoutId) ? { color: "#e88a8a" } : undefined}>
+                    <span
+                      key={z.layoutId}
+                      style={
+                        z.layoutId === layoutId
+                          ? { color: PINK, fontWeight: 700 }
+                          : z.full || closedLayoutIds.has(z.layoutId)
+                          ? { color: "#e88a8a" }
+                          : undefined
+                      }
+                    >
                       {layoutNameById[z.layoutId] || "Zone"} {z.reserved}/{z.capacity}
                       {closedLayoutIds.has(z.layoutId) ? " (fermée)" : ""}
                     </span>

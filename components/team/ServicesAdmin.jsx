@@ -7,6 +7,7 @@ import {
   useServiceExceptions,
   useReservationSettings,
   useRoomLayouts,
+  useTables,
   createServiceTemplate,
   updateServiceTemplate,
   deleteServiceTemplate,
@@ -17,7 +18,7 @@ import {
   deleteServiceException,
   updateReservationSettings,
 } from "@/lib/data";
-import { servicesForDate, servicesOverlap, toMin } from "@/lib/reservation/services";
+import { servicesForDate, servicesOverlap, toMin, autoZoneCovers } from "@/lib/reservation/services";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -76,13 +77,18 @@ function WeekdayChips({ value, onChange }) {
     </div>
   );
 }
-function NumInput({ value, min = 0, onCommit }) {
+// `placeholder` : suggestion affichée en filigrane quand `value` est vide
+// (= "auto", pas saisi) — le nombre que ça vaut actuellement, calculé à
+// partir des tables. Laisser vide écrit `null` (auto) ; taper un nombre le
+// fige pour ce service précis.
+function NumInput({ value, min = 0, onCommit, placeholder }) {
   return (
     <input
       type="number"
       min={min}
       defaultValue={value ?? ""}
       key={String(value)}
+      placeholder={placeholder != null ? String(placeholder) : undefined}
       onBlur={(e) => {
         const v = e.target.value === "" ? null : Math.max(min, parseInt(e.target.value, 10) || 0);
         if (v !== value) onCommit(v);
@@ -94,17 +100,21 @@ function NumInput({ value, min = 0, onCommit }) {
 }
 
 // Un ou plusieurs plans de salle = une ou plusieurs « zones ». À partir de 2,
-// on saisit les couverts max par zone (total = somme).
-function ZoneCoversInput({ byLayout, layouts, onCommit }) {
+// on peut saisir les couverts max par zone (total = somme) — case vide =
+// auto, calculé à partir des places des tables placées dans la zone
+// (`autoByLayout`, affiché en filigrane) et recalculé à chaque changement de
+// table ; taper un nombre le fige pour ce service précis.
+function ZoneCoversInput({ byLayout, layouts, autoByLayout, onCommit }) {
   const bl = byLayout || {};
-  const total = layouts.reduce((s, l) => s + (Number(bl[l.id]) > 0 ? Number(bl[l.id]) : 0), 0);
+  const auto = autoByLayout || {};
+  const total = layouts.reduce((s, l) => s + (bl[l.id] != null ? Number(bl[l.id]) : auto[l.id] || 0), 0);
   if (layouts.length <= 1) return null; // géré par le champ unique
   return (
     <span className="flex flex-wrap items-center gap-2 text-xs text-[#a88f78]">
       {layouts.map((l) => (
         <label key={l.id} className="flex items-center gap-1">
           {l.name}
-          <NumInput value={bl[l.id] ?? ""} min={0} onCommit={(v) => onCommit({ ...bl, [l.id]: v ?? 0 })} />
+          <NumInput value={bl[l.id]} min={0} placeholder={auto[l.id] || 0} onCommit={(v) => onCommit({ ...bl, [l.id]: v })} />
         </label>
       ))}
       <span className="text-[#8a7561]">total {total}</span>
@@ -118,10 +128,16 @@ export default function ServicesAdmin() {
   const { serviceExceptions } = useServiceExceptions();
   const { settings } = useReservationSettings();
   const { layouts } = useRoomLayouts();
+  const { tables } = useTables();
   const multiZone = layouts.length > 1;
   const [date, setDate] = useState(todayISO());
   const [calMonth, setCalMonth] = useState(() => todayISO().slice(0, 7)); // "YYYY-MM"
   const [exc, setExc] = useState({ start: "", end: "", target: "all", mode: "off", label: "" });
+
+  // Couverts max "physiques" par zone — capacité réelle des tables placées,
+  // utilisée comme suggestion (filigrane) tant que l'équipe n'a rien saisi.
+  const autoByLayout = useMemo(() => autoZoneCovers(tables, layouts), [tables, layouts]);
+  const autoTotal = useMemo(() => Object.values(autoByLayout).reduce((a, b) => a + b, 0), [autoByLayout]);
 
   const resolved = useMemo(
     () => servicesForDate(date, serviceTemplates, serviceOverrides, serviceExceptions),
@@ -150,7 +166,7 @@ export default function ServicesAdmin() {
       label: `${nextNum}${nextNum === 1 ? "er" : "e"} service`,
       startTime: start,
       endTime: "22:30",
-      maxCovers: 40,
+      maxCovers: null, // auto = capacité physique des tables, tant que non saisi
       activeByDefault: nextNum === 1,
     }).catch((e) => console.error(e));
   }
@@ -262,12 +278,18 @@ export default function ServicesAdmin() {
                 <ZoneCoversInput
                   byLayout={t.maxCoversByLayout}
                   layouts={layouts}
+                  autoByLayout={autoByLayout}
                   onCommit={(bl) => updateServiceTemplate(t.id, { maxCoversByLayout: bl }).catch((e) => console.error(e))}
                 />
               ) : (
                 <label className="flex items-center gap-1 text-xs text-[#a88f78]">
                   couv. max
-                  <NumInput value={t.maxCovers} min={1} onCommit={(v) => updateServiceTemplate(t.id, { maxCovers: v }).catch((e) => console.error(e))} />
+                  <NumInput
+                    value={t.maxCovers}
+                    min={1}
+                    placeholder={autoTotal}
+                    onCommit={(v) => updateServiceTemplate(t.id, { maxCovers: v }).catch((e) => console.error(e))}
+                  />
                 </label>
               )}
               <WeekdayChips
@@ -361,12 +383,13 @@ export default function ServicesAdmin() {
                 <ZoneCoversInput
                   byLayout={s.maxCoversByLayout}
                   layouts={layouts}
+                  autoByLayout={autoByLayout}
                   onCommit={(bl) => overrideService(s, { maxCoversByLayout: bl })}
                 />
               ) : (
                 <label className="flex items-center gap-1 text-xs text-[#a88f78]">
                   couv. max
-                  <NumInput value={s.maxCovers} min={1} onCommit={(v) => overrideService(s, { maxCovers: v })} />
+                  <NumInput value={s.maxCovers} min={1} placeholder={autoTotal} onCommit={(v) => overrideService(s, { maxCovers: v })} />
                 </label>
               )}
               <button
