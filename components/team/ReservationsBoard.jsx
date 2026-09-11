@@ -576,22 +576,23 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   // Tables dont la commande porte un ajout /sat pas encore pointé — sur
   // TOUTES les zones (orderByTableId n'est pas filtré par plan). PlanView ne
   // dessine le point rose que pour ses propres tables (celles de la zone
-  // affichée) : une table signalée dans une AUTRE zone ne s'y voit pas, d'où
-  // flaggedElsewhere ci-dessous pour ne jamais la manquer.
+  // affichée) : une table signalée dans une AUTRE zone n'y serait pas vue,
+  // d'où flaggedZoneIds ci-dessous — pour que le point apparaisse aussi sur
+  // le bouton de zone correspondant, en permanence, quelle que soit la zone
+  // affichée.
   const flaggedTableIds = useMemo(() => {
     const s = new Set();
     for (const [tid, o] of Object.entries(orderByTableId)) if (hasUnseenSatAddition(o)) s.add(tid);
     return s;
   }, [orderByTableId]);
-  // Tables signalées d'une zone AUTRE que celle actuellement affichée — leur
-  // point rose est invisible sur le plan en cours, donc remonté en bandeau.
-  const flaggedElsewhere = useMemo(
-    () =>
-      [...flaggedTableIds]
-        .map((tid) => tables.find((t) => t.id === tid))
-        .filter((t) => t && t.layoutId && t.layoutId !== layoutId),
-    [flaggedTableIds, tables, layoutId]
-  );
+  const flaggedZoneIds = useMemo(() => {
+    const s = new Set();
+    for (const tid of flaggedTableIds) {
+      const t = tables.find((x) => x.id === tid);
+      if (t?.layoutId) s.add(t.layoutId);
+    }
+    return s;
+  }, [flaggedTableIds, tables]);
 
   // Clic sur un carré : ouvre / referme le résumé et éteint la pastille
   // commande (comme la pastille de l'écran Service). Les points roses par
@@ -601,14 +602,6 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     const o = orderByTableId[tid];
     if (o && o.satAdditionAt) updateOrder(o.id, { satAdditionAt: null }).catch((e) => console.error(e));
   }
-  // Depuis le bandeau « ailleurs » : bascule sur la zone de la table signalée
-  // ET ouvre son résumé — contrairement au sélecteur de zone (qui referme le
-  // résumé en cours, cf. effet ci-dessous), ce saut doit ouvrir le bon.
-  function jumpToFlaggedTable(t) {
-    if (t.layoutId && t.layoutId !== layoutId) setLayoutId(t.layoutId);
-    toggleTablePanel(t.id);
-  }
-
   // Point rose d'une ligne pointée par la serveuse (clic sur le point ou la
   // ligne). Quand plus aucune ligne n'attend, on efface aussi la pastille.
   function ackSatItem(order, targetItem) {
@@ -618,10 +611,9 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     updateOrder(order.id, patch).catch((e) => console.error(e));
   }
 
-  // Le résumé se referme quand on change de jour, ou de plan À LA MAIN
-  // (sélecteur de zone, cf. son onChange) — pas quand jumpToFlaggedTable
-  // change la zone lui-même pour ouvrir une table précise.
-  useEffect(() => setSelectedTableId(null), [date]);
+  // Le résumé se referme quand on change de jour ou de zone (le carré
+  // sélectionné n'est plus à l'écran).
+  useEffect(() => setSelectedTableId(null), [layoutId, date]);
 
   const selectedOrder = selectedTableId ? orderByTableId[selectedTableId] || null : null;
   const selectedTable = selectedTableId ? tables.find((t) => t.id === selectedTableId) || null : null;
@@ -844,22 +836,38 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         <span className="text-xs text-[#a88f78] uppercase font-bold">Réservations du</span>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg px-2 py-1 text-sm" style={inputStyle} />
         {layouts.length > 1 && (
-          <select
-            value={layoutId || ""}
-            onChange={(e) => {
-              setLayoutId(e.target.value);
-              setSelectedTableId(null);
-            }}
-            className="rounded-lg px-2 py-1 text-sm"
-            style={inputStyle}
-          >
-            {layouts.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-                {l.active === false ? " (fermée)" : ""}
-              </option>
-            ))}
-          </select>
+          // Barre de zones permanente (pas un sélecteur qui repli tout) —
+          // point rose sur le bouton d'une zone qui a un ajout /sat non
+          // pointé, même quand on regarde une autre zone (PlanView ne
+          // dessine le point que pour ses propres tables).
+          <div className="flex flex-wrap gap-1.5">
+            {layouts.map((l) => {
+              const active = l.id === layoutId;
+              const flagged = flaggedZoneIds.has(l.id);
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => setLayoutId(l.id)}
+                  className="tap-scale relative rounded-full px-3 py-1.5 text-sm font-bold border-2"
+                  style={
+                    active
+                      ? { borderColor: "#e8622c", background: "#2c1c14", color: "#f5ebdd" }
+                      : { borderColor: "#3a2b1f", color: "#a88f78" }
+                  }
+                >
+                  {l.name}
+                  {l.active === false ? " (fermée)" : ""}
+                  {flagged && (
+                    <span
+                      className="absolute rounded-full"
+                      style={{ top: -3, right: -3, width: 10, height: 10, background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                      aria-label="Ajout client /sat non pointé dans cette zone"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         )}
         {layouts.length > 1 && layout && (
           <button
@@ -876,29 +884,6 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         )}
         <span className="text-xs text-[#8a7561]">{restaurant.name}</span>
       </div>
-
-      {/* Ajout /sat non pointé sur une table d'une AUTRE zone que celle
-          affichée — son point rose est invisible sur ce plan, on ne veut
-          pas le rater pour autant. */}
-      {flaggedElsewhere.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          {flaggedElsewhere.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => jumpToFlaggedTable(t)}
-              className="tap-scale flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold border-2 bg-[#211712]"
-              style={{ borderColor: "#ff2d95", boxShadow: "0 0 8px rgba(255,45,149,0.5)" }}
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
-                aria-label="Ajout client /sat non pointé"
-              />
-              {tableDisplayName(t)} · {layoutNameById[t.layoutId] || "autre zone"}
-            </button>
-          ))}
-        </div>
-      )}
 
       {layout && layout.active === false && (
         <div className="rounded-lg px-3 py-2 mb-3 text-sm font-bold" style={{ background: "#2c1c14", border: "1px solid #4a2020", color: "#e8a8a8" }}>
