@@ -28,6 +28,7 @@ import {
   setReservationTables,
   clearReservationTables,
   updateReservation,
+  deleteReservation,
   createReservation,
   createWalkInReservationForTables,
   setRoomLayoutActive,
@@ -741,6 +742,19 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     if (newStatus === "completed") patch.departedAt = new Date().toISOString();
     updateReservation(r.id, patch).catch((e) => console.error(e));
   }
+  // Croix rapide : suppression définitive (pas « Annuler », qui garde la
+  // ligne en base) — client qui décommande par téléphone en plein service.
+  function removeReservation(r) {
+    if (
+      !window.confirm(
+        `Supprimer définitivement la réservation de ${r.customerName || "ce client"} (${r.partySize} pers., ${hhmm(
+          startMinOf(r)
+        )}) ? Cette action est irréversible.`
+      )
+    )
+      return;
+    deleteReservation(r.id).catch((e) => console.error(e));
+  }
   async function submitAdd() {
     if (addBusy) return;
     if (!af.party || af.party < 1) return setAddErr("Indiquez le nombre de personnes.");
@@ -1111,12 +1125,21 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
           return (
             <div
               key={r.id}
-              className="rounded-xl border bg-[#211712] p-3 flex flex-wrap items-center gap-3 text-sm"
+              className="relative rounded-xl border bg-[#211712] p-3 pr-9 flex flex-wrap items-center gap-3 text-sm"
               style={{
                 borderColor: inSelectedService ? PINK : "#3a2b1f",
                 opacity: selectedService && !inSelectedService ? 0.5 : 1,
               }}
             >
+              <button
+                onClick={() => removeReservation(r)}
+                aria-label="Supprimer la réservation"
+                title="Supprimer définitivement"
+                className="tap-scale absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ background: "#4a2020", color: "#e88a8a" }}
+              >
+                ✕
+              </button>
               <span className="font-bold w-14">{hhmm(startMinOf(r))}</span>
               <span className="font-bold min-w-[120px]">{r.customerName || "—"}</span>
               <span className="text-[#a88f78]">{r.partySize} pers.</span>
