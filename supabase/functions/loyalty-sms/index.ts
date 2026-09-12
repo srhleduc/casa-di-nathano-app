@@ -1,9 +1,12 @@
 // Envoi des SMS fidélité via l'API OVH SMS. Déclenchée par pg_net depuis des
-// triggers Postgres (voir supabase/schema.sql, section « SMS FIDÉLITÉ ») :
+// triggers Postgres (voir supabase/schema.sql, section « SMS FIDÉLITÉ », et
+// migrations_manual/loyalty_avis_google.sql) :
 //   - AFTER INSERT sur promo_codes  (reason palier_150 / anniversaire)
 //   - AFTER INSERT sur loyalty_customers (message de bienvenue)
+//   - AFTER INSERT sur loyalty_movements (3e passage → demande d'avis Google,
+//     restaurant_id du mouvement = établissement du 3e passage détecté)
 //
-// Corps attendu : { event: "promo_code" | "new_customer", id: "<uuid>" }
+// Corps attendu : { event: "promo_code" | "new_customer" | "avis_google", id: "<uuid>", restaurant_id?: "<text>" }
 //
 // Déployée avec `supabase functions deploy loyalty-sms --no-verify-jwt`
 // (appelée uniquement depuis Postgres, jamais depuis le navigateur).
@@ -46,6 +49,7 @@ const MESSAGE_TYPE: Record<string, string> = {
   recompense_150: "recompense",
   anniversaire: "anniversaire",
   bienvenue: "bienvenue",
+  avis_google: "avis_google",
 };
 
 async function sha1hex(input: string): Promise<string> {
@@ -83,7 +87,7 @@ function render(body: string, vars: Record<string, string>): string {
 Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  let payload: { event?: string; id?: string };
+  let payload: { event?: string; id?: string; restaurant_id?: string };
   try {
     payload = await req.json();
   } catch {
@@ -98,6 +102,8 @@ Deno.serve(async (req) => {
     let templateKey: string;
     let code = "";
     let expiration = "";
+    let restaurantName = BRAND;
+    let lienAvis = "";
 
     if (event === "promo_code") {
       const { data: bon } = await supabase
@@ -114,6 +120,23 @@ Deno.serve(async (req) => {
     } else if (event === "new_customer") {
       customerId = id;
       templateKey = "bienvenue";
+    } else if (event === "avis_google") {
+      // restaurant_id = établissement du 3e passage (voir trigger
+      // loyalty_visit_avis_google sur loyalty_movements) — sans lui, ou sans
+      // lien Google renseigné pour ce restaurant, on ne devine rien : on
+      // journalise le fait qu'on a sauté l'envoi plutôt que d'envoyer un SMS
+      // avec un lien manquant.
+      if (!payload.restaurant_id) return json({ skipped: "restaurant_id manquant" });
+      const { data: restaurant } = await supabase
+        .from("restaurants")
+        .select("name, google_review_url")
+        .eq("id", payload.restaurant_id)
+        .maybeSingle();
+      if (!restaurant?.google_review_url) return json({ skipped: `pas de lien Google pour ${payload.restaurant_id}` });
+      customerId = id;
+      templateKey = "avis_google";
+      restaurantName = (restaurant.name as string) || BRAND;
+      lienAvis = restaurant.google_review_url as string;
     } else {
       return json({ skipped: `event ${event} inconnu` });
     }
@@ -133,7 +156,7 @@ Deno.serve(async (req) => {
     if (!customer?.phone) return json({ skipped: "client sans téléphone" });
 
     const prenom = String(customer.nom || "").trim().split(/\s+/)[0] || "";
-    const message = render(tpl.body as string, { restaurant: BRAND, prenom, code, expiration });
+    const message = render(tpl.body as string, { restaurant: restaurantName, prenom, code, expiration, lien_avis: lienAvis });
     const messageType = MESSAGE_TYPE[templateKey] || "promo";
     const recipient = toE164(TEST_RECIPIENT || (customer.phone as string));
 

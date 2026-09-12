@@ -5,7 +5,8 @@
 // via l'API OVH sera branché en phase G ; ici on ne fait que stocker les textes.
 
 import { useEffect, useState } from "react";
-import { useLoyaltyMessageTemplates, upsertLoyaltyMessageTemplate } from "@/lib/data";
+import { useLoyaltyMessageTemplates, upsertLoyaltyMessageTemplate, updateRestaurantGoogleReviewUrl } from "@/lib/data";
+import { useRestaurantsList } from "@/lib/restaurant";
 
 const INPUT_STYLE = { background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 const PRIMARY_BTN = { background: "#C0392B", color: "#fff5ea" };
@@ -23,9 +24,9 @@ const TEMPLATES = [
   {
     key: "avis_google",
     label: "Demande d'avis Google (après 3 passages)",
-    when: "Envoyé une fois, quand le client atteint 3 passages. Pensez à coller votre lien Google dans le texte.",
-    vars: ["{restaurant}", "{prenom}"],
-    body: "Merci de votre visite chez {restaurant} ! Si vous avez passe un bon moment, votre avis Google compte beaucoup pour nous : [collez ici votre lien Google]. Merci !",
+    when: "Envoyé une fois, quand le client atteint 3 passages (caisse ou click & collect, pas un ajout de points manuel). {restaurant} et {lien_avis} sont déterminés automatiquement d'après l'établissement où a eu lieu ce 3e passage — configurez le lien de chaque établissement ci-dessus.",
+    vars: ["{restaurant}", "{prenom}", "{lien_avis}"],
+    body: "Merci de votre visite chez {restaurant} ! Si vous avez passe un bon moment, votre avis Google compte beaucoup pour nous : {lien_avis}. Merci !",
   },
   {
     key: "anniversaire",
@@ -48,6 +49,7 @@ const PREVIEW_VALUES = {
   "{prenom}": "Marie",
   "{code}": "CASA-4F2A9C",
   "{expiration}": "21/09/2026",
+  "{lien_avis}": "https://g.page/r/XXXXXXXXXXXX/review",
 };
 
 function render(body) {
@@ -62,9 +64,10 @@ export default function LoyaltyMessagesAdmin() {
     <div className="flex-1 overflow-y-auto px-6 py-6">
       <p className="text-[#a88f78] text-sm mb-6 max-w-3xl">
         Textes des SMS fidélité. Un message générique est proposé par défaut ; modifiez-le à votre convenance et enregistrez.
-        Les variables entre accolades sont remplacées à l&apos;envoi. L&apos;envoi automatique par SMS sera activé
-        ultérieurement — pour l&apos;instant seuls les textes sont enregistrés.
+        Les variables entre accolades sont remplacées à l&apos;envoi.
       </p>
+
+      <GoogleReviewLinksAdmin />
 
       {loading && <p className="text-[#8a7561]">Chargement…</p>}
 
@@ -73,6 +76,83 @@ export default function LoyaltyMessagesAdmin() {
           <TemplateCard key={tpl.key} tpl={tpl} saved={byKey[tpl.key]} />
         ))}
       </div>
+    </div>
+  );
+}
+
+// Lien d'avis Google par établissement — utilisé par le gabarit avis_google
+// ({lien_avis}), résolu automatiquement selon l'établissement du 3e passage
+// du client (voir migrations_manual/loyalty_avis_google.sql).
+function GoogleReviewLinksAdmin() {
+  const restaurants = useRestaurantsList();
+
+  return (
+    <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 mb-5 max-w-3xl">
+      <div className="font-bold mb-1">Liens d&apos;avis Google par établissement</div>
+      <div className="text-xs text-[#8a7561] mb-3">
+        Utilisé par {"{lien_avis}"} dans le message "Demande d'avis Google" ci-dessous. Tant qu'un établissement n'a pas
+        de lien renseigné, le SMS n'est pas envoyé pour ses clients (pas de lien manquant dans le texte).
+      </div>
+      <div className="flex flex-col gap-3">
+        {restaurants.length === 0 && <p className="text-sm text-[#8a7561]">Chargement…</p>}
+        {restaurants.map((r) => (
+          <GoogleReviewLinkRow key={r.id} restaurant={r} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GoogleReviewLinkRow({ restaurant }) {
+  const [url, setUrl] = useState(restaurant.googleReviewUrl || "");
+  const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    if (touched) return;
+    setUrl(restaurant.googleReviewUrl || "");
+  }, [restaurant.googleReviewUrl, touched]);
+
+  async function save() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      await updateRestaurantGoogleReviewUrl(restaurant.id, url.trim());
+      setStatus("ok");
+      setTouched(false);
+    } catch (err) {
+      console.error(err);
+      setStatus("err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm font-bold w-32 shrink-0">{restaurant.name}</span>
+      <input
+        value={url}
+        onChange={(e) => {
+          setTouched(true);
+          setUrl(e.target.value);
+          setStatus(null);
+        }}
+        placeholder="https://g.page/r/..."
+        className="flex-1 min-w-[220px] rounded-lg px-3 py-2 text-sm"
+        style={INPUT_STYLE}
+      />
+      <button
+        onClick={save}
+        disabled={busy || !touched}
+        className="tap-scale rounded-full px-4 py-2 text-xs font-bold disabled:opacity-40"
+        style={PRIMARY_BTN}
+      >
+        Enregistrer
+      </button>
+      {status === "ok" && <span className="text-xs text-[#7fb069]">✓ enregistré</span>}
+      {status === "err" && <span className="text-xs text-[#e88a8a]">échec</span>}
     </div>
   );
 }
