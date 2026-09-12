@@ -384,8 +384,8 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   }, [solveResult]);
 
   const boardReservations = useMemo(
-    () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize), status: r.status, partySize: r.partySize })),
-    [dayReservations]
+    () => dayReservations.map((r) => ({ id: r.id, startMin: startMinOf(r), durationMin: r.estimatedDurationMinutes || estimateDurationMin(r.partySize, settings), status: r.status, partySize: r.partySize })),
+    [dayReservations, settings]
   );
 
   // Persiste le plan du solveur du JOUR (assigned_manually = false), après
@@ -640,7 +640,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   function markSelectedTableOccupied() {
     if (!selectedTableId || tableActionBusy) return;
     setTableActionBusy(true);
-    createWalkInReservationForTables([selectedTableId], { tables })
+    createWalkInReservationForTables([selectedTableId], { tables, durationSettings: settings })
       .catch((e) => console.error(e))
       .finally(() => setTableActionBusy(false));
   }
@@ -692,7 +692,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         .catch((e) => console.error(e))
         .finally(done);
     } else {
-      createWalkInReservationForTables(all, { tables })
+      createWalkInReservationForTables(all, { tables, durationSettings: settings })
         .catch((e) => console.error(e))
         .finally(done);
     }
@@ -741,17 +741,17 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     if (!addForm || af.slotMin == null) return tablesForPick;
     const margin = settings.safetyMarginMinutes || 15;
     const newStart = af.slotMin;
-    const newEnd = newStart + estimateDurationMin(af.party || 2) + margin;
+    const newEnd = newStart + estimateDurationMin(af.party || 2, settings) + margin;
     const taken = new Set();
     for (const r of dayReservations) {
       if (r.status === "cancelled" || r.status === "completed") continue;
       const rs = startMinOf(r);
-      const re = rs + (r.estimatedDurationMinutes || estimateDurationMin(r.partySize)) + margin;
+      const re = rs + (r.estimatedDurationMinutes || estimateDurationMin(r.partySize, settings)) + margin;
       if (!(newStart < re && rs < newEnd)) continue;
       for (const tid of effectiveTables(r.id)) taken.add(tid);
     }
     return tablesForPick.filter((t) => !taken.has(t.id));
-  }, [addForm, af.slotMin, af.party, dayReservations, tablesForPick, settings.safetyMarginMinutes, manualByRes, asgByRes]);
+  }, [addForm, af.slotMin, af.party, dayReservations, tablesForPick, settings, manualByRes, asgByRes]);
 
   // Retire de la sélection une table devenue indisponible (créneau changé).
   useEffect(() => {
@@ -816,7 +816,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         customerPhone: af.phone.trim() || null,
         partySize: af.party,
         requestedAt: buildRequestedAtISO(date, af.slotMin),
-        estimatedDurationMinutes: estimateDurationMin(af.party),
+        estimatedDurationMinutes: estimateDurationMin(af.party, settings),
         source: "walk_in",
         note: af.note.trim() || null,
       });

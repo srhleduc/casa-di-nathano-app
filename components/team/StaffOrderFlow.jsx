@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useActiveMenuServiceGroups, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useReservationSettings, useActiveMenuServiceGroups, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -86,6 +86,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const { tables } = useTables();
   const { reservations } = useReservations();
   const { assignments: resaAssignments } = useReservationTableAssignments();
+  const { settings: reservationSettings } = useReservationSettings();
   const restaurant = useRestaurant();
 
   // Rapproche une commande sur place d'une réservation confirmée posée sur la
@@ -104,7 +105,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   // l'encaissement (boucle du board). Voir createWalkInReservationForTables.
   async function createWalkInReservation(tableIds) {
     try {
-      return await createWalkInReservationForTables(tableIds, { tables });
+      return await createWalkInReservationForTables(tableIds, { tables, durationSettings: reservationSettings });
     } catch (e) {
       console.error("Création de la réservation « Passage » échouée", e);
       return null;

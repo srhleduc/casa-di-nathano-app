@@ -334,6 +334,32 @@ export default function ServicesAdmin() {
         </div>
 
         <div className="mt-4 pt-3 border-t border-[#3a2b1f]">
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Durée d'occupation estimée par table</div>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <label className="flex items-center gap-2 text-xs text-[#a88f78]">
+              1-2 pers. (min)
+              <NumInput value={settings.durationMin1To2} min={0} onCommit={(v) => updateReservationSettings({ durationMin1To2: v ?? 75 }).catch((e) => console.error(e))} />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-[#a88f78]">
+              3-4 pers. (min)
+              <NumInput value={settings.durationMin3To4} min={0} onCommit={(v) => updateReservationSettings({ durationMin3To4: v ?? 90 }).catch((e) => console.error(e))} />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-[#a88f78]">
+              5-6 pers. (min)
+              <NumInput value={settings.durationMin5To6} min={0} onCommit={(v) => updateReservationSettings({ durationMin5To6: v ?? 105 }).catch((e) => console.error(e))} />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-[#a88f78]">
+              + par personne au-delà de 6 (min)
+              <NumInput value={settings.durationMinExtraPerPerson} min={0} onCommit={(v) => updateReservationSettings({ durationMinExtraPerPerson: v ?? 10 }).catch((e) => console.error(e))} />
+            </label>
+          </div>
+          <div className="text-xs text-[#5a4a3a] mt-1 max-w-2xl">
+            À ajuster après un vrai service, en comparant la durée estimée aux départs réels — sert au moteur de
+            réservation pour proposer des créneaux et vérifier la disponibilité des tables.
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-[#3a2b1f]">
           <div className="flex flex-wrap items-center gap-3 text-xs text-[#a88f78]">
             Plage des services auto-générés — de
             <TimeInput value={settings.earliestServiceTime} onCommit={(v) => updateReservationSettings({ earliestServiceTime: v }).catch((e) => console.error(e))} />
