@@ -46,9 +46,13 @@ export default function PresenceDashboard() {
   const { entries } = useTodayPointageEntries();
   const { entries: weekEntries } = useThisWeekPointageEntries();
 
+  // `asOf = now` : une arrivée encore ouverte (pas de départ pointé) compte
+  // jusqu'à maintenant — indispensable ici (vue temps réel), à la différence
+  // de l'export paie historique qui ne devine jamais une heure de fin.
+  const todayDailyMinutes = useMemo(() => computeDailyWorkedMinutes(entries, new Date()), [entries]);
   const weeklyWorkedByStaff = useMemo(() => {
     const currentMonday = mondayOf(todayISO());
-    const byWeek = groupWorkedMinutesByWeek(computeDailyWorkedMinutes(weekEntries));
+    const byWeek = groupWorkedMinutesByWeek(computeDailyWorkedMinutes(weekEntries, new Date()));
     const byStaff = new Map();
     for (const [key, minutes] of byWeek.entries()) {
       const [staffId, monday] = key.split("|");
@@ -95,26 +99,10 @@ export default function PresenceDashboard() {
             ? occurredMin(lastDeparture.occurredAt) - toMin(shiftsToday[shiftsToday.length - 1].endTime)
             : null;
 
-        // Total travaillé aujourd'hui : somme des paires arrivée→départ,
-        // moins les paires pause_debut→pause_fin. Suppose des pointages
-        // correctement séquencés (pas de rattrapage sur pointage manquant —
-        // voir pointage_corrections, sans écran pour l'instant).
-        let workedMin = 0;
-        let openStart = null;
-        let pauseStart = null;
-        for (const e of entriesToday) {
-          const m = occurredMin(e.occurredAt);
-          if (e.type === "arrivee") openStart = m;
-          else if (e.type === "depart" && openStart != null) {
-            workedMin += m - openStart;
-            openStart = null;
-          } else if (e.type === "pause_debut") pauseStart = m;
-          else if (e.type === "pause_fin" && pauseStart != null) {
-            workedMin -= m - pauseStart;
-            pauseStart = null;
-          }
-        }
-        if (openStart != null) workedMin += nowMin() - openStart; // encore en cours
+        // Total travaillé aujourd'hui — même calcul (computeDailyWorkedMinutes)
+        // que le cumul hebdomadaire ci-dessous, pour que les deux convergent
+        // toujours (une arrivée encore ouverte compte jusqu'à maintenant).
+        const workedMin = todayDailyMinutes.get(`${member.id}|${todayISO()}`) || 0;
 
         const plannedMin = shiftsToday.reduce((sum, s) => sum + (toMin(s.endTime) - toMin(s.startTime)), 0);
 
