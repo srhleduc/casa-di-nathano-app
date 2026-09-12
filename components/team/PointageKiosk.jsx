@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { findStaffByPin, getLastPointageType, addPointageEntry } from "@/lib/data";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
+import PointageInfoNotice from "./PointageInfoNotice";
 
 const ACTION_SEQUENCE = {
   start: { type: "arrivee", label: "Pointer l'arrivée" },
@@ -23,6 +24,7 @@ export default function PointageKiosk({ readOnly }) {
   const [lastType, setLastType] = useState("start");
   const [status, setStatus] = useState("idle"); // idle | checking | ready | confirmed | error
   const [errorMessage, setErrorMessage] = useState("");
+  const [showInfo, setShowInfo] = useState(false);
 
   const resetKiosk = useCallback(() => {
     setPin("");
@@ -91,7 +93,15 @@ export default function PointageKiosk({ readOnly }) {
   const nextAction = ACTION_SEQUENCE[lastType];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-8 py-10">
+    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-8 py-10 relative">
+      <button
+        onClick={() => setShowInfo(true)}
+        className="tap-scale absolute top-4 right-6 text-xs font-bold px-4 py-2 rounded-full border-2 border-[#3a2b1f] text-[#c9b8a4]"
+      >
+        ℹ️ Vos droits (RGPD)
+      </button>
+      {showInfo && <PointageInfoNotice restaurantId={restaurant.id} onClose={() => setShowInfo(false)} />}
+
       {readOnly && (
         <div className="text-xs font-bold px-4 py-2 rounded-full" style={{ background: "#2c1c14", color: "#a88f78" }}>
           👁️ Vue Direction — le pointage est réservé au poste du restaurant
