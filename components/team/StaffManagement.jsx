@@ -1,17 +1,129 @@
 "use client";
 
 import { useState } from "react";
-import { useStaff, addStaffWithPin, resetStaffPin, renameStaff, setStaffContract, setStaffActive } from "@/lib/data";
+import {
+  useStaff,
+  addStaffWithPin,
+  resetStaffPin,
+  renameStaff,
+  setStaffContract,
+  setStaffActive,
+  useStaffShifts,
+  addStaffShift,
+  deleteStaffShift,
+} from "@/lib/data";
 
 const CONTRACT_LABELS = { cdi: "CDI", cdd: "CDD", extra: "Extra", apprenti: "Apprenti" };
 
+// weekday : 0 = dimanche … 6 = samedi (Date.getDay(), même convention que
+// weekdayOf() côté réservation) — affiché lundi→dimanche.
+const WEEKDAYS = [
+  { value: 1, label: "Lundi" },
+  { value: 2, label: "Mardi" },
+  { value: 3, label: "Mercredi" },
+  { value: 4, label: "Jeudi" },
+  { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 0, label: "Dimanche" },
+];
+
 const collator = new Intl.Collator("fr", { sensitivity: "base" });
 
-function Row({ member, readOnly }) {
+function ShiftPlanner({ staffId, shifts, readOnly }) {
+  const [addingFor, setAddingFor] = useState(null);
+  const [start, setStart] = useState("11:00");
+  const [end, setEnd] = useState("15:00");
+  const [err, setErr] = useState("");
+
+  async function submit(weekday) {
+    if (!start || !end || end <= start) {
+      setErr("Heure de fin invalide");
+      return;
+    }
+    setErr("");
+    try {
+      await addStaffShift(staffId, weekday, start, end);
+      setAddingFor(null);
+    } catch (e) {
+      console.error(e);
+      setErr("Ajout impossible");
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#3a2b1f] flex flex-col gap-2">
+      {WEEKDAYS.map(({ value, label }) => {
+        const dayShifts = shifts.filter((s) => s.weekday === value).sort((a, b) => a.startTime.localeCompare(b.startTime));
+        return (
+          <div key={value} className="flex items-center gap-2 flex-wrap text-sm">
+            <span className="w-24 shrink-0 text-[#a88f78]">{label}</span>
+            {dayShifts.map((s) => (
+              <span
+                key={s.id}
+                className="rounded-full px-3 py-1 text-xs font-mono flex items-center gap-1.5"
+                style={{ background: "#211712", border: "1px solid #3a2b1f" }}
+              >
+                {s.startTime}–{s.endTime}
+                {!readOnly && (
+                  <button onClick={() => deleteStaffShift(s.id).catch((e) => console.error(e))} className="tap-scale text-[#e88a8a]">
+                    ✕
+                  </button>
+                )}
+              </span>
+            ))}
+            {dayShifts.length === 0 && addingFor !== value && <span className="text-xs text-[#5a4a3a]">—</span>}
+            {!readOnly && addingFor !== value && (
+              <button
+                onClick={() => {
+                  setAddingFor(value);
+                  setStart("11:00");
+                  setEnd("15:00");
+                  setErr("");
+                }}
+                className="tap-scale text-xs text-[#c9b8a4] underline"
+              >
+                + créneau
+              </button>
+            )}
+            {!readOnly && addingFor === value && (
+              <span className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  className="rounded px-2 py-1 text-xs"
+                  style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+                />
+                <span className="text-[#5a4a3a]">–</span>
+                <input
+                  type="time"
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                  className="rounded px-2 py-1 text-xs"
+                  style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+                />
+                <button onClick={() => submit(value)} className="tap-scale text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                  OK
+                </button>
+                <button onClick={() => setAddingFor(null)} className="tap-scale text-xs text-[#8a7561]">
+                  annuler
+                </button>
+              </span>
+            )}
+          </div>
+        );
+      })}
+      {err && <div className="text-xs" style={{ color: "#e88a8a" }}>{err}</div>}
+    </div>
+  );
+}
+
+function Row({ member, shifts, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(member.fullName);
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [planningOpen, setPlanningOpen] = useState(false);
 
   function commit() {
     const v = value.trim();
@@ -25,105 +137,117 @@ function Row({ member, readOnly }) {
 
   return (
     <div
-      className="rounded-2xl border-2 p-4 flex items-center justify-between gap-4 flex-wrap"
+      className="rounded-2xl border-2 p-4 flex flex-col gap-2"
       style={member.active ? { borderColor: "#3a2b1f" } : { borderColor: "#4a2020", background: "#2c1c14" }}
     >
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          {editing && !readOnly ? (
-            <input
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commit();
-                if (e.key === "Escape") {
-                  setValue(member.fullName);
-                  setEditing(false);
-                }
-              }}
-              className="display-font text-xl font-bold rounded-lg px-2 py-1 outline-none w-52"
-              style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-            />
-          ) : (
-            <button
-              onClick={() => !readOnly && setEditing(true)}
-              className={`display-font text-xl font-bold text-left ${readOnly ? "" : "tap-scale"}`}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            {editing && !readOnly ? (
+              <input
+                autoFocus
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commit();
+                  if (e.key === "Escape") {
+                    setValue(member.fullName);
+                    setEditing(false);
+                  }
+                }}
+                className="display-font text-xl font-bold rounded-lg px-2 py-1 outline-none w-52"
+                style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+              />
+            ) : (
+              <button
+                onClick={() => !readOnly && setEditing(true)}
+                className={`display-font text-xl font-bold text-left ${readOnly ? "" : "tap-scale"}`}
+              >
+                {member.fullName} {!readOnly && <span className="text-sm text-[#8a7561]">✏️</span>}
+              </button>
+            )}
+            <span
+              className="text-xs font-bold rounded-full px-3 py-1 shrink-0"
+              style={member.active ? { background: "#204a3a", color: "#a8e8c8" } : { background: "#4a2020", color: "#e8a8a8" }}
             >
-              {member.fullName} {!readOnly && <span className="text-sm text-[#8a7561]">✏️</span>}
+              {member.active ? "✓ Actif" : "✕ Désactivé"}
+            </span>
+          </div>
+          <div className="text-xs text-[#8a7561] mt-2 flex items-center gap-2 font-mono">
+            <span>Code PIN : {revealed ? member.pinCode : "••••"}</span>
+            <button onClick={() => setRevealed((v) => !v)} className="tap-scale text-[#c9b8a4] underline">
+              {revealed ? "masquer" : "afficher"}
             </button>
-          )}
-          <span
-            className="text-xs font-bold rounded-full px-3 py-1 shrink-0"
-            style={member.active ? { background: "#204a3a", color: "#a8e8c8" } : { background: "#4a2020", color: "#e8a8a8" }}
-          >
-            {member.active ? "✓ Actif" : "✕ Désactivé"}
-          </span>
+          </div>
         </div>
-        <div className="text-xs text-[#8a7561] mt-2 flex items-center gap-2 font-mono">
-          <span>Code PIN : {revealed ? member.pinCode : "••••"}</span>
-          <button onClick={() => setRevealed((v) => !v)} className="tap-scale text-[#c9b8a4] underline">
-            {revealed ? "masquer" : "afficher"}
+
+        <div className="flex items-center gap-2">
+          {!readOnly && (
+            <select
+              value={member.contractType}
+              onChange={(e) => setStaffContract(member.id, e.target.value).catch((err) => console.error(err))}
+              className="rounded-lg px-2 py-2 text-sm"
+              style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+            >
+              {Object.entries(CONTRACT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          {readOnly && (
+            <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#3a2b1f", color: "#c9b8a4" }}>
+              {CONTRACT_LABELS[member.contractType]}
+            </span>
+          )}
+          <button
+            onClick={() => setPlanningOpen((v) => !v)}
+            className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2"
+            style={planningOpen ? { borderColor: "#C0392B", background: "#2c1c14", color: "#fff5ea" } : { borderColor: "#3a2b1f" }}
+          >
+            🗓️ Planning
           </button>
+          {!readOnly && (
+            <>
+              <button
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await resetStaffPin(member.id);
+                    setRevealed(true);
+                  } catch (err) {
+                    console.error(err);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2 border-[#3a2b1f] disabled:opacity-40"
+              >
+                🔁 Réinitialiser le PIN
+              </button>
+              <button
+                onClick={() => setStaffActive(member.id, !member.active).catch((err) => console.error(err))}
+                className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2"
+                style={member.active ? { borderColor: "#4a2020", color: "#e8a8a8" } : { borderColor: "#204a3a", color: "#a8e8c8" }}
+              >
+                {member.active ? "Désactiver" : "Réactiver"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {!readOnly && (
-          <select
-            value={member.contractType}
-            onChange={(e) => setStaffContract(member.id, e.target.value).catch((err) => console.error(err))}
-            className="rounded-lg px-2 py-2 text-sm"
-            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-          >
-            {Object.entries(CONTRACT_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        )}
-        {readOnly && (
-          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#3a2b1f", color: "#c9b8a4" }}>
-            {CONTRACT_LABELS[member.contractType]}
-          </span>
-        )}
-        {!readOnly && (
-          <>
-            <button
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await resetStaffPin(member.id);
-                  setRevealed(true);
-                } catch (err) {
-                  console.error(err);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2 border-[#3a2b1f] disabled:opacity-40"
-            >
-              🔁 Réinitialiser le PIN
-            </button>
-            <button
-              onClick={() => setStaffActive(member.id, !member.active).catch((err) => console.error(err))}
-              className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2"
-              style={member.active ? { borderColor: "#4a2020", color: "#e8a8a8" } : { borderColor: "#204a3a", color: "#a8e8c8" }}
-            >
-              {member.active ? "Désactiver" : "Réactiver"}
-            </button>
-          </>
-        )}
-      </div>
+      {planningOpen && <ShiftPlanner staffId={member.id} shifts={shifts} readOnly={readOnly} />}
     </div>
   );
 }
 
 export default function StaffManagement({ readOnly }) {
   const { staff } = useStaff();
+  const { staffShifts } = useStaffShifts();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newContract, setNewContract] = useState("cdi");
@@ -217,7 +341,12 @@ export default function StaffManagement({ readOnly }) {
 
       <div className="flex flex-col gap-3 max-w-2xl">
         {sorted.map((member) => (
-          <Row key={member.id} member={member} readOnly={readOnly} />
+          <Row
+            key={member.id}
+            member={member}
+            shifts={staffShifts.filter((s) => s.staffId === member.id)}
+            readOnly={readOnly}
+          />
         ))}
       </div>
     </div>

@@ -31,6 +31,7 @@ import ApprovisionnementAdmin from "./team/ApprovisionnementAdmin";
 import LoyaltyAdmin from "./team/LoyaltyAdmin";
 import PointageKiosk from "./team/PointageKiosk";
 import StaffManagement from "./team/StaffManagement";
+import PresenceDashboard from "./team/PresenceDashboard";
 
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
@@ -330,9 +331,11 @@ export default function TeamSpace({ onExit }) {
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
             <button onClick={() => setTab("kiosk")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kiosk" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🕐 Badgeuse</button>
             <button onClick={() => setTab("staff")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Personnel</button>
+            <button onClick={() => setTab("presence")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "presence" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📊 Présence</button>
           </div>
           {tab === "kiosk" && <PointageKiosk readOnly={readOnly} />}
           {tab === "staff" && <StaffManagement readOnly={readOnly} />}
+          {tab === "presence" && <PresenceDashboard />}
         </>
       )}
     </div>
