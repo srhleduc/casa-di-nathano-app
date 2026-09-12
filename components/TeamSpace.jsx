@@ -32,6 +32,7 @@ import LoyaltyAdmin from "./team/LoyaltyAdmin";
 import PointageKiosk from "./team/PointageKiosk";
 import StaffManagement from "./team/StaffManagement";
 import PresenceDashboard from "./team/PresenceDashboard";
+import RegularisationAdmin from "./team/RegularisationAdmin";
 
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
@@ -332,10 +333,12 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("kiosk")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kiosk" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🕐 Badgeuse</button>
             <button onClick={() => setTab("staff")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Personnel</button>
             <button onClick={() => setTab("presence")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "presence" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📊 Présence</button>
+            <button onClick={() => setTab("regularisation")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "regularisation" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🛠️ Régularisation</button>
           </div>
           {tab === "kiosk" && <PointageKiosk readOnly={readOnly} />}
           {tab === "staff" && <StaffManagement readOnly={readOnly} />}
           {tab === "presence" && <PresenceDashboard />}
+          {tab === "regularisation" && <RegularisationAdmin readOnly={readOnly} />}
         </>
       )}
     </div>

@@ -1,9 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { useStaff, useStaffShifts, useTodayPointageEntries, useThisWeekPointageEntries } from "@/lib/data";
+import {
+  useStaff,
+  useStaffShifts,
+  useTodayPointageEntries,
+  useThisWeekPointageEntries,
+  useTodayCorrections,
+  useThisWeekCorrections,
+} from "@/lib/data";
 import { toMin, toHHMM, weekdayOf, mondayOf } from "@/lib/reservation/services";
-import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff } from "@/lib/business";
+import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff, applyCorrections } from "@/lib/business";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -43,8 +50,15 @@ function GapBadge({ gap }) {
 export default function PresenceDashboard() {
   const { staff } = useStaff();
   const { staffShifts } = useStaffShifts();
-  const { entries } = useTodayPointageEntries();
-  const { entries: weekEntries } = useThisWeekPointageEntries();
+  const { entries: rawEntries } = useTodayPointageEntries();
+  const { entries: rawWeekEntries } = useThisWeekPointageEntries();
+  const { corrections } = useTodayCorrections();
+  const { corrections: weekCorrections } = useThisWeekCorrections();
+
+  // Pointages bruts jamais modifiés en base — les régularisations ne
+  // changent que cette vue "effective" utilisée pour l'affichage/calcul.
+  const entries = useMemo(() => applyCorrections(rawEntries, corrections), [rawEntries, corrections]);
+  const weekEntries = useMemo(() => applyCorrections(rawWeekEntries, weekCorrections), [rawWeekEntries, weekCorrections]);
 
   // `asOf = now` : une arrivée encore ouverte (pas de départ pointé) compte
   // jusqu'à maintenant — indispensable ici (vue temps réel), à la différence

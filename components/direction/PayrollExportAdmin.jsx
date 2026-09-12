@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchStaffForRestaurant, fetchPointageEntriesForRange, fetchStaffShiftsForRestaurant } from "@/lib/data";
-import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff } from "@/lib/business";
+import {
+  fetchStaffForRestaurant,
+  fetchPointageEntriesForRange,
+  fetchStaffShiftsForRestaurant,
+  fetchPointageCorrectionsForRange,
+} from "@/lib/data";
+import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff, applyCorrections } from "@/lib/business";
 import { toHHMM } from "@/lib/reservation/services";
 import { useRestaurantsList } from "@/lib/restaurant";
 
@@ -35,7 +40,8 @@ export default function PayrollExportAdmin() {
   const [restaurantId, setRestaurantId] = useState(null);
   const [month, setMonth] = useState(currentMonthStr());
   const [staff, setStaff] = useState([]);
-  const [entries, setEntries] = useState([]);
+  const [rawEntries, setRawEntries] = useState([]);
+  const [corrections, setCorrections] = useState([]);
   const [staffShifts, setStaffShifts] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -53,12 +59,14 @@ export default function PayrollExportAdmin() {
       fetchStaffForRestaurant(restaurantId),
       fetchPointageEntriesForRange(restaurantId, start, end),
       fetchStaffShiftsForRestaurant(restaurantId),
+      fetchPointageCorrectionsForRange(restaurantId, start, end),
     ])
-      .then(([staffRows, entryRows, shiftRows]) => {
+      .then(([staffRows, entryRows, shiftRows, correctionRows]) => {
         if (cancelled) return;
         setStaff(staffRows);
-        setEntries(entryRows);
+        setRawEntries(entryRows);
         setStaffShifts(shiftRows);
+        setCorrections(correctionRows);
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -66,6 +74,9 @@ export default function PayrollExportAdmin() {
     };
   }, [restaurantId, start, end]);
 
+  // Pointages bruts jamais modifiés en base — les régularisations ne
+  // changent que cette vue "effective" utilisée pour le calcul des heures.
+  const entries = useMemo(() => applyCorrections(rawEntries, corrections), [rawEntries, corrections]);
   const dailyMinutes = useMemo(() => computeDailyWorkedMinutes(entries), [entries]);
   const weeklyMinutes = useMemo(() => groupWorkedMinutesByWeek(dailyMinutes), [dailyMinutes]);
 
@@ -176,11 +187,12 @@ export default function PayrollExportAdmin() {
       </div>
 
       <div className="text-xs text-[#8a7561] mb-4">
-        Heures travaillées = pointages arrivée/départ, moins les pauses, jour par jour. Un pointage manquant (oubli de
-        départ) est compté jusqu'au dernier pointage connu, pas au-delà — vérifie les journées incomplètes avant
-        transmission à la paie. Le dépassement hebdomadaire compare au planning du salarié (staff_shifts), pas au
-        seuil légal de 35h — à qualifier heures sup / heures complémentaires selon son contrat. Une semaine à cheval
-        sur deux mois n'apparaît qu'avec les jours du mois sélectionné.
+        Heures travaillées = pointages arrivée/départ, moins les pauses, jour par jour, régularisations incluses
+        (voir l'onglet "Régularisation" de l'espace équipe). Un pointage manquant non régularisé est compté jusqu'au
+        dernier pointage connu, pas au-delà — vérifie les journées incomplètes avant transmission à la paie. Le
+        dépassement hebdomadaire compare au planning du salarié (staff_shifts), pas au seuil légal de 35h — à
+        qualifier heures sup / heures complémentaires selon son contrat. Une semaine à cheval sur deux mois n'apparaît
+        qu'avec les jours du mois sélectionné.
       </div>
 
       {loading && <p className="text-[#8a7561]">Chargement…</p>}
