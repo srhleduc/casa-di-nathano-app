@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useStaff, useStaffShifts, useTodayPointageEntries } from "@/lib/data";
-import { toMin, toHHMM, weekdayOf } from "@/lib/reservation/services";
+import { useStaff, useStaffShifts, useTodayPointageEntries, useThisWeekPointageEntries } from "@/lib/data";
+import { toMin, toHHMM, weekdayOf, mondayOf } from "@/lib/reservation/services";
+import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff } from "@/lib/business";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -43,6 +44,18 @@ export default function PresenceDashboard() {
   const { staff } = useStaff();
   const { staffShifts } = useStaffShifts();
   const { entries } = useTodayPointageEntries();
+  const { entries: weekEntries } = useThisWeekPointageEntries();
+
+  const weeklyWorkedByStaff = useMemo(() => {
+    const currentMonday = mondayOf(todayISO());
+    const byWeek = groupWorkedMinutesByWeek(computeDailyWorkedMinutes(weekEntries));
+    const byStaff = new Map();
+    for (const [key, minutes] of byWeek.entries()) {
+      const [staffId, monday] = key.split("|");
+      if (monday === currentMonday) byStaff.set(staffId, minutes);
+    }
+    return byStaff;
+  }, [weekEntries]);
 
   const rows = useMemo(() => {
     const wd = weekdayOf(todayISO());
@@ -105,6 +118,9 @@ export default function PresenceDashboard() {
 
         const plannedMin = shiftsToday.reduce((sum, s) => sum + (toMin(s.endTime) - toMin(s.startTime)), 0);
 
+        const weeklyPlannedMin = weeklyPlannedMinutesForStaff(staffShifts, member.id);
+        const weeklyWorkedMin = weeklyWorkedByStaff.get(member.id) || 0;
+
         return {
           member,
           shiftsToday,
@@ -113,11 +129,13 @@ export default function PresenceDashboard() {
           departureGap,
           workedMin: Math.max(0, workedMin),
           plannedMin,
+          weeklyWorkedMin,
+          weeklyPlannedMin,
         };
       })
       .filter(Boolean)
       .sort((a, b) => a.member.fullName.localeCompare(b.member.fullName, "fr"));
-  }, [staff, staffShifts, entries]);
+  }, [staff, staffShifts, entries, weeklyWorkedByStaff]);
 
   const STATUS_BADGE = {
     present: { label: "🟢 présent", bg: "#204a3a", fg: "#a8e8c8" },
@@ -130,16 +148,19 @@ export default function PresenceDashboard() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="text-xs text-[#8a7561] mb-5 max-w-xl">
-        Comparaison du jour même uniquement — présence en temps réel, écart
-        arrivée/départ vs créneau prévu, heures travaillées vs prévues
-        aujourd'hui. Pas de cumul hebdomadaire pour l'instant.
+        Présence en temps réel, écart arrivée/départ vs créneau prévu, heures
+        travaillées aujourd'hui et cumul de la semaine en cours (lundi à
+        aujourd'hui) vs planning. Le dépassement compare au planning du
+        salarié, pas au seuil légal de 35h — à toi de qualifier heures sup ou
+        heures complémentaires selon son contrat.
       </div>
 
       {rows.length === 0 && <p className="text-[#8a7561]">Personne de prévu ni pointé aujourd'hui.</p>}
 
       <div className="flex flex-col gap-3 max-w-3xl">
-        {rows.map(({ member, shiftsToday, status, arrivalGap, departureGap, workedMin, plannedMin }) => {
+        {rows.map(({ member, shiftsToday, status, arrivalGap, departureGap, workedMin, plannedMin, weeklyWorkedMin, weeklyPlannedMin }) => {
           const badge = STATUS_BADGE[status];
+          const weeklyOverage = weeklyPlannedMin > 0 ? weeklyWorkedMin - weeklyPlannedMin : null;
           return (
             <div key={member.id} className="rounded-2xl border-2 border-[#3a2b1f] p-4 flex flex-wrap items-center gap-4">
               <div className="min-w-[140px]">
@@ -169,6 +190,19 @@ export default function PresenceDashboard() {
               <div className="text-xs text-[#a88f78] min-w-[140px]">
                 <div className="uppercase font-bold text-[10px] text-[#8a7561] mb-0.5">Heures aujourd'hui</div>
                 {toHHMM(workedMin).replace(":", "h")} {plannedMin > 0 ? `/ ${toHHMM(plannedMin).replace(":", "h")} prévu` : ""}
+              </div>
+
+              <div className="text-xs text-[#a88f78] min-w-[160px]">
+                <div className="uppercase font-bold text-[10px] text-[#8a7561] mb-0.5">Cumul cette semaine</div>
+                <div>
+                  {toHHMM(weeklyWorkedMin).replace(":", "h")}
+                  {weeklyPlannedMin > 0 ? ` / ${toHHMM(weeklyPlannedMin).replace(":", "h")} prévu` : ""}
+                </div>
+                {weeklyOverage != null && weeklyOverage > 5 && (
+                  <span className="text-xs font-bold rounded-full px-2 py-0.5 inline-block mt-1" style={{ background: "#4a2020", color: "#e8a8a8" }}>
+                    +{toHHMM(weeklyOverage).replace(":", "h")} au-delà du planning
+                  </span>
+                )}
               </div>
             </div>
           );

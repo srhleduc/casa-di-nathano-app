@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchStaffForRestaurant, fetchPointageEntriesForRange } from "@/lib/data";
-import { computeDailyWorkedMinutes } from "@/lib/business";
+import { fetchStaffForRestaurant, fetchPointageEntriesForRange, fetchStaffShiftsForRestaurant } from "@/lib/data";
+import { computeDailyWorkedMinutes, groupWorkedMinutesByWeek, weeklyPlannedMinutesForStaff } from "@/lib/business";
 import { toHHMM } from "@/lib/reservation/services";
 import { useRestaurantsList } from "@/lib/restaurant";
 
@@ -36,6 +36,7 @@ export default function PayrollExportAdmin() {
   const [month, setMonth] = useState(currentMonthStr());
   const [staff, setStaff] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [staffShifts, setStaffShifts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -48,11 +49,16 @@ export default function PayrollExportAdmin() {
     if (!restaurantId) return;
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchStaffForRestaurant(restaurantId), fetchPointageEntriesForRange(restaurantId, start, end)])
-      .then(([staffRows, entryRows]) => {
+    Promise.all([
+      fetchStaffForRestaurant(restaurantId),
+      fetchPointageEntriesForRange(restaurantId, start, end),
+      fetchStaffShiftsForRestaurant(restaurantId),
+    ])
+      .then(([staffRows, entryRows, shiftRows]) => {
         if (cancelled) return;
         setStaff(staffRows);
         setEntries(entryRows);
+        setStaffShifts(shiftRows);
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -61,25 +67,38 @@ export default function PayrollExportAdmin() {
   }, [restaurantId, start, end]);
 
   const dailyMinutes = useMemo(() => computeDailyWorkedMinutes(entries), [entries]);
+  const weeklyMinutes = useMemo(() => groupWorkedMinutesByWeek(dailyMinutes), [dailyMinutes]);
 
   // Une ligne par salarié ayant au moins un jour travaillé sur le mois,
-  // triée par nom, avec le détail jour par jour et le total du mois.
+  // triée par nom, avec le détail jour par jour, le cumul par semaine (vs
+  // son planning récurrent) et le total du mois.
   const rows = useMemo(() => {
-    const byStaff = new Map();
+    const byStaffDays = new Map();
     for (const [key, minutes] of dailyMinutes.entries()) {
       const [staffId, date] = key.split("|");
-      if (!byStaff.has(staffId)) byStaff.set(staffId, []);
-      byStaff.get(staffId).push({ date, minutes });
+      if (!byStaffDays.has(staffId)) byStaffDays.set(staffId, []);
+      byStaffDays.get(staffId).push({ date, minutes });
     }
+    const byStaffWeeks = new Map();
+    for (const [key, minutes] of weeklyMinutes.entries()) {
+      const [staffId, monday] = key.split("|");
+      if (!byStaffWeeks.has(staffId)) byStaffWeeks.set(staffId, []);
+      byStaffWeeks.get(staffId).push({ monday, minutes });
+    }
+
     return staff
       .map((member) => {
-        const days = (byStaff.get(member.id) || []).sort((a, b) => a.date.localeCompare(b.date));
+        const days = (byStaffDays.get(member.id) || []).sort((a, b) => a.date.localeCompare(b.date));
         const totalMinutes = days.reduce((s, d) => s + d.minutes, 0);
-        return { member, days, totalMinutes };
+        const plannedWeeklyMin = weeklyPlannedMinutesForStaff(staffShifts, member.id);
+        const weeks = (byStaffWeeks.get(member.id) || [])
+          .sort((a, b) => a.monday.localeCompare(b.monday))
+          .map((w) => ({ ...w, plannedMin: plannedWeeklyMin, overage: plannedWeeklyMin > 0 ? w.minutes - plannedWeeklyMin : null }));
+        return { member, days, weeks, totalMinutes };
       })
       .filter((r) => r.days.length > 0)
       .sort((a, b) => a.member.fullName.localeCompare(b.member.fullName, "fr"));
-  }, [staff, dailyMinutes]);
+  }, [staff, dailyMinutes, weeklyMinutes, staffShifts]);
 
   function downloadCsv() {
     const restaurant = restaurants.find((r) => r.id === restaurantId);
@@ -89,6 +108,24 @@ export default function PayrollExportAdmin() {
         lines.push([member.fullName, member.contractType, d.date, hhmm(d.minutes)].map(csvEscape).join(";"));
       }
     }
+    lines.push("");
+    lines.push(["Salarié", "Semaine du", "Heures travaillées", "Prévu/semaine", "Dépassement"].join(";"));
+    for (const { member, weeks } of rows) {
+      for (const w of weeks) {
+        lines.push(
+          [
+            member.fullName,
+            w.monday,
+            hhmm(w.minutes),
+            w.plannedMin > 0 ? hhmm(w.plannedMin) : "—",
+            w.overage != null && w.overage > 0 ? `+${hhmm(w.overage)}` : "—",
+          ]
+            .map(csvEscape)
+            .join(";")
+        );
+      }
+    }
+
     lines.push("");
     lines.push(["Salarié", "Total du mois"].join(";"));
     for (const { member, totalMinutes } of rows) {
@@ -141,7 +178,9 @@ export default function PayrollExportAdmin() {
       <div className="text-xs text-[#8a7561] mb-4">
         Heures travaillées = pointages arrivée/départ, moins les pauses, jour par jour. Un pointage manquant (oubli de
         départ) est compté jusqu'au dernier pointage connu, pas au-delà — vérifie les journées incomplètes avant
-        transmission à la paie.
+        transmission à la paie. Le dépassement hebdomadaire compare au planning du salarié (staff_shifts), pas au
+        seuil légal de 35h — à qualifier heures sup / heures complémentaires selon son contrat. Une semaine à cheval
+        sur deux mois n'apparaît qu'avec les jours du mois sélectionné.
       </div>
 
       {loading && <p className="text-[#8a7561]">Chargement…</p>}
@@ -183,6 +222,43 @@ export default function PayrollExportAdmin() {
               )}
             </tbody>
           </table>
+
+          {rows.length > 0 && (
+            <table className="w-full text-sm mt-8">
+              <thead>
+                <tr className="text-left text-xs text-[#a88f78] uppercase">
+                  <th className="py-2 pr-4">Salarié</th>
+                  <th className="py-2 pr-4">Cumul par semaine (vs planning)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ member, weeks }) => (
+                  <tr key={member.id} className="border-t border-[#3a2b1f] align-top">
+                    <td className="py-2 pr-4 font-bold">{member.fullName}</td>
+                    <td className="py-2 pr-4">
+                      <div className="flex flex-wrap gap-3 font-mono text-xs">
+                        {weeks.map((w) => (
+                          <span
+                            key={w.monday}
+                            className="rounded-full px-3 py-1"
+                            style={
+                              w.overage != null && w.overage > 0
+                                ? { background: "#4a2020", color: "#e8a8a8" }
+                                : { background: "#211712", border: "1px solid #3a2b1f" }
+                            }
+                          >
+                            {w.monday.slice(8, 10)}/{w.monday.slice(5, 7)} · {hhmm(w.minutes)}
+                            {w.plannedMin > 0 ? ` / ${hhmm(w.plannedMin)} prévu` : ""}
+                            {w.overage != null && w.overage > 0 ? ` (+${hhmm(w.overage)})` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>
