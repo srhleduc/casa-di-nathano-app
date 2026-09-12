@@ -133,8 +133,8 @@ export default function TeamSpace({ onExit }) {
 
   return (
     <div className="kiosk-root--team">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-[#3a2b1f]">
+        <div className="flex items-center gap-3 min-w-0">
           {!readOnly && (
             <button
               onClick={toggleTestMode}
@@ -145,16 +145,16 @@ export default function TeamSpace({ onExit }) {
             </button>
           )}
           {zone && (
-            <button onClick={() => setZone(null)} className="text-[#c9b8a4] text-sm font-semibold tap-scale">
+            <button onClick={() => setZone(null)} className="text-[#c9b8a4] text-sm font-semibold tap-scale shrink-0">
               ← Zones
             </button>
           )}
-          <span className="display-font text-xl font-semibold">
+          <span className="display-font text-xl font-semibold truncate min-w-0">
             🧑‍🍳 Espace équipe · {restaurant.name}
             {zone ? ZONE_LABELS[zone] : ""}
           </span>
         </div>
-        <button onClick={onExit} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
+        <button onClick={onExit} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale shrink-0">
           Fermer
         </button>
       </div>
