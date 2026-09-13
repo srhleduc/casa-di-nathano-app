@@ -1149,7 +1149,18 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               )}
               {selectedOrder ? (
                 <>
-                  <div className="display-font text-lg font-bold mb-1">{selectedOrder.name}</div>
+                  <div className="display-font text-lg font-bold mb-1 flex items-center gap-2 flex-wrap">
+                    {selectedOrder.name}
+                    {isOrderPaid(selectedOrder) && selectedOrder.status !== "servie" && (
+                      <span
+                        className="text-xs font-bold rounded-full px-3 py-1"
+                        style={{ background: "#204a3a", color: "#a8e8c8" }}
+                        title="Déjà réglée — ne pas encaisser une deuxième fois"
+                      >
+                        💰 Déjà payée
+                      </span>
+                    )}
+                  </div>
                   <GroupedItemList
                     items={selectedOrder.items}
                     className="mb-2"

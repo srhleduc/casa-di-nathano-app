@@ -1,6 +1,6 @@
 "use client";
 
-import { serviceTypeBadgeStyle, formatSlotAllocations } from "@/lib/business";
+import { serviceTypeBadgeStyle, formatSlotAllocations, isOrderPaid } from "@/lib/business";
 
 export default function OrderCardHeader({ order, onEdit, onDelete, showTime = true }) {
   return (
@@ -14,6 +14,15 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
         <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(order.serviceType)}>
           {order.serviceType}
         </span>
+        {isOrderPaid(order) && order.status !== "servie" && (
+          <span
+            className="text-xs font-bold rounded-full px-3 py-1"
+            style={{ background: "#204a3a", color: "#a8e8c8" }}
+            title="Déjà réglée — ne pas encaisser une deuxième fois"
+          >
+            💰 Déjà payée
+          </span>
+        )}
         {order.isTest && (
           <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
             🧪 TEST

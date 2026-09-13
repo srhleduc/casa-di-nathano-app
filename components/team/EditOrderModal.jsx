@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -277,8 +277,19 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
       <div className="pizza-modal w-full md:max-w-2xl md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "#1a120b", color: "#f5ebdd", height: "min(90vh, 720px)" }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
-          <span className="display-font text-2xl font-bold">Modifier « {name || order.name} »</span>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f] gap-2 flex-wrap">
+          <span className="display-font text-2xl font-bold flex items-center gap-2 flex-wrap">
+            Modifier « {name || order.name} »
+            {isOrderPaid(order) && order.status !== "servie" && (
+              <span
+                className="text-xs font-bold rounded-full px-3 py-1"
+                style={{ background: "#204a3a", color: "#a8e8c8" }}
+                title="Déjà réglée — ne pas encaisser une deuxième fois"
+              >
+                💰 Déjà payée
+              </span>
+            )}
+          </span>
           <button onClick={onClose} className="tap-scale w-9 h-9 rounded-full bg-[#241811] text-[#c9b8a4] font-bold">
             ✕
           </button>
