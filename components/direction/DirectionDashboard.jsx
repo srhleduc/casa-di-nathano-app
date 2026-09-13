@@ -29,6 +29,7 @@ import LoyaltyMessagesAdmin from "./LoyaltyMessagesAdmin";
 import SourceStatsAdmin from "./SourceStatsAdmin";
 import MenuCategoryOrderAdmin from "./MenuCategoryOrderAdmin";
 import PayrollExportAdmin from "./PayrollExportAdmin";
+import NotificationSoundAdmin from "./NotificationSoundAdmin";
 
 function NotificationsToggle() {
   const { session } = useManagerSession();
@@ -184,6 +185,9 @@ export default function DirectionDashboard() {
         <button onClick={() => setTab("payroll")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "payroll" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🧾 Export paie
         </button>
+        <button onClick={() => setTab("sound")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "sound" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          🔔 Son de notification
+        </button>
       </div>
 
       {tab === "overview" && (
@@ -239,6 +243,7 @@ export default function DirectionDashboard() {
       {tab === "autonomy" && <SourceStatsAdmin />}
       {tab === "catorder" && <MenuCategoryOrderAdmin />}
       {tab === "payroll" && <PayrollExportAdmin />}
+      {tab === "sound" && <NotificationSoundAdmin />}
     </div>
   );
 }

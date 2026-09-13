@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
 import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations, recomputeImmediateOrderSlotAllocations, hasUnseenSatAddition } from "@/lib/business";
-import { playAutonomousOrderChime } from "@/lib/sound";
+import { playAutonomousOrderChime, preloadCustomSound } from "@/lib/sound";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
@@ -68,6 +68,9 @@ export default function TeamSpace({ onExit }) {
   const seenOrderIdsRef = useRef(null);
   const seenSatSignatureRef = useRef(null);
   useEffect(() => {
+    if (!readOnly && restaurant.notificationSoundUrl) preloadCustomSound(restaurant.notificationSoundUrl);
+  }, [readOnly, restaurant.notificationSoundUrl]);
+  useEffect(() => {
     if (readOnly) return;
     if (seenOrderIdsRef.current == null) {
       seenOrderIdsRef.current = new Set(orders.map((o) => o.id));
@@ -91,7 +94,7 @@ export default function TeamSpace({ onExit }) {
       }
       seenOrderIdsRef.current.add(o.id);
     }
-    if (shouldPlay) playAutonomousOrderChime();
+    if (shouldPlay) playAutonomousOrderChime(restaurant.notificationSoundUrl);
   }, [orders, readOnly]);
 
   // Écrit une répartition de créneaux recalculée sur une commande (programmée
