@@ -59,7 +59,7 @@ function RestaurantSoundRow({ restaurant }) {
       setStatus("ok");
     } catch (err) {
       console.error(err);
-      setError("Échec de l'import.");
+      setError(`Échec de l'import : ${err.message || err}`);
     } finally {
       setBusy(false);
     }
