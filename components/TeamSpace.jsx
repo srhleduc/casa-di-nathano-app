@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
-import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations, recomputeImmediateOrderSlotAllocations } from "@/lib/business";
+import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations, recomputeImmediateOrderSlotAllocations, hasUnseenSatAddition } from "@/lib/business";
+import { playAutonomousOrderChime } from "@/lib/sound";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
 
 import KitchenBoard from "./team/KitchenBoard";
@@ -57,6 +58,41 @@ export default function TeamSpace({ onExit }) {
   const restaurantFilter = useRestaurantFilter();
   const restaurant = useRestaurant(restaurantFilter);
   const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
+
+  // Carillon "commande autonome" (click & collect passé par le client, ou
+  // ajout /sat sur une table) — pour qu'une équipe occupée sur un autre
+  // écran ne la manque pas. Monté ici (racine de l'espace équipe) plutôt que
+  // dans un board précis : il sonne quel que soit l'onglet ouvert. Pas de
+  // rattrapage sonore pour ce qui existait déjà à l'ouverture de l'écran, ni
+  // en mode test, ni côté Direction (lecture seule).
+  const seenOrderIdsRef = useRef(null);
+  const seenSatSignatureRef = useRef(null);
+  useEffect(() => {
+    if (readOnly) return;
+    if (seenOrderIdsRef.current == null) {
+      seenOrderIdsRef.current = new Set(orders.map((o) => o.id));
+      seenSatSignatureRef.current = new Map(
+        orders.filter((o) => hasUnseenSatAddition(o)).map((o) => [o.id, o.satAdditionAt])
+      );
+      return;
+    }
+    let shouldPlay = false;
+    for (const o of orders) {
+      if (!o.isTest) {
+        if (!seenOrderIdsRef.current.has(o.id) && (o.items || []).some((it) => it.source === "click_and_collect")) {
+          shouldPlay = true;
+        }
+        if (hasUnseenSatAddition(o)) {
+          if (seenSatSignatureRef.current.get(o.id) !== o.satAdditionAt) shouldPlay = true;
+          seenSatSignatureRef.current.set(o.id, o.satAdditionAt);
+        } else {
+          seenSatSignatureRef.current.delete(o.id);
+        }
+      }
+      seenOrderIdsRef.current.add(o.id);
+    }
+    if (shouldPlay) playAutonomousOrderChime();
+  }, [orders, readOnly]);
 
   // Écrit une répartition de créneaux recalculée sur une commande (programmée
   // ou prise le jour même) — jamais autre chose (voir updateOrder, qui
