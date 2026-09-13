@@ -6,10 +6,20 @@
 // rendu ici, quelle que soit la manipulation d'URL tentée par un client.
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, normalizePhoneFr, TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
-import { FORMULE_PRICE, eur } from "@/lib/menu";
+import {
+  cartSignature,
+  lineUnitPrice,
+  withAutoFocaccia,
+  computeSlotOptions,
+  minutesFromNow,
+  normalizePhoneFr,
+  availableTakeawayDesserts,
+  TAKEAWAY_SERVICE_TYPE,
+  TAKEAWAY_SLOT_MARGIN_MINUTES,
+} from "@/lib/business";
+import { FORMULE_PRICE, eur, DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useCategoryOrder, useTakeawayLinkStatus, useActiveMenuServiceGroups, submitTakeawayOrderWithCommitment } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useCategoryOrder, useTakeawayLinkStatus, useActiveMenuServiceGroups, useOptionGroups, submitTakeawayOrderWithCommitment } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -21,6 +31,7 @@ import CheckoutScreen from "./CheckoutScreen";
 import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
+import DessertUpsellModal from "./DessertUpsellModal";
 
 async function submitWithRetry(payload, attempt = 1) {
   try {
@@ -65,6 +76,7 @@ export default function TakeawayOrder() {
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
+  const [showDessertUpsell, setShowDessertUpsell] = useState(false);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander (miroir du flux serveuses)
   const [phone, setPhone] = useState(""); // engagement client — numéro brut, aucun rapprochement profil
@@ -81,6 +93,26 @@ export default function TakeawayOrder() {
   const { categoryOrder } = useCategoryOrder();
   const { suspended, loading: suspendedLoading } = useTakeawayLinkStatus();
   const restaurant = useRestaurant();
+  const { forItem: optionGroupsForItem } = useOptionGroups();
+
+  function requiredOptionsUnavailable(m) {
+    return optionGroupsForItem(m).some((g) => {
+      if (!g.required) return false;
+      const avail = g.options.filter((o) => !(ruptures || []).includes(optionRuptureKey(g.id, o.name)));
+      return avail.length === 0;
+    });
+  }
+  const dessertUpsellItems = useMemo(
+    () =>
+      availableTakeawayDesserts(menuItems, DESSERT_STOCK_GROUPS, {
+        ruptures,
+        dessertStock,
+        orders,
+        activeServiceGroups,
+        requiredOptionsUnavailable,
+      }),
+    [menuItems, ruptures, dessertStock, orders, activeServiceGroups]
+  );
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -126,6 +158,7 @@ export default function TakeawayOrder() {
     setSelectedOption(null);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
+    setShowDessertUpsell(false);
     setCheckPizzaCount(0);
     setPhone("");
     setCommitmentAccepted(false);
@@ -192,6 +225,18 @@ export default function TakeawayOrder() {
         cgvVersion: CGV_VERSION,
       },
     }).then(setConfirmedNumber);
+  }
+
+  // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier —
+  // propose un dessert une seule fois si le panier n'en contient encore
+  // aucun et qu'il y a effectivement quelque chose à proposer aujourd'hui.
+  function handleCheckoutConfirm() {
+    const hasDessert = cart.some((i) => i.cat === "dessert");
+    if (!hasDessert && dessertUpsellItems.length > 0) {
+      setShowDessertUpsell(true);
+    } else {
+      goToSlot();
+    }
   }
 
   function goToSlot() {
@@ -272,6 +317,20 @@ export default function TakeawayOrder() {
         />
       )}
 
+      {showDessertUpsell && (
+        <DessertUpsellModal
+          items={dessertUpsellItems}
+          cart={cart}
+          addItem={addItem}
+          changeQty={changeQty}
+          onGlaceTap={setFlavoring}
+          onContinue={() => {
+            setShowDessertUpsell(false);
+            goToSlot();
+          }}
+        />
+      )}
+
       {flavoring && (
         <FlavorModal
           item={flavoring}
@@ -280,6 +339,9 @@ export default function TakeawayOrder() {
           onConfirm={(note) => {
             addItem(flavoring, note);
             setFlavoring(null);
+            // Si ouvert depuis le popup dessert (showDessertUpsell), celui-ci
+            // reste affiché après l'ajout — c'est son propre bouton
+            // "Continuer →" qui fait avancer vers le choix de créneau.
           }}
         />
       )}
@@ -313,7 +375,7 @@ export default function TakeawayOrder() {
           tableName={tableName}
           setTableName={setTableName}
           onBack={() => setScreen("order")}
-          onConfirm={goToSlot}
+          onConfirm={handleCheckoutConfirm}
           requireCommitment
           phone={phone}
           setPhone={setPhone}
