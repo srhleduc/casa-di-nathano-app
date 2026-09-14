@@ -14,12 +14,27 @@ import {
   minutesFromNow,
   normalizePhoneFr,
   availableTakeawayDesserts,
+  isTakeawayClosedToday,
   TAKEAWAY_SERVICE_TYPE,
   TAKEAWAY_SLOT_MARGIN_MINUTES,
 } from "@/lib/business";
 import { FORMULE_PRICE, eur, DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useCategoryOrder, useTakeawayLinkStatus, useActiveMenuServiceGroups, useOptionGroups, submitTakeawayOrderWithCommitment } from "@/lib/data";
+import {
+  useOrders,
+  useSlots,
+  useRuptures,
+  useDessertStock,
+  usePizzaStock,
+  useMenu,
+  useCategoryOrder,
+  useTakeawayLinkStatus,
+  useActiveMenuServiceGroups,
+  useOptionGroups,
+  useTakeawayHours,
+  useServiceExceptions,
+  submitTakeawayOrderWithCommitment,
+} from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -46,12 +61,12 @@ async function submitWithRetry(payload, attempt = 1) {
   }
 }
 
-function SuspendedScreen({ restaurantName, phone }) {
+function SuspendedScreen({ restaurantName, phone, message }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
       <span className="text-6xl mb-6">⏸️</span>
       <h1 className="display-font text-3xl font-semibold mb-4">{restaurantName}</h1>
-      <p className="text-[#c9b8a4] text-lg max-w-md mb-2">La commande en ligne est temporairement indisponible.</p>
+      <p className="text-[#c9b8a4] text-lg max-w-md mb-2">{message || "La commande en ligne est temporairement indisponible."}</p>
       {phone && (
         <p className="text-[#c9b8a4] text-lg max-w-md">
           Merci de nous appeler directement au{" "}
@@ -94,6 +109,12 @@ export default function TakeawayOrder() {
   const { suspended, loading: suspendedLoading } = useTakeawayLinkStatus();
   const restaurant = useRestaurant();
   const { forItem: optionGroupsForItem } = useOptionGroups();
+  const { takeawayHours, loading: hoursLoading } = useTakeawayHours();
+  const { serviceExceptions } = useServiceExceptions();
+
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const hoursToday = takeawayHours.find((h) => h.weekday === new Date().getDay());
+  const closedToday = !hoursLoading && isTakeawayClosedToday(todayISO(), hoursToday, serviceExceptions);
 
   function requiredOptionsUnavailable(m) {
     return optionGroupsForItem(m).some((g) => {
@@ -268,6 +289,14 @@ export default function TakeawayOrder() {
     return (
       <div className="kiosk-root">
         <SuspendedScreen restaurantName={restaurant.name} phone={restaurant.phone} />
+      </div>
+    );
+  }
+
+  if (closedToday) {
+    return (
+      <div className="kiosk-root">
+        <SuspendedScreen restaurantName={restaurant.name} phone={restaurant.phone} message="Fermé aujourd'hui — commande en ligne indisponible." />
       </div>
     );
   }
