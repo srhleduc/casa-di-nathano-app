@@ -15,6 +15,8 @@ import {
   normalizePhoneFr,
   availableTakeawayDesserts,
   isTakeawayClosedToday,
+  describeTakeawayHoursToday,
+  WEEKDAY_LABELS_FR,
   TAKEAWAY_SERVICE_TYPE,
   TAKEAWAY_SLOT_MARGIN_MINUTES,
 } from "@/lib/business";
@@ -80,6 +82,47 @@ function SuspendedScreen({ restaurantName, phone, message }) {
   );
 }
 
+// Écran "fermé aujourd'hui" — remplace la commande en ligne quand aucun
+// service (midi/soir) n'est ouvert aujourd'hui (voir isTakeawayClosedToday).
+// Affiche aussi les horaires de la semaine pour que le client sache quand
+// revenir, plutôt qu'un simple message générique.
+function ClosedTodayScreen({ restaurantName, phone, takeawayHours }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-8 text-center overflow-y-auto py-10">
+      <span className="text-6xl mb-6">⏸️</span>
+      <h1 className="display-font text-3xl font-semibold mb-2">{restaurantName}</h1>
+      <p className="text-[#c9b8a4] text-lg max-w-md mb-6">Fermé aujourd&apos;hui — commande en ligne indisponible.</p>
+
+      <div className="rounded-2xl border border-[#3a2a1f] px-6 py-5 w-full max-w-sm mb-6">
+        <div className="text-xs text-[#8a7561] uppercase font-bold mb-3 tracking-wide">Horaires de la semaine</div>
+        <div className="flex flex-col gap-2">
+          {WEEKDAY_LABELS_FR.map(({ weekday, label }) => {
+            const hours = takeawayHours.find((h) => h.weekday === weekday);
+            const desc = describeTakeawayHoursToday(hours);
+            const isToday = weekday === new Date().getDay();
+            return (
+              <div key={weekday} className="flex items-center justify-between text-sm gap-3">
+                <span className={isToday ? "font-bold text-[#E8B23D]" : "text-[#c9b8a4]"}>{label}</span>
+                <span className={desc ? "text-[#f5ede3]" : "text-[#5a4a3a]"}>{desc || "Fermé"}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {phone && (
+        <p className="text-[#c9b8a4] text-lg max-w-md">
+          Merci de nous appeler directement au{" "}
+          <a href={`tel:${phone.replace(/\s+/g, "")}`} className="font-bold text-[#E8B23D]">
+            {phone}
+          </a>
+          .
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function TakeawayOrder() {
   const [screen, setScreen] = useState("welcome"); // welcome | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("pizza");
@@ -115,6 +158,7 @@ export default function TakeawayOrder() {
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const hoursToday = takeawayHours.find((h) => h.weekday === new Date().getDay());
   const closedToday = !hoursLoading && isTakeawayClosedToday(todayISO(), hoursToday, serviceExceptions);
+  const hoursNoteToday = !closedToday ? describeTakeawayHoursToday(hoursToday) : null;
 
   function requiredOptionsUnavailable(m) {
     return optionGroupsForItem(m).some((g) => {
@@ -296,14 +340,16 @@ export default function TakeawayOrder() {
   if (closedToday) {
     return (
       <div className="kiosk-root">
-        <SuspendedScreen restaurantName={restaurant.name} phone={restaurant.phone} message="Fermé aujourd'hui — commande en ligne indisponible." />
+        <ClosedTodayScreen restaurantName={restaurant.name} phone={restaurant.phone} takeawayHours={takeawayHours} />
       </div>
     );
   }
 
   return (
     <div className="kiosk-root">
-      {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("order")} restaurantName={restaurant.name} />}
+      {screen === "welcome" && (
+        <WelcomeScreen onStart={() => setScreen("order")} restaurantName={restaurant.name} hoursNote={hoursNoteToday} />
+      )}
 
       {screen === "order" && (
         <OrderScreen

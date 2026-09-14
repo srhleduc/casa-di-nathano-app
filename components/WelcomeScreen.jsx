@@ -1,13 +1,19 @@
 "use client";
 
-export default function WelcomeScreen({ onStart, onTeam, restaurantName }) {
+export default function WelcomeScreen({ onStart, onTeam, restaurantName, hoursNote }) {
   return (
     <div className="relative flex-1 flex flex-col items-center justify-center px-8 text-center">
       <div className="oven-glow" />
       <div className="relative z-10 flex flex-col items-center">
         <span className="text-7xl mb-6">🌿</span>
         <h1 className="display-font text-6xl font-semibold tracking-tight mb-3">{restaurantName}</h1>
-        <p className="text-[#c9b8a4] text-xl mb-14">Pizza façonnée à la main, four à bois, tous les jours.</p>
+        <p className="text-[#c9b8a4] text-xl mb-3">Pizza façonnée à la main, four à bois, tous les jours.</p>
+        {hoursNote && (
+          <p className="text-sm font-bold rounded-full px-4 py-2 mb-10" style={{ background: "#2c1c14", color: "#E8B23D" }}>
+            🕐 Aujourd&apos;hui : {hoursNote}
+          </p>
+        )}
+        {!hoursNote && <div className="mb-11" />}
         <button
           onClick={onStart}
           className="tap-scale rounded-full px-16 py-7 text-2xl font-bold display-font italic"
