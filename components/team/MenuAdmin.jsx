@@ -226,9 +226,30 @@ export default function MenuAdmin({ canEdit = false }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [addingIngredient, setAddingIngredient] = useState(false);
+  const [newIngredientName, setNewIngredientName] = useState("");
   const formRef = useRef(null);
 
   const ingredientNames = ingredientNamesFromMenu(menuItems);
+
+  // Un "ingrédient" sélectionnable pour une pizza est en réalité un produit de
+  // la catégorie "sans" (voir ingredientNamesFromMenu) — c'est ce même produit
+  // qui alimente aussi le bouton "Sans X" du retrait d'ingrédient côté client
+  // (PizzaCustomizeModal). Créer directement ici évite de passer par tout le
+  // formulaire "nouveau produit" juste pour ajouter un nom à la liste.
+  async function createIngredient() {
+    const trimmed = newIngredientName.trim();
+    if (!trimmed) return;
+    const name = `Sans ${trimmed}`;
+    try {
+      await insertMenuItem({ id: newMenuItemId("sans", name), name, price: 0, cat: "sans" });
+      setNewIngredientName("");
+      setAddingIngredient(false);
+    } catch (err) {
+      console.error(err);
+      alert("Échec de la création de l'ingrédient.");
+    }
+  }
   const items = menuItems.filter((m) => m.cat === browseCat).sort((a, b) => a.name.localeCompare(b.name));
 
   function startEdit(item) {
@@ -355,6 +376,43 @@ export default function MenuAdmin({ canEdit = false }) {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-4 mb-4">
+        {addingIngredient ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-[#a88f78] uppercase font-bold shrink-0">Nouvel ingrédient</span>
+            <input
+              autoFocus
+              value={newIngredientName}
+              onChange={(e) => setNewIngredientName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createIngredient()}
+              placeholder="Ex. Roquette"
+              className="flex-1 min-w-[160px] rounded-lg px-3 py-2 text-sm"
+              style={inputStyle}
+            />
+            <button onClick={createIngredient} className="tap-scale rounded-full px-4 py-2 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+              Créer
+            </button>
+            <button
+              onClick={() => {
+                setAddingIngredient(false);
+                setNewIngredientName("");
+              }}
+              className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f]"
+            >
+              Annuler
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setAddingIngredient(true)} className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f]">
+            + Créer un nouvel ingrédient
+          </button>
+        )}
+        <div className="text-xs text-[#5a4a3a] mt-2">
+          Ajoute un nom à la liste ci-dessous, pour pouvoir le sélectionner sur une pizza — sans avoir à créer tout un
+          produit.
+        </div>
+      </div>
+
       <div ref={formRef} className={`rounded-2xl border p-5 mb-8 ${editingId ? "border-[#C0392B]" : "border-[#3a2b1f]"}`}>
         <div className="font-bold mb-4">{editingId ? `Modifier « ${form.name} »` : "Créer un nouveau produit"}</div>
 
