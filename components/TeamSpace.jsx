@@ -35,6 +35,8 @@ import StaffManagement from "./team/StaffManagement";
 import PresenceDashboard from "./team/PresenceDashboard";
 import RegularisationAdmin from "./team/RegularisationAdmin";
 
+const ZONE_CARD_STYLE = { borderColor: "var(--color-border)", background: "var(--color-surface-card)" };
+
 const ZONE_LABELS = {
   equipe: " · Écrans équipe",
   commandes: " · Commandes/Service",
@@ -173,19 +175,23 @@ export default function TeamSpace({ onExit }) {
 
   return (
     <div className="kiosk-root--team">
-      <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-[#3a2b1f]">
+      <div className="flex items-center justify-between gap-2 px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
         <div className="flex items-center gap-3 min-w-0">
           {!readOnly && (
             <button
               onClick={toggleTestMode}
               className="tap-scale text-xs font-bold px-4 py-2 rounded-full border-2 shrink-0"
-              style={testMode.enabled ? { background: "#f0c860", borderColor: "#f0c860", color: "#1a120b" } : { borderColor: "#4a3826", color: "#c9b8a4" }}
+              style={
+                testMode.enabled
+                  ? { background: "var(--color-test-accent)", borderColor: "var(--color-test-accent)", color: "var(--color-bg)" }
+                  : { borderColor: "var(--color-border-muted)", color: "var(--color-text-subtle)" }
+              }
             >
               🧪 Mode test{testMode.enabled ? " ACTIF" : ""}
             </button>
           )}
           {zone && (
-            <button onClick={() => setZone(null)} className="text-[#c9b8a4] text-sm font-semibold tap-scale shrink-0">
+            <button onClick={() => setZone(null)} className="text-sm font-semibold tap-scale shrink-0" style={{ color: "var(--color-text-subtle)" }}>
               ← Zones
             </button>
           )}
@@ -194,59 +200,59 @@ export default function TeamSpace({ onExit }) {
             {zone ? ZONE_LABELS[zone] : ""}
           </span>
         </div>
-        <button onClick={onExit} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale shrink-0">
+        <button onClick={onExit} className="text-sm font-semibold px-4 py-2 rounded-full border tap-scale shrink-0" style={{ color: "var(--color-text-subtle)", borderColor: "var(--color-border-muted)" }}>
           Fermer
         </button>
       </div>
 
       {readOnly && (
-        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#2c1c14", color: "#a88f78" }}>
+        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "var(--color-surface-alt)", color: "var(--color-text-muted)" }}>
           👁️ Vue Direction en lecture seule — les actions ne sont pas prises en compte, seule l'équipe sur place peut agir
         </div>
       )}
 
       {!readOnly && testMode.enabled && (
-        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#4a3a10", color: "#f0c860" }}>
+        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "var(--color-test-surface)", color: "var(--color-test-accent)" }}>
           🧪 Mode test actif — les commandes créées côté équipe ne comptent pas dans le chiffre du jour et seront supprimées à la désactivation
         </div>
       )}
 
       {!zone && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8">
-          <button onClick={() => goZone("equipe", "kitchen")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("equipe", "kitchen")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">🧑‍🍳</span>
             <span className="display-font text-3xl font-bold">Écrans équipe</span>
-            <span className="text-[#a88f78]">Four · Finition · Boissons · Dessert/Café · Caisse</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Four · Finition · Boissons · Dessert/Café · Caisse</span>
           </button>
-          <button onClick={() => goZone("commandes", "staff-order")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("commandes", "staff-order")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">📞</span>
             <span className="display-font text-3xl font-bold">Commandes/Service</span>
-            <span className="text-[#a88f78]">Prise de commande · Service · Programmées · Caisse</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Prise de commande · Service · Programmées · Caisse</span>
           </button>
-          <button onClick={() => goZone("avant-service", "slots")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("avant-service", "slots")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">✅</span>
             <span className="display-font text-3xl font-bold">À checker avant le service</span>
-            <span className="text-[#a88f78]">Créneaux du jour · Desserts du jour</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Créneaux du jour · Desserts du jour</span>
           </button>
-          <button onClick={() => goZone("reservation", "resaboard")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("reservation", "resaboard")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">🗺️</span>
             <span className="display-font text-3xl font-bold">Tables / Réservation</span>
-            <span className="text-[#a88f78]">Réservations · Plan de salle · Tables · Services</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Réservations · Plan de salle · Tables · Services</span>
           </button>
-          <button onClick={() => goZone("logistique", "services")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("logistique", "services")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">🛠️</span>
             <span className="display-font text-3xl font-bold">Logistique service</span>
-            <span className="text-[#a88f78]">Types de service · Ruptures · Menu</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Types de service · Ruptures · Menu</span>
           </button>
-          <button onClick={() => goZone("fidelite", "clients")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("fidelite", "clients")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">⭐</span>
             <span className="display-font text-3xl font-bold">Fidélité</span>
-            <span className="text-[#a88f78]">Clients · Points · Bons</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Clients · Points · Bons</span>
           </button>
-          <button onClick={() => goZone("personnel", "kiosk")} className="tap-scale w-full max-w-md rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2">
+          <button onClick={() => goZone("personnel", "kiosk")} className="tap-scale w-full max-w-md rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2" style={ZONE_CARD_STYLE}>
             <span className="text-5xl mb-2">🕐</span>
             <span className="display-font text-3xl font-bold">Personnel</span>
-            <span className="text-[#a88f78]">Badgeuse · Gestion du personnel</span>
+            <span style={{ color: "var(--color-text-muted)" }}>Badgeuse · Gestion du personnel</span>
           </button>
         </div>
       )}
@@ -254,14 +260,14 @@ export default function TeamSpace({ onExit }) {
       {zone === "equipe" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("kitchen")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kitchen" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔥 Four</button>
-            <button onClick={() => setTab("finition")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "finition" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥗 Finition</button>
-            <button onClick={() => setTab("boisson")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "boisson" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🥤 Boissons</button>
-            <button onClick={() => setTab("dessert-cafe")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "dessert-cafe" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Dessert/Café</button>
-            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
-            <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
-            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
-            <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📋 Réservations</button>
+            <button onClick={() => setTab("kitchen")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kitchen" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🔥 Four</button>
+            <button onClick={() => setTab("finition")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "finition" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🥗 Finition</button>
+            <button onClick={() => setTab("boisson")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "boisson" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🥤 Boissons</button>
+            <button onClick={() => setTab("dessert-cafe")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "dessert-cafe" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🍰 Dessert/Café</button>
+            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🍽️ Service</button>
+            <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>💰 Caisse</button>
+            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📞 Prise de commande</button>
+            <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📋 Réservations</button>
           </div>
           {tab === "kitchen" && <KitchenBoard />}
           {tab === "finition" && <FinitionBoard />}
@@ -286,10 +292,10 @@ export default function TeamSpace({ onExit }) {
       {zone === "commandes" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
-            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
-            <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
-            <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
+            <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📞 Prise de commande</button>
+            <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🍽️ Service</button>
+            <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📅 Programmées</button>
+            <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>💰 Caisse</button>
           </div>
           {tab === "staff-order" && (
             <StaffOrderFlow initialTableIds={orderPrefillTableIds} onConsumed={() => setOrderPrefillTableIds(null)} />
@@ -304,8 +310,8 @@ export default function TeamSpace({ onExit }) {
       {zone === "avant-service" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("slots")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "slots" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱️ Créneaux du jour</button>
-            <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Desserts du jour</button>
+            <button onClick={() => setTab("slots")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "slots" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>⏱️ Créneaux du jour</button>
+            <button onClick={() => setTab("desserts")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "desserts" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🍰 Desserts du jour</button>
           </div>
           {tab === "slots" && <SlotsAdmin />}
           {tab === "desserts" && <DessertStockAdmin />}
@@ -315,11 +321,11 @@ export default function TeamSpace({ onExit }) {
       {zone === "reservation" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📋 Réservations</button>
-            <button onClick={() => setTab("layout")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "layout" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗺️ Plan de salle</button>
-            <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🪑 Tables</button>
-            <button onClick={() => setTab("combos")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "combos" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔗 Combinaisons</button>
-            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Services</button>
+            <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📋 Réservations</button>
+            <button onClick={() => setTab("layout")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "layout" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🗺️ Plan de salle</button>
+            <button onClick={() => setTab("tables")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "tables" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🪑 Tables</button>
+            <button onClick={() => setTab("combos")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "combos" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🔗 Combinaisons</button>
+            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📅 Services</button>
           </div>
           {tab === "resaboard" && (
             <ReservationsBoard
@@ -339,13 +345,13 @@ export default function TeamSpace({ onExit }) {
       {zone === "logistique" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🔀 Types de service</button>
-            <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🚫 Ruptures</button>
-            <button onClick={() => setTab("appro")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "appro" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📦 Approvisionnement</button>
-            <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
-            <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱ Temps de prépa</button>
-            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
-            <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
+            <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🔀 Types de service</button>
+            <button onClick={() => setTab("ruptures")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "ruptures" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🚫 Ruptures</button>
+            <button onClick={() => setTab("appro")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "appro" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📦 Approvisionnement</button>
+            <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🍕 Pâtons du jour</button>
+            <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>⏱ Temps de prépa</button>
+            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
+            <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🗑️ Maintenance</button>
           </div>
           {tab === "services" && <ServiceTypesAdmin />}
           {tab === "ruptures" && <RupturesAdmin />}
@@ -360,7 +366,7 @@ export default function TeamSpace({ onExit }) {
       {zone === "fidelite" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("clients")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "clients" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Clients</button>
+            <button onClick={() => setTab("clients")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "clients" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>👤 Clients</button>
           </div>
           {tab === "clients" && <LoyaltyAdmin readOnly={readOnly} />}
         </>
@@ -369,10 +375,10 @@ export default function TeamSpace({ onExit }) {
       {zone === "personnel" && (
         <>
           <div className="flex gap-3 px-6 py-4 overflow-x-auto">
-            <button onClick={() => setTab("kiosk")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kiosk" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🕐 Badgeuse</button>
-            <button onClick={() => setTab("staff")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>👤 Personnel</button>
-            <button onClick={() => setTab("presence")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "presence" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📊 Présence</button>
-            <button onClick={() => setTab("regularisation")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "regularisation" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🛠️ Régularisation</button>
+            <button onClick={() => setTab("kiosk")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "kiosk" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🕐 Badgeuse</button>
+            <button onClick={() => setTab("staff")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>👤 Personnel</button>
+            <button onClick={() => setTab("presence")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "presence" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>📊 Présence</button>
+            <button onClick={() => setTab("regularisation")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "regularisation" ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}>🛠️ Régularisation</button>
           </div>
           {tab === "kiosk" && <PointageKiosk readOnly={readOnly} />}
           {tab === "staff" && <StaffManagement readOnly={readOnly} />}
