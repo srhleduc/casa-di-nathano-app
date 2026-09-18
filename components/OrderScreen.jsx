@@ -124,30 +124,30 @@ export default function OrderScreen({
   );
 
   return (
-    <div className="flex-1 flex flex-col min-h-0" style={clientView ? { background: "#150e0a" } : undefined}>
+    <div className="flex-1 flex flex-col min-h-0" style={clientView ? { background: "var(--color-client-bg)" } : undefined}>
       {clientView ? (
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b" style={{ borderColor: "#3a2a1f" }}>
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b" style={{ borderColor: "var(--color-client-border)" }}>
           {/* Sélecteur segmenté — mono-restaurant pour l'instant (Phase 2 : 2e pill + bascule). */}
-          <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "#1c1410" }}>
-            <span className="rounded-full px-4 py-2 text-sm font-bold" style={{ background: "#e8622c", color: "#150e0a" }}>
+          <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "var(--color-client-surface)" }}>
+            <span className="rounded-full px-4 py-2 text-sm font-bold" style={{ background: "var(--color-client-accent)", color: "var(--color-client-accent-text)" }}>
               {restaurantName}
             </span>
           </div>
           <button
             onClick={onCancel}
             className="tap-scale shrink-0 text-sm font-semibold px-4 py-2 rounded-full border"
-            style={{ borderColor: "#3a2a1f", color: "#b9a692" }}
+            style={{ borderColor: "var(--color-client-border)", color: "var(--color-client-text-muted)" }}
           >
             Annuler
           </button>
         </div>
       ) : (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
           <div className="flex items-center gap-2">
             <span className="text-2xl">🌿</span>
             <span className="display-font text-xl font-semibold">{restaurantName}</span>
           </div>
-          <button onClick={onCancel} className="text-[#c9b8a4] text-sm font-semibold px-4 py-2 rounded-full border border-[#4a3826] tap-scale">
+          <button onClick={onCancel} className="text-sm font-semibold px-4 py-2 rounded-full border tap-scale" style={{ color: "var(--color-text-subtle)", borderColor: "var(--color-border-muted)" }}>
             Annuler la commande
           </button>
         </div>
@@ -156,12 +156,12 @@ export default function OrderScreen({
       {topBanner}
 
       {aperoMode && (
-        <div className="mx-6 mt-4 rounded-2xl px-5 py-4 flex items-center justify-between" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
+        <div className="mx-6 mt-4 rounded-2xl px-5 py-4 flex items-center justify-between" style={{ background: "var(--color-surface-alt)", border: "1px solid var(--color-accent)" }}>
           <div>
             <div className="font-bold">🍸 Commande apéritif</div>
-            <div className="text-[#a88f78] text-sm">Boissons et planches — les pizzas arrivent juste après</div>
+            <div className="text-sm" style={{ color: "var(--color-text-muted)" }}>Boissons et planches — les pizzas arrivent juste après</div>
           </div>
-          <button onClick={onFinishApero} className="tap-scale rounded-full px-5 py-3 font-bold text-sm shrink-0" style={{ background: "#C0392B", color: "#fff5ea" }}>
+          <button onClick={onFinishApero} className="tap-scale rounded-full px-5 py-3 font-bold text-sm shrink-0" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
             Valider et poursuivre →
           </button>
         </div>
@@ -177,9 +177,9 @@ export default function OrderScreen({
                 onClick={() => setActiveCat(c.key)}
                 className="cat-chip tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2.5 border font-bold text-sm"
                 style={{
-                  background: on ? "#1c1410" : "#1c1410",
-                  borderColor: on ? "#d9a94c" : "#3a2a1f",
-                  color: on ? "#e4b65b" : "#b9a692",
+                  background: "var(--color-client-surface)",
+                  borderColor: on ? "var(--color-client-accent-gold)" : "var(--color-client-border)",
+                  color: on ? "var(--color-client-accent-gold-text)" : "var(--color-client-text-muted)",
                 }}
               >
                 <span className="text-lg">{c.emoji}</span>
@@ -194,9 +194,12 @@ export default function OrderScreen({
             <button
               key={c.key}
               onClick={() => setActiveCat(c.key)}
-              className={`cat-chip tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2 ${
-                currentCat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f] bg-[#221812]"
-              }`}
+              className="cat-chip tap-scale shrink-0 flex flex-col items-center justify-center gap-1 rounded-2xl px-6 py-4 border-2"
+              style={
+                currentCat === c.key
+                  ? { borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }
+                  : { borderColor: "var(--color-border)", background: "var(--color-surface-card-alt)" }
+              }
             >
               <span className="text-3xl">{c.emoji}</span>
               <span className="text-sm font-bold">{c.label}</span>
@@ -207,14 +210,14 @@ export default function OrderScreen({
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-40">
         {currentCat === "pizza" && pizzaStockOut && (
-          <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
+          <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "var(--color-surface-alt)", border: "1px solid var(--color-accent)" }}>
             <div className="font-bold">🍕 Pizzas épuisées pour ce soir</div>
-            <div className="text-[#a88f78] text-sm mt-1">Toutes nos pâtes ont trouvé preneur — le reste du menu reste disponible.</div>
+            <div className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>Toutes nos pâtes ont trouvé preneur — le reste du menu reste disponible.</div>
           </div>
         )}
         {currentCat === "dessert" && dessertStockNote && (
-          <div className="rounded-2xl px-5 py-3 mb-4 text-center" style={{ background: "#221812", border: "1px solid #3a2b1f" }}>
-            <div className="text-[#a88f78] text-sm">{dessertStockNote}</div>
+          <div className="rounded-2xl px-5 py-3 mb-4 text-center" style={{ background: "var(--color-surface-card-alt)", border: "1px solid var(--color-border)" }}>
+            <div className="text-sm" style={{ color: "var(--color-text-muted)" }}>{dessertStockNote}</div>
           </div>
         )}
         <div className={clientView ? "grid grid-cols-2 gap-[14px] pt-1" : "grid grid-cols-2 md:grid-cols-3 gap-4"}>
@@ -264,32 +267,30 @@ export default function OrderScreen({
               <div
                 key={item.id}
                 onClick={handleTap}
-                className={`tap-scale cursor-pointer text-left rounded-2xl bg-[#211712] flex flex-col justify-between min-h-[110px] overflow-hidden ${
-                  isFallback ? "border-2" : "border border-[#3a2b1f]"
-                }`}
-                style={isFallback ? { borderColor: "#ff5fa8" } : undefined}
+                className={`tap-scale cursor-pointer text-left rounded-2xl flex flex-col justify-between min-h-[110px] overflow-hidden ${isFallback ? "border-2" : "border"}`}
+                style={{ background: "var(--color-surface-card)", borderColor: isFallback ? "var(--color-warning)" : "var(--color-border)" }}
               >
                 {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
                 <div className="p-5 flex flex-col flex-1 justify-between">
                   <span className="font-bold text-lg leading-snug">{item.name}</span>
                   {isFallback && (
-                    <span className="text-xs font-bold mt-1" style={{ color: "#ff5fa8" }}>
+                    <span className="text-xs font-bold mt-1" style={{ color: "var(--color-warning)" }}>
                       🥡 Dépannage à emporter — stock sur place épuisé
                     </span>
                   )}
                   <div className="flex items-center justify-between gap-2 mt-2">
-                    <span className="display-font italic text-[#E8B23D] text-lg">{item.price === 0 ? "Offert" : eur(item.price)}</span>
+                    <span className="display-font italic text-lg" style={{ color: "var(--color-accent-gold)" }}>{item.price === 0 ? "Offert" : eur(item.price)}</span>
                     {inCart > 0 && (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 rounded-full pl-1 pr-1 py-1 border border-[#3a2b1f] shrink-0"
-                        style={{ background: "#1a120b" }}
+                        className="flex items-center gap-1 rounded-full pl-1 pr-1 py-1 border shrink-0"
+                        style={{ background: "var(--color-bg)", borderColor: "var(--color-border)" }}
                       >
-                        <button onClick={handleDecrement} className="tap-scale w-7 h-7 rounded-full bg-[#3a2b1f] text-white text-base font-bold flex items-center justify-center">
+                        <button onClick={handleDecrement} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "var(--color-border)" }}>
                           −
                         </button>
                         <span className="text-sm font-bold w-5 text-center">{inCart}</span>
-                        <button onClick={handleIncrement} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "#C0392B" }}>
+                        <button onClick={handleIncrement} className="tap-scale w-7 h-7 rounded-full text-white text-base font-bold flex items-center justify-center" style={{ background: "var(--color-accent)" }}>
                           +
                         </button>
                       </div>
@@ -304,21 +305,29 @@ export default function OrderScreen({
 
       {itemCount > 0 && (
         <div
-          className={`fixed bottom-0 left-0 right-0 px-6 py-5 flex items-center justify-between ${clientView ? "border-t" : "ticket-edge bg-[#241811] border-t border-[#4a3826]"}`}
-          style={clientView ? { background: "#1c1410", borderColor: "#3a2a1f" } : undefined}
+          className={`fixed bottom-0 left-0 right-0 px-6 py-5 flex items-center justify-between ${clientView ? "border-t" : "ticket-edge border-t"}`}
+          style={
+            clientView
+              ? { background: "var(--color-client-surface)", borderColor: "var(--color-client-border)" }
+              : { background: "var(--color-surface)", borderColor: "var(--color-border-muted)" }
+          }
         >
           <div>
-            <div className="text-sm font-semibold" style={clientView ? { color: "#b9a692" } : { color: "#a88f78" }}>
+            <div className="text-sm font-semibold" style={{ color: clientView ? "var(--color-client-text-muted)" : "var(--color-text-muted)" }}>
               {itemCount} article{itemCount > 1 ? "s" : ""}
             </div>
-            <div className="display-font text-2xl font-bold" style={clientView ? { color: "#d9a94c" } : { color: "#E8B23D" }}>
+            <div className="display-font text-2xl font-bold" style={{ color: clientView ? "var(--color-client-accent-gold)" : "var(--color-accent-gold)" }}>
               {eur(total)}
             </div>
           </div>
           <button
             onClick={onCheckout}
             className="tap-scale rounded-full px-10 py-5 text-xl font-bold"
-            style={clientView ? { background: "#e8622c", color: "#150e0a" } : { background: "#C0392B", color: "#fff5ea" }}
+            style={
+              clientView
+                ? { background: "var(--color-client-accent)", color: "var(--color-client-accent-text)" }
+                : { background: "var(--color-accent)", color: "var(--color-text-alt)" }
+            }
           >
             Voir mon panier →
           </button>
