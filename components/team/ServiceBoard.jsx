@@ -86,7 +86,7 @@ export default function ServiceBoard() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       {tablePills.length > 0 && (
-        <div className="sticky top-0 z-20 -mx-6 px-6 pt-1 pb-3 mb-3" style={{ background: "#140d08" }}>
+        <div className="sticky top-0 z-20 -mx-6 px-6 pt-1 pb-3 mb-3" style={{ background: "var(--color-bg-team)" }}>
           <div className="flex gap-2 overflow-x-auto">
             {tablePills.map((o) => {
               const flagged = isFlagged(o);
@@ -94,17 +94,17 @@ export default function ServiceBoard() {
                 <button
                   key={o.id}
                   onClick={() => openPill(o)}
-                  className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2 border-2 bg-[#211712] font-bold"
+                  className="tap-scale shrink-0 flex items-center gap-2 rounded-full px-4 py-2 border-2 font-bold"
                   style={
                     flagged
-                      ? { borderColor: "#ff2d95", boxShadow: "0 0 10px rgba(255,45,149,0.55)" }
-                      : { borderColor: "#3a2b1f" }
+                      ? { background: "var(--color-surface-card)", borderColor: "var(--color-flag)", boxShadow: "0 0 10px color-mix(in srgb, var(--color-flag) 55%, transparent)" }
+                      : { background: "var(--color-surface-card)", borderColor: "var(--color-border)" }
                   }
                 >
                   {flagged && (
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                      style={{ background: "var(--color-flag)", boxShadow: "0 0 6px var(--color-flag)" }}
                       aria-label="Ajout client"
                     />
                   )}
@@ -122,11 +122,11 @@ export default function ServiceBoard() {
           <div className="font-bold mb-3">🍸 Apéro à servir ({aperoWaiting.length})</div>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {sortOrdersByTime(aperoWaiting).map((o) => (
-              <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
+              <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }}>
                 <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                 <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                 <GroupedItemList items={o.items.filter((it) => it.phase === "apero")} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
-                <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                <button onClick={() => markAperoServed(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
                   ✅ Apéro servi
                 </button>
                 <OrderNote note={o.note} />
@@ -143,16 +143,16 @@ export default function ServiceBoard() {
             {sortOrdersByTime(aperoReady).map((o) => {
               const hasMainFood = o.items.some((it) => (it.cat === "pizza" || it.cat === "panuzzo" || it.cat === "salade") && it.phase !== "apero");
               return (
-                <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
+                <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border-2 p-4" style={{ borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }}>
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <GroupedItemList items={o.items.filter((it) => it.phase === "main")} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
                   {hasMainFood ? (
-                    <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                    <button onClick={() => launchPizzas(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
                       🍕 Lancer les pizzas
                     </button>
                   ) : (
-                    <button onClick={() => setEditingOrder(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                    <button onClick={() => setEditingOrder(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
                       🍕 Compléter ma commande
                     </button>
                   )}
@@ -174,7 +174,7 @@ export default function ServiceBoard() {
             </div>
             <div className="flex gap-4 overflow-x-auto pb-2">
               {sortOrdersByTime(list).map((o) => (
-                <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+                <div key={o.id} id={`order-${o.id}`} className="w-72 shrink-0 rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
                   <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <GroupedItemList items={o.items} className="mb-3" onAckItem={(it) => ackSatItem(o, it)} />
