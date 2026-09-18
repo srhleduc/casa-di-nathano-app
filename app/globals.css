@@ -18,8 +18,8 @@
 @layer components {
   .kiosk-root {
     font-family: var(--font-manrope), sans-serif;
-    background: radial-gradient(ellipse at 50% -10%, #3a2013 0%, #1a120b 55%, #120c07 100%);
-    color: #f5ebdd;
+    background: radial-gradient(ellipse at 50% -10%, var(--color-bg-gradient-from) 0%, var(--color-bg-gradient-via) 55%, var(--color-bg-gradient-to) 100%);
+    color: var(--color-text);
     min-height: 100vh;
     width: 100%;
     display: flex;
@@ -29,8 +29,8 @@
 
   .kiosk-root--pin {
     font-family: var(--font-manrope), sans-serif;
-    background: #1a120b;
-    color: #f5ebdd;
+    background: var(--color-bg);
+    color: var(--color-text);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -40,8 +40,8 @@
 
   .kiosk-root--team {
     font-family: var(--font-manrope), sans-serif;
-    background: #140d08;
-    color: #f5ebdd;
+    background: var(--color-bg-team);
+    color: var(--color-text);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -65,7 +65,7 @@
   .tap-scale:active {
     transform: scale(0.93);
     filter: brightness(1.25);
-    box-shadow: 0 0 0 3px rgba(232, 178, 61, 0.5) inset;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-gold) 50%, transparent) inset;
   }
 
   /* DIAGNOSTIC (scroll horizontal des catégories intermittent en PWA iOS) :
@@ -79,7 +79,7 @@
   }
 
   .ticket-edge {
-    background-image: radial-gradient(circle at 8px 0, transparent 8px, #241811 8.5px);
+    background-image: radial-gradient(circle at 8px 0, transparent 8px, var(--color-surface) 8.5px);
     background-size: 16px 16px;
     background-position: top;
     background-repeat: repeat-x;
@@ -93,6 +93,6 @@
     border-radius: 999px;
     padding: 10px 18px;
     font-weight: 700;
-    border: 2px solid #3a2b1f;
+    border: 2px solid var(--color-border);
   }
 }

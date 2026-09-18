@@ -1,5 +1,6 @@
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
+import { themeCssVars } from "../lib/theme";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -54,7 +55,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="fr" className={`${fraunces.variable} ${manrope.variable}`}>
+    <html lang="fr" className={`${fraunces.variable} ${manrope.variable}`} style={themeCssVars()}>
       <body>{children}</body>
     </html>
   );
