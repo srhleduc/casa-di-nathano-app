@@ -5,9 +5,9 @@ import { useRuptures, addRupture, removeRupture, useMenu, useOptionGroups } from
 import { CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
 
 const CHIP_OUT = {
-  background: "#C0392B",
-  borderColor: "#C0392B",
-  color: "#fff5ea",
+  background: "var(--color-accent)",
+  borderColor: "var(--color-accent)",
+  color: "var(--color-text-alt)",
   borderRadius: 999,
   padding: "6px 14px",
   fontWeight: 700,
@@ -44,14 +44,14 @@ export default function RupturesAdmin() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <div className="text-xs text-[#8a7561] mb-4 max-w-2xl">
+      <div className="text-xs mb-4 max-w-2xl" style={{ color: "var(--color-text-faint)" }}>
         Un produit noté en rupture le reste jusqu'à sa réactivation ici — plus de remise à zéro automatique la nuit.
         Aucune limite de nombre. Pour un produit avec des sous-catégories (parfums, cuisson…), clique-le pour marquer
         des options indisponibles une par une.
       </div>
 
       {(rupturedItems.length > 0 || rupturedOptions.length > 0) && (
-        <div className="rounded-xl mb-6 px-5 py-4" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
+        <div className="rounded-xl mb-6 px-5 py-4" style={{ background: "var(--color-surface-alt)", border: "1px solid var(--color-accent)" }}>
           <div className="font-bold mb-2">
             🚫 En rupture actuellement ({rupturedItems.length + rupturedOptions.length})
           </div>
@@ -84,7 +84,7 @@ export default function RupturesAdmin() {
               setCat(c.key);
               setOpenOptionItem(null);
             }}
-            className={`tap-scale shrink-0 rounded-full px-5 py-2 font-bold border-2 text-sm ${cat === c.key ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}
+            className={`tap-scale shrink-0 rounded-full px-5 py-2 font-bold border-2 text-sm ${cat === c.key ? "border-[var(--color-accent)] bg-[var(--color-surface-alt)]" : "border-[var(--color-border)]"}`}
           >
             {c.emoji} {c.label}
           </button>
@@ -105,10 +105,10 @@ export default function RupturesAdmin() {
                 className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
                 style={
                   isOpen
-                    ? { borderColor: "#e8622c", background: "#2c1c14", color: "#fff5ea" }
+                    ? { borderColor: "var(--color-client-accent)", background: "var(--color-surface-alt)", color: "var(--color-text-alt)" }
                     : wholeOut || outN > 0
-                    ? { borderColor: "#C0392B", color: "#e8a8a8" }
-                    : { borderColor: "#3a2b1f", color: "#c9b8a4" }
+                    ? { borderColor: "var(--color-accent)", color: "var(--color-danger-soft)" }
+                    : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }
                 }
               >
                 {it.name}
@@ -122,28 +122,28 @@ export default function RupturesAdmin() {
               key={it.id}
               onClick={() => toggle(it.id)}
               className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
-              style={isOut ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+              style={isOut ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
             >
               {isOut ? "🚫 " : ""}
               {it.name}
             </button>
           );
         })}
-        {items.length === 0 && <p className="text-[#8a7561]">Aucun produit dans cette catégorie.</p>}
+        {items.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucun produit dans cette catégorie.</p>}
       </div>
 
       {openItem && openGroups.length > 0 && (
-        <div className="mt-5 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4 max-w-2xl">
+        <div className="mt-5 rounded-xl border p-4 max-w-2xl" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
           <div className="flex items-center justify-between mb-3">
             <div className="font-bold">Options indisponibles — {openItem.name}</div>
-            <button onClick={() => setOpenOptionItem(null)} className="text-xs text-[#8a7561] tap-scale">
+            <button onClick={() => setOpenOptionItem(null)} className="text-xs tap-scale" style={{ color: "var(--color-text-faint)" }}>
               Fermer
             </button>
           </div>
 
           {openGroups.map((g) => (
             <div key={g.id} className="mb-4">
-              <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">{g.name}</div>
+              <div className="text-xs uppercase font-bold mb-2" style={{ color: "var(--color-text-muted)" }}>{g.name}</div>
               <div className="flex flex-wrap gap-2">
                 {g.options.map((o) => {
                   const key = optionRuptureKey(g.id, o.name);
@@ -153,7 +153,7 @@ export default function RupturesAdmin() {
                       key={o.id}
                       onClick={() => toggle(key)}
                       className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
-                      style={out ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                      style={out ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
                     >
                       {out ? "🚫 " : ""}
                       {o.name}
@@ -161,7 +161,7 @@ export default function RupturesAdmin() {
                   );
                 })}
                 {g.options.length === 0 && (
-                  <span className="text-xs text-[#5a4a3a]">Aucune option dans cette sous-catégorie.</span>
+                  <span className="text-xs" style={{ color: "var(--color-text-dim)" }}>Aucune option dans cette sous-catégorie.</span>
                 )}
               </div>
             </div>
@@ -170,7 +170,7 @@ export default function RupturesAdmin() {
           <button
             onClick={() => toggle(openItem.id)}
             className="tap-scale rounded-full px-4 py-2 text-xs font-bold border-2"
-            style={ruptures.includes(openItem.id) ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+            style={ruptures.includes(openItem.id) ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
           >
             {ruptures.includes(openItem.id) ? "🚫 Tout le produit indisponible" : "Marquer tout le produit indisponible"}
           </button>
