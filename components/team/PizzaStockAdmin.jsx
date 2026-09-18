@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useOrders, usePizzaStock, setPizzaStock } from "@/lib/data";
 import { remainingPizzaStock, isOrderActiveToday } from "@/lib/business";
 
-const inputStyle = { background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" };
+const inputStyle = { background: "var(--color-bg-team)", border: "1px solid var(--color-border)", color: "var(--color-text)" };
 
 export default function PizzaStockAdmin() {
   const { orders } = useOrders();
@@ -41,43 +41,43 @@ export default function PizzaStockAdmin() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <p className="text-[#a88f78] mb-6 text-sm">
+      <p className="mb-6 text-sm" style={{ color: "var(--color-text-muted)" }}>
         Laisse "Pâtons disponibles" vide (ou à 0) les soirs normaux — les pizzas restent illimitées. Renseigne-le
         uniquement les soirs où le stock de pâtons est compté : dès que le nombre utilisable (pâtons moins marge de
         sécurité moins pizzas déjà commandées) tombe à 0, les pizzas disparaissent automatiquement du menu côté
         borne et équipe.
       </p>
 
-      <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-5 max-w-md mb-6">
+      <div className="rounded-xl border p-5 max-w-md mb-6" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
         <div className="mb-4">
-          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Pâtons disponibles ce soir</div>
+          <div className="text-xs uppercase font-bold mb-1" style={{ color: "var(--color-text-muted)" }}>Pâtons disponibles ce soir</div>
           <input value={totalInput} onChange={(e) => setTotalInput(e.target.value)} type="number" placeholder="Illimité" className="rounded-lg px-3 py-3 w-32" style={inputStyle} />
         </div>
         <div className="mb-4">
-          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Marge de sécurité (pizzas ratées prévues)</div>
+          <div className="text-xs uppercase font-bold mb-1" style={{ color: "var(--color-text-muted)" }}>Marge de sécurité (pizzas ratées prévues)</div>
           <input value={marginInput} onChange={(e) => setMarginInput(e.target.value)} type="number" placeholder="0" className="rounded-lg px-3 py-3 w-32" style={inputStyle} />
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={save} className="tap-scale rounded-lg px-4 py-3 font-bold text-sm" style={{ background: "#C0392B", color: "#fff5ea" }}>
+          <button onClick={save} className="tap-scale rounded-lg px-4 py-3 font-bold text-sm" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
             Enregistrer
           </button>
-          {saved && <span className="text-sm text-[#E8B23D] font-bold">✓ Enregistré</span>}
+          {saved && <span className="text-sm font-bold" style={{ color: "var(--color-accent-gold)" }}>✓ Enregistré</span>}
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-5 max-w-md">
-        <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Stock utilisable ce soir</div>
+      <div className="rounded-xl border p-5 max-w-md" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+        <div className="text-xs uppercase font-bold mb-1" style={{ color: "var(--color-text-muted)" }}>Stock utilisable ce soir</div>
         {isLimited ? (
           <>
-            <div className={`text-3xl font-bold display-font ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
+            <div className="text-3xl font-bold display-font" style={{ color: remaining <= 0 ? "var(--color-accent)" : "var(--color-accent-gold)" }}>
               {remaining <= 0 ? "🚫 Épuisé" : `${remaining} pizza${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}`}
             </div>
-            <div className="text-xs text-[#8a7561] mt-2">
+            <div className="text-xs mt-2" style={{ color: "var(--color-text-faint)" }}>
               {used} pizza{used > 1 ? "s" : ""} déjà commandée{used > 1 ? "s" : ""} aujourd'hui · marge de {pizzaStock.safetyMargin || 0} réservée
             </div>
           </>
         ) : (
-          <div className="text-lg font-bold text-[#c9b8a4]">Illimité (aucun stock configuré)</div>
+          <div className="text-lg font-bold" style={{ color: "var(--color-text-subtle)" }}>Illimité (aucun stock configuré)</div>
         )}
       </div>
     </div>
