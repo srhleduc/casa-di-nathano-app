@@ -19,7 +19,7 @@ export default function ElapsedBadge({ since, until }) {
   const elapsed = Math.max(0, (until || now) - since);
 
   return (
-    <span className="text-xs text-[#8a7561] font-semibold tabular-nums" title="Temps écoulé depuis l'envoi de cette étape">
+    <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--color-text-faint)" }} title="Temps écoulé depuis l'envoi de cette étape">
       ⏱ {formatStopwatch(elapsed)}
     </span>
   );
