@@ -28,16 +28,16 @@ export default function DessertStockAdmin() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <p className="text-[#a88f78] mb-6 text-sm">
+      <p className="mb-6 text-sm" style={{ color: "var(--color-text-muted)" }}>
         Renseigne chaque matin le nombre préparé. Dès que le stock est épuisé, le dessert disparaît automatiquement du menu — la borne et l'équipe décomptent en direct au fil des commandes.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DESSERT_STOCK_GROUPS.map((g) => {
           const remaining = remainingForDessertGroup(orders, dessertStock, g);
           return (
-            <div key={g.key} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
+            <div key={g.key} className="rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
               <div className="font-bold mb-1">{g.label}</div>
-              {g.itemNames.length > 1 && <div className="text-xs text-[#8a7561] mb-3">Stock partagé : {g.itemNames.join(" + ")}</div>}
+              {g.itemNames.length > 1 && <div className="text-xs mb-3" style={{ color: "var(--color-text-faint)" }}>Stock partagé : {g.itemNames.join(" + ")}</div>}
               <div className="flex items-center gap-3 mb-2">
                 <input
                   value={inputs[g.key] ?? ""}
@@ -45,23 +45,23 @@ export default function DessertStockAdmin() {
                   type="number"
                   placeholder="Quantité faite"
                   className="rounded-lg px-3 py-2 w-32"
-                  style={{ background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+                  style={{ background: "var(--color-bg-team)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
                 />
-                <button onClick={() => save(g.key)} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                <button onClick={() => save(g.key)} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
                   Enregistrer
                 </button>
               </div>
               {g.unlimited ? (
-                <div className="text-sm font-bold text-[#7fb069]">
+                <div className="text-sm font-bold" style={{ color: "var(--color-success-strong)" }}>
                   ✅ Toujours disponible — décompte désactivé (en attendant l'API caisse)
                 </div>
               ) : (
                 <>
-                  <div className={`text-sm font-bold ${remaining <= 0 ? "text-[#C0392B]" : "text-[#E8B23D]"}`}>
+                  <div className="text-sm font-bold" style={{ color: remaining <= 0 ? "var(--color-accent)" : "var(--color-accent-gold)" }}>
                     {remaining <= 0 ? "🚫 Épuisé" : `${remaining} restant${remaining > 1 ? "s" : ""} aujourd'hui`}
                   </div>
                   {g.unlimitedStaffOnly && (
-                    <div className="text-xs text-[#8a7561] mt-0.5">
+                    <div className="text-xs mt-0.5" style={{ color: "var(--color-text-faint)" }}>
                       Illimité côté serveuses — ce décompte ne concerne que la borne / le click &amp; collect.
                     </div>
                   )}
