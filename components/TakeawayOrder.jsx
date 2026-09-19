@@ -11,6 +11,7 @@ import {
   lineUnitPrice,
   withAutoFocaccia,
   computeSlotOptions,
+  isSlotChoiceStillOffered,
   minutesFromNow,
   normalizePhoneFr,
   availableTakeawayDesserts,
@@ -315,6 +316,27 @@ export default function TakeawayOrder() {
     setScreen("slot");
   }
 
+  // Revérifie le créneau choisi juste avant de valider — un client a pu
+  // rester plusieurs minutes sur l'écran de créneau (hésitation, distraction)
+  // sans jamais revoir son choix rafraîchi entre-temps. Si le créneau n'est
+  // plus valable (marge de sécurité dépassée, ou rempli par d'autres
+  // commandes), on rafraîchit la liste au lieu de valider un horaire déjà
+  // entamé — le client revoit alors le nouveau créneau le plus proche et doit
+  // confirmer à nouveau, plutôt que d'être basculé silencieusement.
+  function handleSlotConfirm() {
+    if (!selectedOption) {
+      submitOrder(null);
+      return;
+    }
+    const { valid, freshChoice } = isSlotChoiceStillOffered(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES, selectedOption);
+    if (valid) {
+      submitOrder(selectedOption.plan);
+      return;
+    }
+    setSlotChoice(freshChoice);
+    setSelectedOption(null);
+  }
+
   function doneMessage() {
     return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.`;
   }
@@ -470,7 +492,7 @@ export default function TakeawayOrder() {
           setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
-          onConfirm={() => submitOrder(selectedOption?.plan || null)}
+          onConfirm={handleSlotConfirm}
         />
       )}
 

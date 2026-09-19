@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { deriveSlotDisplayOptions } from "@/lib/business";
 
 // Un "créneau réparti" (grosse commande sur plusieurs créneaux consécutifs)
 // est affiché exactement comme un créneau simple — seul le dernier horaire
@@ -19,24 +20,7 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
   const mode = slotChoice?.mode;
   const isStaff = !!staffForceOptions;
 
-  const displayOptions =
-    mode === "single"
-      ? (slotChoice.options || []).map((s) => ({
-          key: s.id,
-          label: s.label,
-          remaining: s.remaining,
-          full: false,
-          plan: [{ slotId: s.id, label: s.label, qty: pizzaCount }],
-        }))
-      : mode === "split"
-      ? (slotChoice.plans || []).map((p, i) => ({
-          key: `plan-${i}`,
-          label: p[p.length - 1].label,
-          remaining: null,
-          full: false,
-          plan: p,
-        }))
-      : [];
+  const displayOptions = deriveSlotDisplayOptions(slotChoice, pizzaCount);
 
   // La répartition automatique (mode "single" ou "split") reste proposée en
   // priorité côté équipe, exactement comme côté client — une commande de 8
