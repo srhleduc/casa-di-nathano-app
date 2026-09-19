@@ -15,11 +15,10 @@ export default function ServiceTypeScreen({ onSelect, options, question }) {
           <button
             key={o.value}
             onClick={() => onSelect(o.value)}
-            className="tap-scale flex-1 rounded-3xl border-2 px-8 py-10 flex flex-col items-center gap-2"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}
+            className="tap-scale flex-1 rounded-3xl border-2 border-[#3a2b1f] bg-[#211712] px-8 py-10 flex flex-col items-center gap-2"
           >
             <span className="display-font text-3xl font-bold">{o.label}</span>
-            <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>{o.desc}</span>
+            <span className="text-[#a88f78] text-sm">{o.desc}</span>
           </button>
         ))}
       </div>

@@ -33,20 +33,10 @@ export default function PinScreen({ onSuccess, onCancel }) {
 
   return (
     <div className="kiosk-root--pin">
-      <p className="mb-4 uppercase text-sm tracking-wide font-bold" style={{ color: "var(--color-text-muted)" }}>Code équipe</p>
+      <p className="text-[#a88f78] mb-4 uppercase text-sm tracking-wide font-bold">Code équipe</p>
       <div className="flex gap-4 mb-8">
         {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`w-5 h-5 rounded-full border-2 ${err ? "border-red-500" : ""}`}
-            style={
-              err
-                ? {}
-                : pin.length > i
-                ? { background: "var(--color-accent)", borderColor: "var(--color-accent)" }
-                : { borderColor: "var(--color-border-muted)" }
-            }
-          />
+          <div key={i} className={`w-5 h-5 rounded-full border-2 ${pin.length > i ? "bg-[#C0392B] border-[#C0392B]" : "border-[#4a3826]"} ${err ? "border-red-500" : ""}`} />
         ))}
       </div>
       <div className="grid grid-cols-3 gap-4">
@@ -57,15 +47,15 @@ export default function PinScreen({ onSuccess, onCancel }) {
             className="w-20 h-20 rounded-full text-2xl font-bold transition-all duration-100"
             style={
               pressed === String(d)
-                ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)", transform: "scale(0.92)" }
-                : { background: "var(--color-surface)", border: "1px solid var(--color-border)" }
+                ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea", transform: "scale(0.92)" }
+                : { background: "#241811", border: "1px solid #3a2b1f" }
             }
           >
             {d}
           </button>
         ))}
       </div>
-      <button onClick={onCancel} className="mt-10 text-sm tap-scale" style={{ color: "var(--color-text-faint)" }}>
+      <button onClick={onCancel} className="mt-10 text-[#8a7561] text-sm tap-scale">
         Retour à la borne
       </button>
     </div>

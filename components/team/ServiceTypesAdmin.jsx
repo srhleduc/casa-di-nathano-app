@@ -16,7 +16,7 @@ export default function ServiceTypesAdmin() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <div className="text-xs mb-5" style={{ color: "var(--color-text-faint)" }}>
+      <div className="text-xs text-[#8a7561] mb-5">
         Désactive un type de service pour qu'il n'apparaisse plus au choix — ni côté borne client, ni côté prise de commande serveuses.
       </div>
       <div className="flex flex-col gap-3 max-w-xl">
@@ -27,15 +27,15 @@ export default function ServiceTypesAdmin() {
               key={t.key}
               onClick={() => toggle(t.key, enabled)}
               className="tap-scale rounded-2xl border-2 p-5 text-left flex items-center justify-between gap-4"
-              style={enabled ? { borderColor: "var(--color-border)" } : { borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }}
+              style={enabled ? { borderColor: "#3a2b1f" } : { borderColor: "#C0392B", background: "#2c1c14" }}
             >
               <div>
                 <div className="font-bold text-lg mb-1">{t.label}</div>
-                <div className="text-sm" style={{ color: "var(--color-text-muted)" }}>{t.desc}</div>
+                <div className="text-[#a88f78] text-sm">{t.desc}</div>
               </div>
               <span
                 className="text-xs font-bold rounded-full px-4 py-2 shrink-0"
-                style={enabled ? { background: "var(--color-success-bg)", color: "var(--color-success)" } : { background: "var(--color-danger-bg)", color: "var(--color-danger-soft)" }}
+                style={enabled ? { background: "#204a3a", color: "#a8e8c8" } : { background: "#4a2020", color: "#e8a8a8" }}
               >
                 {enabled ? "✓ Activé" : "✕ Désactivé"}
               </span>

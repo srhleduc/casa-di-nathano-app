@@ -37,19 +37,19 @@ export default function BoissonBoard() {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <p className="mb-4 text-sm" style={{ color: "var(--color-text-muted)" }}>Boissons, bières, vins et cocktails à préparer — indépendamment de l'avancée du four. Pratique un soir de concert.</p>
-      {withDrinks.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Rien à préparer pour l'instant.</p>}
+      <p className="text-[#a88f78] mb-4 text-sm">Boissons, bières, vins et cocktails à préparer — indépendamment de l'avancée du four. Pratique un soir de concert.</p>
+      {withDrinks.length === 0 && <p className="text-[#8a7561]">Rien à préparer pour l'instant.</p>}
       <div className="flex gap-4 overflow-x-auto pb-2">
         {sortOrdersByTime(withDrinks).map((o) => (
-          <div key={o.id} className="w-72 shrink-0 rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+          <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
             <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} />
             <div className="display-font text-lg font-bold mb-2">{o.name}</div>
-            <ul className="text-sm mb-3" style={{ color: "var(--color-text-subtle)" }}>
+            <ul className="text-sm text-[#c9b8a4] mb-3">
               {o.drinkItems.map((it, idx) => (
                 <ItemLine key={idx} it={it} />
               ))}
             </ul>
-            <button onClick={() => markDrinksServed(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+            <button onClick={() => markDrinksServed(o)} className="tap-scale w-full rounded-xl py-3 text-sm font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
               ✅ Servie
             </button>
             <OrderNote note={o.note} />

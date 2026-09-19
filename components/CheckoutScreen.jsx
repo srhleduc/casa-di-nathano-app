@@ -52,7 +52,7 @@ export default function CheckoutScreen({
   const canConfirm = cart.length > 0 && nameOk && phoneOk && commitmentOk;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
-      <button onClick={onBack} className="text-sm font-semibold mb-6 self-start tap-scale" style={{ color: "var(--color-text-subtle)" }}>
+      <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
         ← Continuer mes achats
       </button>
       <h2 className="display-font text-3xl font-semibold mb-6">Ma commande</h2>
@@ -61,14 +61,13 @@ export default function CheckoutScreen({
         {cart.map((i, idx) => (
           <div
             key={i.id + "-" + (i.note || "") + "-" + (i.modifiers || []).map((m) => m.name).join(",") + "-" + idx}
-            className="flex flex-col gap-2 rounded-xl border px-4 py-3"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}
+            className="flex flex-col gap-2 rounded-xl border border-[#3a2b1f] bg-[#211712] px-4 py-3"
           >
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-bold">{i.name}</div>
                 {i.note && (
-                  <div className="text-xs pl-3" style={{ color: "var(--color-accent-gold)" }}>
+                  <div className="text-xs text-[#E8B23D] pl-3">
                     ↳ {noteIcon(i.name, i.note)} {i.note}
                   </div>
                 )}
@@ -77,24 +76,24 @@ export default function CheckoutScreen({
                   const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
                   return (
                     <div key={mi} className="text-xs pl-3 flex items-center gap-1.5">
-                      <span className="font-bold" style={{ color: isRemoved ? "var(--color-danger)" : "var(--color-success)" }}>
+                      <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
                         {isRemoved ? "−" : "+"}
                       </span>
-                      <span style={{ color: "var(--color-text-muted)" }}>
+                      <span className="text-[#a88f78]">
                         {label}
                         {m.price > 0 ? ` (+${eur(m.price)})` : ""}
                       </span>
                     </div>
                   );
                 })}
-                <div className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>{eur(lineUnitPrice(i))} / unité</div>
+                <div className="text-[#a88f78] text-sm mt-1">{eur(lineUnitPrice(i))} / unité</div>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full text-xl font-bold" style={{ background: "var(--color-border)" }}>
+                <button onClick={() => changeQty(i.id, i.note, i.modifiers, -1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
                   −
                 </button>
                 <span className="w-6 text-center font-bold">{i.qty}</span>
-                <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full text-xl font-bold" style={{ background: "var(--color-border)" }}>
+                <button onClick={() => changeQty(i.id, i.note, i.modifiers, 1, i.itemNote)} className="tap-scale w-9 h-9 rounded-full bg-[#3a2b1f] text-xl font-bold">
                   +
                 </button>
               </div>
@@ -105,7 +104,7 @@ export default function CheckoutScreen({
                 onChange={(e) => setItemNote(idx, e.target.value)}
                 placeholder="📝 Note pour ce produit (ex. bien cuite, sans oignon)…"
                 className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", color: "var(--color-warning)" }}
+                style={{ background: "#1a120b", border: "1px solid #3a2b1f", color: "#ff5fa8" }}
               />
             )}
           </div>
@@ -113,7 +112,7 @@ export default function CheckoutScreen({
       </div>
 
       <div className="mb-6">
-        <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Type de commande</div>
+        <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Type de commande</div>
         <div className="flex flex-wrap gap-3">
           {options.map((opt) => {
             const isSelected = serviceType === opt;
@@ -122,11 +121,7 @@ export default function CheckoutScreen({
                 key={opt}
                 onClick={() => setServiceType(opt)}
                 className="tap-scale flex-1 min-w-[160px] rounded-xl py-4 px-2 font-bold border-2 flex items-center justify-center gap-2 text-center"
-                style={
-                  isSelected
-                    ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" }
-                    : { background: "var(--color-surface-card)", borderColor: "var(--color-border)", color: "var(--color-text-muted)" }
-                }
+                style={isSelected ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
               >
                 {isSelected && <span>✓</span>}
                 {opt}
@@ -138,17 +133,17 @@ export default function CheckoutScreen({
 
       {fixedTableLabel && !isTakeawayLike(serviceType) ? (
         <div className="mb-8">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Table</div>
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Table</div>
           <div
             className="rounded-xl px-4 py-4 text-lg font-bold"
-            style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           >
             {fixedTableLabel}
           </div>
         </div>
       ) : tables && !isTakeawayLike(serviceType) ? (
         <div className="mb-8">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Numéro de table</div>
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de table</div>
           <div className="flex flex-wrap gap-2 mb-3">
             {tables.map((t) => {
               const on = (selectedTableIds || []).includes(t.id);
@@ -158,28 +153,28 @@ export default function CheckoutScreen({
                   type="button"
                   onClick={() => toggleTableId(t.id)}
                   className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
-                  style={on ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
+                  style={on ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
                 >
                   {on ? "✓ " : ""}{tableDisplayName(t)}
                 </button>
               );
             })}
             {tables.length === 0 && (
-              <span className="text-sm" style={{ color: "var(--color-text-faint)" }}>Aucune table enregistrée — utilise le champ ci-dessous.</span>
+              <span className="text-sm text-[#8a7561]">Aucune table enregistrée — utilise le champ ci-dessous.</span>
             )}
           </div>
-          <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Autre / texte libre</div>
+          <div className="text-xs font-bold text-[#a88f78] uppercase tracking-wide mb-2">Autre / texte libre</div>
           <input
             value={otherTableLabel || ""}
             onChange={(e) => setOtherTableLabel(e.target.value)}
             placeholder="Ex. Terrasse 3, table d'appoint…"
             className="w-full rounded-xl px-4 py-4 text-lg outline-none"
-            style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           />
         </div>
       ) : (
         <div className="mb-8">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
             {!isTakeawayLike(serviceType) ? "Numéro de table" : "Ton nom (pour t'appeler)"}
           </div>
           <input
@@ -187,15 +182,15 @@ export default function CheckoutScreen({
             onChange={(e) => setTableName(e.target.value)}
             placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
             className="w-full rounded-xl px-4 py-4 text-lg outline-none"
-            style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           />
         </div>
       )}
 
       {requireCommitment && (
         <div className="mb-8">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Numéro de téléphone</div>
-          <p className="text-sm mb-2 leading-relaxed" style={{ color: "var(--color-text-faint)" }}>
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de téléphone</div>
+          <p className="text-sm text-[#8a7561] mb-2 leading-relaxed">
             Sert à vous joindre si besoin au sujet de cette commande, et à la rattacher à votre carte de fidélité si vous en avez une. Jamais utilisé pour du démarchage.
           </p>
           <input
@@ -206,14 +201,10 @@ export default function CheckoutScreen({
             autoComplete="tel"
             placeholder="Ex. 06 12 34 56 78"
             className="w-full rounded-xl px-4 py-4 text-lg outline-none"
-            style={{
-              background: "var(--color-surface-card)",
-              border: `1px solid ${phone && !isValidPhoneFr(phone) ? "var(--color-accent)" : "var(--color-border)"}`,
-              color: "var(--color-text)",
-            }}
+            style={{ background: "#211712", border: `1px solid ${phone && !isValidPhoneFr(phone) ? "#C0392B" : "#3a2b1f"}`, color: "#f5ebdd" }}
           />
           {phone && !isValidPhoneFr(phone) && (
-            <p className="text-sm mt-2" style={{ color: "var(--color-danger)" }}>Numéro invalide — format attendu : 06 12 34 56 78</p>
+            <p className="text-sm mt-2" style={{ color: "#e88a8a" }}>Numéro invalide — format attendu : 06 12 34 56 78</p>
           )}
 
           <label className="flex items-start gap-3 mt-5 cursor-pointer">
@@ -221,26 +212,25 @@ export default function CheckoutScreen({
               type="checkbox"
               checked={commitmentAccepted === true}
               onChange={(e) => setCommitmentAccepted(e.target.checked)}
-              className="mt-1 w-5 h-5 shrink-0"
-              style={{ accentColor: "var(--color-accent)" }}
+              className="mt-1 w-5 h-5 shrink-0 accent-[#C0392B]"
             />
-            <span className="text-sm leading-relaxed" style={{ color: "var(--color-text-subtle)" }}>
+            <span className="text-sm text-[#c9b8a4] leading-relaxed">
               En validant votre commande, vous vous engagez à venir la récupérer sur le créneau choisi. Toute commande non retirée reste due.
             </span>
           </label>
 
           <p className="text-sm mt-3">
-            <button type="button" onClick={onOpenCgv} className="underline underline-offset-2 font-semibold tap-scale" style={{ color: "var(--color-accent-gold)" }}>
+            <button type="button" onClick={onOpenCgv} className="underline underline-offset-2 font-semibold text-[#E8B23D] tap-scale">
               Conditions générales de vente
             </button>
-            <span style={{ color: "var(--color-text-faint)" }}> — {CGV_NO_SHOW_CLAUSE}</span>
+            <span className="text-[#8a7561]"> — {CGV_NO_SHOW_CLAUSE}</span>
           </p>
         </div>
       )}
 
       {setNote && (
         <div className="mb-8">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-warning)" }}>
+          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "#ff5fa8" }}>
             📝 Note pour l'équipe (facultatif)
           </div>
           <textarea
@@ -249,26 +239,22 @@ export default function CheckoutScreen({
             placeholder="Ex. Allergie noix, client pressé, anniversaire…"
             rows={2}
             className="w-full rounded-xl px-4 py-3 text-base outline-none resize-none"
-            style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
+            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
           />
         </div>
       )}
 
       {setPaidUpfront && (
         <div className="mb-6">
-          <div className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Règlement</div>
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Règlement</div>
           <button
             onClick={() => setPaidUpfront(!paidUpfront)}
             className="tap-scale w-full rounded-xl py-4 px-4 font-bold border-2 flex items-center justify-center gap-2 text-center"
-            style={
-              paidUpfront
-                ? { background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" }
-                : { background: "var(--color-surface-card)", borderColor: "var(--color-border)", color: "var(--color-text-muted)" }
-            }
+            style={paidUpfront ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
           >
             {paidUpfront ? "✓ " : ""}💰 Déjà réglée par le client
           </button>
-          <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-text-faint)" }}>
+          <p className="text-xs text-[#8a7561] mt-2 leading-relaxed">
             À activer si le client paie maintenant et qu'une autre personne vient récupérer la commande.
           </p>
         </div>
@@ -276,17 +262,17 @@ export default function CheckoutScreen({
 
       <div className="flex items-center justify-between mb-4">
         <span className="text-xl font-bold">Total</span>
-        <span className="display-font text-3xl font-bold" style={{ color: "var(--color-accent-gold)" }}>{eur(total)}</span>
+        <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
       </div>
-      <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+      <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
         {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE ? "Choisir mon créneau →" : "Valider ma commande →"}
       </button>
       {requireCommitment && !canConfirm && cart.length > 0 && (
-        <p className="text-center text-sm mt-3" style={{ color: "var(--color-danger)" }}>
+        <p className="text-center text-sm mt-3" style={{ color: "#e88a8a" }}>
           Renseignez votre nom, un numéro de téléphone valide et cochez l'engagement pour valider.
         </p>
       )}
-      <p className="text-center text-sm mt-4" style={{ color: "var(--color-text-faint)" }}>Le règlement se fait en caisse, après validation.</p>
+      <p className="text-center text-[#8a7561] text-sm mt-4">Le règlement se fait en caisse, après validation.</p>
     </div>
   );
 }

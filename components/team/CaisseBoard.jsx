@@ -78,11 +78,11 @@ export default function CaisseBoard({ readOnly = false }) {
 
   function renderActiveCard(o) {
     return (
-      <div key={o.id} className="w-72 shrink-0 rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+      <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" showSource />
-        <div className="display-font font-bold text-lg mb-2" style={{ color: "var(--color-accent-gold)" }}>{eur(o.total)}</div>
+        <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
         {!o.isTest && (
           <div className="mb-2">
             <OrderLoyaltyControl order={o} link={loyaltyLinks[o.id]} readOnly={readOnly} />
@@ -92,10 +92,10 @@ export default function CaisseBoard({ readOnly = false }) {
           // Déjà encaissée (paiement anticipé en caisse, ou réglée dès la prise
           // de commande côté serveuse) — il ne reste qu'à la marquer servie.
           <div className="flex items-center gap-2">
-            <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+            <span className="flex-1 text-center text-xs font-bold rounded-full px-3 py-2" style={{ background: "#204a3a", color: "#a8e8c8" }}>
               ✅ Payée
             </span>
-            <button onClick={() => markServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+            <button onClick={() => markServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
               ✅ Servie
             </button>
           </div>
@@ -103,15 +103,15 @@ export default function CaisseBoard({ readOnly = false }) {
           // Sur place : le client a généralement déjà mangé au moment de
           // payer, pas besoin du paiement anticipé — un seul bouton, comme
           // avant.
-          <button onClick={() => markPaidAndServed(o)} className="tap-scale w-full text-xs font-bold rounded-full px-3 py-2" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+          <button onClick={() => markPaidAndServed(o)} className="tap-scale w-full text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
             💰 Marquer payée
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <button onClick={() => markPaidUnserved(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2 border-2" style={{ borderColor: "var(--color-border)" }}>
+            <button onClick={() => markPaidUnserved(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2 border-2 border-[#3a2b1f]">
               💰 Payée, non servie
             </button>
-            <button onClick={() => markPaidAndServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+            <button onClick={() => markPaidAndServed(o)} className="tap-scale flex-1 text-xs font-bold rounded-full px-3 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
               💰 Payée et servie
             </button>
           </div>
@@ -124,13 +124,13 @@ export default function CaisseBoard({ readOnly = false }) {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="flex gap-4 mb-4">
-        <div className="rounded-xl border px-5 py-4 flex-1" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
-          <div className="text-xs uppercase font-bold mb-1" style={{ color: "var(--color-text-muted)" }}>À encaisser ({unpaidActive.length})</div>
+        <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">À encaisser ({unpaidActive.length})</div>
           <div className="display-font text-2xl font-bold">{eur(totalActive)}</div>
         </div>
-        <div className="rounded-xl border px-5 py-4 flex-1" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
-          <div className="text-xs uppercase font-bold mb-1" style={{ color: "var(--color-text-muted)" }}>Déjà encaissé ({realPaidToday.length})</div>
-          <div className="display-font text-2xl font-bold" style={{ color: "var(--color-accent-gold)" }}>{eur(totalCollected)}</div>
+        <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] px-5 py-4 flex-1">
+          <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Déjà encaissé ({realPaidToday.length})</div>
+          <div className="display-font text-2xl font-bold text-[#E8B23D]">{eur(totalCollected)}</div>
         </div>
       </div>
 
@@ -141,20 +141,20 @@ export default function CaisseBoard({ readOnly = false }) {
             setConfirmingId(null);
           }}
           className="tap-scale rounded-full px-5 py-3 text-sm font-bold border-2"
-          style={cancelMode ? { borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
+          style={cancelMode ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
         >
           {cancelMode ? "← Retour à la caisse" : "🗑️ Annuler une commande"}
         </button>
         <button
           onClick={toggleTakeawayLink}
           className="tap-scale rounded-full px-5 py-3 text-sm font-bold border-2"
-          style={suspended ? { borderColor: "var(--color-accent)", background: "var(--color-surface-alt)", color: "var(--color-danger)" } : { borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
+          style={suspended ? { borderColor: "#C0392B", background: "#2c1c14", color: "#e88a8a" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
         >
           {suspended ? "▶️ Réactiver le click and collect" : "⏸️ Suspendre le click and collect"}
         </button>
       </div>
       {suspended && (
-        <div className="rounded-2xl px-5 py-3 mb-6 text-sm font-bold" style={{ background: "var(--color-surface-alt)", border: "1px solid var(--color-accent)", color: "var(--color-danger)" }}>
+        <div className="rounded-2xl px-5 py-3 mb-6 text-sm font-bold" style={{ background: "#2c1c14", border: "1px solid #C0392B", color: "#e88a8a" }}>
           ⏸️ Le lien de commande en ligne (/commande) est actuellement suspendu — les clients qui scannent le QR code voient un message les
           invitant à appeler.
         </div>
@@ -162,31 +162,30 @@ export default function CaisseBoard({ readOnly = false }) {
 
       {cancelMode ? (
         <>
-          <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
+          <p className="text-[#a88f78] text-sm mb-4">
             Sélectionne la commande à annuler — elle sera supprimée définitivement, y compris de "Déjà encaissé" si elle
             était payée.
           </p>
-          {cancellable.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune commande aujourd'hui.</p>}
+          {cancellable.length === 0 && <p className="text-[#8a7561]">Aucune commande aujourd'hui.</p>}
           <div className="flex flex-wrap gap-3">
             {cancellable.map((o) => (
-              <div key={o.id} className="w-72 shrink-0 rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+              <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
                 <OrderCardHeader order={o} />
                 <div className="display-font text-lg font-bold mb-1">{o.name}</div>
-                <div className="text-xs mb-2" style={{ color: "var(--color-text-muted)" }}>{isOrderPaid(o) ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
+                <div className="text-xs text-[#a88f78] mb-2">{isOrderPaid(o) ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
                 <GroupedItemList items={o.items} className="mb-3" showSource />
                 {o.status === "servie" && o.previousStatus && (
                   <button
                     onClick={() => restoreServedOrder(o)}
-                    className="tap-scale w-full mb-2 text-xs font-bold rounded-full px-4 py-2 border-2"
-                    style={{ borderColor: "var(--color-border)" }}
+                    className="tap-scale w-full mb-2 text-xs font-bold rounded-full px-4 py-2 border-2 border-[#3a2b1f]"
                   >
                     ↩️ Restaurer (marquée servie par erreur)
                   </button>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="display-font font-bold text-lg" style={{ color: "var(--color-accent-gold)" }}>{eur(o.total)}</span>
+                  <span className="display-font font-bold text-[#E8B23D] text-lg">{eur(o.total)}</span>
                   {confirmingId === o.id ? (
-                    <button onClick={() => cancelOrder(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+                    <button onClick={() => cancelOrder(o)} className="tap-scale text-xs font-bold rounded-full px-4 py-2" style={{ background: "#C0392B", color: "#fff5ea" }}>
                       Confirmer ?
                     </button>
                   ) : (
@@ -202,19 +201,19 @@ export default function CaisseBoard({ readOnly = false }) {
         </>
       ) : (
         <>
-          {active.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune commande en attente de règlement.</p>}
+          {active.length === 0 && <p className="text-[#8a7561]">Aucune commande en attente de règlement.</p>}
           {active.length > 0 && (
             <>
               <div className="font-bold mb-3">🥡 À emporter ({activeTakeaway.length})</div>
               <div className="flex gap-4 overflow-x-auto pb-2 mb-6">
                 {activeTakeaway.map(renderActiveCard)}
-                {activeTakeaway.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune pour l'instant.</p>}
+                {activeTakeaway.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
               </div>
 
               <div className="font-bold mb-3">🍽️ Sur place ({activeDineIn.length})</div>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {activeDineIn.map(renderActiveCard)}
-                {activeDineIn.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune pour l'instant.</p>}
+                {activeDineIn.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
               </div>
             </>
           )}
@@ -237,7 +236,7 @@ export default function CaisseBoard({ readOnly = false }) {
   );
 }
 
-const LOYALTY_INPUT_STYLE = { background: "var(--color-bg-team)", border: "1px solid var(--color-border)", color: "var(--color-text)" };
+const LOYALTY_INPUT_STYLE = { background: "#140d08", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
 // Contrôle fidélité d'une carte de commande en caisse :
 //  - déjà rattachée (un mouvement porte son order_id) -> "⭐ Fidélité ☑️ Nom"
@@ -260,8 +259,8 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
 
   if (link) {
     return (
-      <div className="text-xs font-bold" style={{ color: "var(--color-success-strong)" }}>
-        ⭐ Fidélité ☑️ <span style={{ color: "var(--color-success)" }}>{link.nom || link.phone}</span>
+      <div className="text-xs font-bold" style={{ color: "#7fb069" }}>
+        ⭐ Fidélité ☑️ <span style={{ color: "#a8e8c8" }}>{link.nom || link.phone}</span>
       </div>
     );
   }
@@ -370,14 +369,14 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
 
   if (!open) {
     return (
-      <button onClick={openPanel} className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2" style={{ borderColor: "var(--color-border)" }}>
+      <button onClick={openPanel} className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]">
         ⭐ Fidélité ➕
       </button>
     );
   }
 
   return (
-    <div className="rounded-lg border p-2 flex flex-col gap-2" style={{ borderColor: "var(--color-border)" }}>
+    <div className="rounded-lg border border-[#3a2b1f] p-2 flex flex-col gap-2">
       <div className="flex gap-2">
         <input
           value={term}
@@ -387,13 +386,13 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
           className="flex-1 rounded px-2 py-1 text-sm min-w-0"
           style={LOYALTY_INPUT_STYLE}
         />
-        <button onClick={() => runSearch()} className="tap-scale shrink-0 rounded px-3 py-1 text-xs font-bold border-2" style={{ borderColor: "var(--color-border)" }}>
+        <button onClick={() => runSearch()} className="tap-scale shrink-0 rounded px-3 py-1 text-xs font-bold border-2 border-[#3a2b1f]">
           Chercher
         </button>
       </div>
 
       {msg && (
-        <div className="text-xs" style={{ color: step === "unknown" ? "var(--color-accent-gold)" : "var(--color-danger)" }}>
+        <div className="text-xs" style={{ color: step === "unknown" ? "#E8B23D" : "#e88a8a" }}>
           {msg}
         </div>
       )}
@@ -408,8 +407,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
                 setStep("found");
                 setMsg(null);
               }}
-              className="tap-scale text-left rounded border px-2 py-1 text-xs"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}
+              className="tap-scale text-left rounded border border-[#3a2b1f] px-2 py-1 text-xs text-[#c9b8a4]"
             >
               <span className="font-bold">{c.nom || "Sans nom"}</span> · {c.phone} · {c.soldePoints} pts
             </button>
@@ -419,14 +417,14 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
 
       {step === "found" && match && (
         <>
-          <div className="text-xs" style={{ color: "var(--color-text-subtle)" }}>
+          <div className="text-xs text-[#c9b8a4]">
             {match.nom || "Sans nom"} · {match.phone} · {match.soldePoints} pts
           </div>
           <button
             onClick={associate}
             disabled={pts <= 0}
             className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-            style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}
+            style={{ background: "#C0392B", color: "#fff5ea" }}
           >
             Associer &amp; créditer {pts} pts
           </button>
@@ -441,7 +439,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
             onClick={associate}
             disabled={pts <= 0}
             className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-            style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}
+            style={{ background: "#C0392B", color: "#fff5ea" }}
           >
             Créer le compte &amp; créditer {pts} pts
           </button>
@@ -450,11 +448,11 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
 
       <div className="flex items-center gap-3">
         {(step === "list" || step === "found" || step === "unknown") && (
-          <button onClick={resetToSearch} className="text-xs" style={{ color: "var(--color-text-faint)" }}>
+          <button onClick={resetToSearch} className="text-xs text-[#8a7561]">
             ← Nouvelle recherche
           </button>
         )}
-        <button onClick={() => setOpen(false)} className="text-xs" style={{ color: "var(--color-text-faint)" }}>
+        <button onClick={() => setOpen(false)} className="text-xs text-[#8a7561]">
           Annuler
         </button>
       </div>

@@ -86,58 +86,58 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
 
   return (
     <div className="flex-1 flex flex-col px-6 py-6">
-      <button onClick={onBack} className="text-sm font-semibold mb-6 self-start tap-scale" style={{ color: "var(--color-text-subtle)" }}>
+      <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
         ← Retour
       </button>
       <h2 className="display-font text-3xl font-semibold mb-2">Ton créneau</h2>
-      <p className="mb-8" style={{ color: "var(--color-text-muted)" }}>
+      <p className="text-[#a88f78] mb-8">
         {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""} dans ta commande — on t'affiche uniquement les horaires où le four a la place.
       </p>
 
       {!allSlotsConfigured && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <span className="text-5xl mb-4">🧑‍🍳</span>
-          <p style={{ color: "var(--color-text-subtle)" }}>L'équipe n'a pas encore ouvert les créneaux du service.</p>
-          <p className="text-sm mt-2" style={{ color: "var(--color-text-faint)" }}>Adresse-toi directement à un membre de l'équipe.</p>
+          <p className="text-[#c9b8a4]">L'équipe n'a pas encore ouvert les créneaux du service.</p>
+          <p className="text-[#8a7561] text-sm mt-2">Adresse-toi directement à un membre de l'équipe.</p>
         </div>
       )}
 
       {allSlotsConfigured && !skipToForceList && mode === "none" && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <span className="text-5xl mb-4">😕</span>
-          <p style={{ color: "var(--color-text-subtle)" }}>
+          <p className="text-[#c9b8a4]">
             Même en répartissant sur plusieurs créneaux, le four n'a pas la place pour {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""} aujourd'hui.
           </p>
-          <p className="text-sm mt-2" style={{ color: "var(--color-text-faint)" }}>Réduis le nombre de pizzas, ou adresse-toi directement à l'équipe.</p>
+          <p className="text-[#8a7561] text-sm mt-2">Réduis le nombre de pizzas, ou adresse-toi directement à l'équipe.</p>
         </div>
       )}
 
       {allSlotsConfigured && skipToForceList && forceList.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <span className="text-5xl mb-4">😕</span>
-          <p style={{ color: "var(--color-text-subtle)" }}>Aucun créneau restant aujourd'hui.</p>
+          <p className="text-[#c9b8a4]">Aucun créneau restant aujourd'hui.</p>
         </div>
       )}
 
       {allSlotsConfigured && skipToForceList && forceList.length > 0 && (
-        <p className="text-sm font-semibold mb-4 -mt-4" style={{ color: "var(--color-accent-gold)" }}>
+        <p className="text-[#E8B23D] text-sm font-semibold mb-4 -mt-4">
           ⚠️ Aucun créneau n'a théoriquement la place pour {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""}. Avec l'accord du pizzaiolo, tu peux forcer un créneau.
         </p>
       )}
 
       {allSlotsConfigured && !skipToForceList && earliest && !showAll && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-muted)" }}>Créneau le plus proche</span>
-          <div className="rounded-3xl border-2 px-14 py-10 mb-6" style={{ borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }}>
+          <span className="text-sm font-bold uppercase tracking-wide text-[#a88f78] mb-3">Créneau le plus proche</span>
+          <div className="rounded-3xl border-2 border-[#C0392B] bg-[#2c1c14] px-14 py-10 mb-6">
             <div className="display-font text-6xl font-bold">{earliest.label}</div>
             {earliest.remaining != null && (
-              <div className="mt-2" style={{ color: "var(--color-text-muted)" }}>
+              <div className="text-[#a88f78] mt-2">
                 {earliest.remaining} place{earliest.remaining > 1 ? "s" : ""} disponible{earliest.remaining > 1 ? "s" : ""}
               </div>
             )}
           </div>
           {laterOptions.length > 0 && (
-            <button onClick={() => setShowAll(true)} className="font-semibold underline underline-offset-4 tap-scale" style={{ color: "var(--color-text-subtle)" }}>
+            <button onClick={() => setShowAll(true)} className="text-[#c9b8a4] font-semibold underline underline-offset-4 tap-scale">
               Choisir un autre créneau
             </button>
           )}
@@ -150,23 +150,22 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
             <button
               key={o.key}
               onClick={() => setSelectedOption(o)}
-              className="tap-scale rounded-2xl py-5 border-2 flex flex-col items-center"
-              style={
+              className={`tap-scale rounded-2xl py-5 border-2 flex flex-col items-center ${
                 selectedOption?.key === o.key
-                  ? { borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }
+                  ? "border-[#C0392B] bg-[#2c1c14]"
                   : o.full
-                  ? { borderColor: "var(--color-danger-border)", background: "var(--color-danger-surface)" }
-                  : { borderColor: "var(--color-border)", background: "var(--color-surface-card)" }
-              }
+                  ? "border-[#7a2a2a] bg-[#2c1414]"
+                  : "border-[#3a2b1f] bg-[#211712]"
+              }`}
             >
               <span className="display-font text-2xl font-bold">{o.label}</span>
               {o.full ? (
-                <span className="text-xs mt-1 font-bold" style={{ color: "var(--color-danger-strong)" }}>
+                <span className="text-xs mt-1 font-bold" style={{ color: "#ff6b6b" }}>
                   ⚠️ Plein — forçable
                 </span>
               ) : (
                 o.remaining != null && (
-                  <span className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+                  <span className="text-[#a88f78] text-xs mt-1">
                     {o.remaining} place{o.remaining > 1 ? "s" : ""} dispo
                   </span>
                 )
@@ -177,25 +176,25 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
       )}
 
       {allSlotsConfigured && selectedOption && (
-        <button onClick={handleValidate} className="tap-scale rounded-full py-6 text-2xl font-bold mt-6" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+        <button onClick={handleValidate} className="tap-scale rounded-full py-6 text-2xl font-bold mt-6" style={{ background: "#C0392B", color: "#fff5ea" }}>
           Valider pour {selectedOption.label}
         </button>
       )}
 
       {confirmingForce && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full md:max-w-md rounded-3xl overflow-hidden" style={{ background: "var(--color-bg)", color: "var(--color-text)" }}>
+          <div className="w-full md:max-w-md rounded-3xl overflow-hidden" style={{ background: "#1a120b", color: "#f5ebdd" }}>
             <div className="px-6 py-6 text-center">
               <span className="text-5xl mb-4 block">⚠️</span>
               <p className="font-bold text-lg mb-2">Créneau {selectedOption?.label} théoriquement plein</p>
-              <p className="text-sm mb-6" style={{ color: "var(--color-text-subtle)" }}>
+              <p className="text-[#c9b8a4] text-sm mb-6">
                 Confirme que le pizzaiolo est d'accord pour forcer ce créneau à {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""}.
               </p>
               <div className="flex flex-col gap-3">
-                <button onClick={confirmForce} className="tap-scale rounded-full py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+                <button onClick={confirmForce} className="tap-scale rounded-full py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                   Forcer quand même
                 </button>
-                <button onClick={() => setConfirmingForce(false)} className="tap-scale rounded-full py-4 text-lg font-bold border-2" style={{ borderColor: "var(--color-border)", color: "var(--color-text-subtle)" }}>
+                <button onClick={() => setConfirmingForce(false)} className="tap-scale rounded-full py-4 text-lg font-bold border-2 border-[#3a2b1f] text-[#c9b8a4]">
                   Annuler
                 </button>
               </div>

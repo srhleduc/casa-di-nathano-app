@@ -47,10 +47,10 @@ export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
-      <div className="pizza-modal w-full md:max-w-2xl md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "var(--color-bg)", color: "var(--color-text)", height: "min(80vh, 640px)" }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
+      <div className="pizza-modal w-full md:max-w-2xl md:rounded-3xl overflow-hidden flex flex-col" style={{ background: "#1a120b", color: "#f5ebdd", height: "min(80vh, 640px)" }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#3a2b1f]">
           <span className="display-font text-2xl font-bold">{item.name}</span>
-          <button onClick={onClose} className="tap-scale w-9 h-9 rounded-full font-bold" style={{ background: "var(--color-surface)", color: "var(--color-text-subtle)" }}>
+          <button onClick={onClose} className="tap-scale w-9 h-9 rounded-full bg-[#241811] text-[#c9b8a4] font-bold">
             ✕
           </button>
         </div>
@@ -61,18 +61,18 @@ export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
             const options = availableOptions(g);
             return (
               <div key={g.id}>
-                <p className="mb-3" style={{ color: "var(--color-text-muted)" }}>
-                  <span className="font-bold" style={{ color: "var(--color-text)" }}>{g.name}</span> — choisis {g.choices}
+                <p className="text-[#a88f78] mb-3">
+                  <span className="font-bold text-[#f5ebdd]">{g.name}</span> — choisis {g.choices}
                   {g.choices > 1 ? " options" : " option"} ({picked.length}/{g.choices})
-                  {!g.required && <span style={{ color: "var(--color-text-dim)" }}> · facultatif</span>}
+                  {!g.required && <span className="text-[#5a4a3a]"> · facultatif</span>}
                 </p>
 
                 {picked.length > 0 && (
-                  <div className="mb-4 pb-4 border-b" style={{ borderColor: "var(--color-border)" }}>
-                    <div className="text-xs uppercase font-bold mb-2" style={{ color: "var(--color-text-muted)" }}>Ta sélection (touche pour retirer)</div>
+                  <div className="mb-4 pb-4 border-b border-[#3a2b1f]">
+                    <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Ta sélection (touche pour retirer)</div>
                     <div className="flex flex-wrap gap-2">
                       {picked.map((f, idx) => (
-                        <button key={idx} onClick={() => removeAt(g, idx)} className="chip tap-scale" style={{ background: "var(--color-accent)", borderColor: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+                        <button key={idx} onClick={() => removeAt(g, idx)} className="chip tap-scale" style={{ background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" }}>
                           {f} ✕
                         </button>
                       ))}
@@ -82,12 +82,12 @@ export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
 
                 <div className="flex flex-wrap gap-2">
                   {options.map((o) => (
-                    <button key={o.id} onClick={() => add(g, o.name)} className="chip tap-scale" style={{ color: "var(--color-text-subtle)" }}>
+                    <button key={o.id} onClick={() => add(g, o.name)} className="chip tap-scale" style={{ color: "#c9b8a4" }}>
                       + {o.name}
                     </button>
                   ))}
                   {options.length === 0 && (
-                    <p className="text-sm" style={{ color: "var(--color-danger)" }}>Toutes les options sont indisponibles pour l'instant.</p>
+                    <p className="text-sm" style={{ color: "#e88a8a" }}>Toutes les options sont indisponibles pour l'instant.</p>
                   )}
                 </div>
               </div>
@@ -95,12 +95,12 @@ export default function FlavorModal({ item, ruptures, onClose, onConfirm }) {
           })}
         </div>
 
-        <div className="px-6 py-5 border-t" style={{ borderColor: "var(--color-border)" }}>
+        <div className="px-6 py-5 border-t border-[#3a2b1f]">
           <button
             onClick={confirm}
             disabled={!canConfirm}
             className="tap-scale w-full rounded-full py-5 text-xl font-bold disabled:opacity-40"
-            style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}
+            style={{ background: "#C0392B", color: "#fff5ea" }}
           >
             Ajouter au panier
           </button>

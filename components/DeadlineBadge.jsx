@@ -28,7 +28,7 @@ export default function DeadlineBadge({ order }) {
   const late = diff < 0;
   const inSlot = !late && diff <= SLOT_DURATION_MS;
 
-  const color = late ? "var(--color-urgent-late)" : inSlot ? "var(--color-urgent-active)" : "var(--color-urgent-neutral)";
+  const color = late ? "#ff4d4d" : inSlot ? "#4ade80" : "#f5ebdd";
   const title = late
     ? "Retard sur le créneau visé"
     : inSlot

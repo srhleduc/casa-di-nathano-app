@@ -9,7 +9,7 @@
 export default function OrderNote({ note }) {
   if (!note) return null;
   return (
-    <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--color-border)", color: "var(--color-warning)" }}>
+    <div className="mt-2 pt-2 border-t border-[#3a2b1f]" style={{ color: "#ff5fa8" }}>
       <div className="text-[10px] font-bold uppercase tracking-wide opacity-70">Note de commande</div>
       <div className="text-xs font-bold">📝 {note}</div>
     </div>

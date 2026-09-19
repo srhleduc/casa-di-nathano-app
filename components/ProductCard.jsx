@@ -11,10 +11,10 @@ import { eur } from "@/lib/menu";
 function PizzaGlyph() {
   return (
     <svg viewBox="0 0 48 48" width="46" height="46" fill="none" aria-hidden="true">
-      <path d="M24 5 L43 39 A44 44 0 0 1 5 39 Z" stroke="var(--color-client-accent-gold)" strokeWidth="2.4" strokeLinejoin="round" />
-      <circle cx="24" cy="19" r="2.5" fill="var(--color-client-accent-gold)" />
-      <circle cx="17" cy="30" r="2.5" fill="var(--color-client-accent-gold)" />
-      <circle cx="31" cy="30" r="2.5" fill="var(--color-client-accent-gold)" />
+      <path d="M24 5 L43 39 A44 44 0 0 1 5 39 Z" stroke="#d9a94c" strokeWidth="2.4" strokeLinejoin="round" />
+      <circle cx="24" cy="19" r="2.5" fill="#d9a94c" />
+      <circle cx="17" cy="30" r="2.5" fill="#d9a94c" />
+      <circle cx="31" cy="30" r="2.5" fill="#d9a94c" />
     </svg>
   );
 }
@@ -27,7 +27,7 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
     <div
       onClick={onTap}
       className={`tap-scale cursor-pointer text-left rounded-2xl overflow-hidden flex flex-col ${isFallback ? "border-2" : "border"}`}
-      style={{ background: "var(--color-surface-card-alt)", borderColor: isFallback ? "var(--color-warning)" : "var(--color-client-border)" }}
+      style={{ background: "#221812", borderColor: isFallback ? "#ff5fa8" : "#3a2a1f" }}
     >
       {/* Bloc photo — toujours présent, ratio carré */}
       <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
@@ -36,7 +36,7 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
         ) : (
           <div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ background: "radial-gradient(circle at 50% 38%, var(--color-client-placeholder-from) 0%, var(--color-client-placeholder-to) 78%)" }}
+            style={{ background: "radial-gradient(circle at 50% 38%, #3a2416 0%, #1a120d 78%)" }}
           >
             <span style={{ opacity: 0.4 }}>
               <PizzaGlyph />
@@ -47,19 +47,14 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
         {/* Fondu "croûte" : raccord de la photo vers le fond de la carte */}
         <div
           className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, transparent 0%, var(--color-surface-card-alt) 100%)" }}
+          style={{ background: "linear-gradient(to bottom, rgba(34,24,18,0) 0%, #221812 100%)" }}
         />
 
         {/* Badge mise en avant (piloté depuis l'admin Menu) */}
         {item.featured && (
           <span
             className="absolute top-2 left-2 rounded-full px-2.5 py-1 font-bold"
-            style={{
-              fontSize: 11,
-              background: "color-mix(in srgb, var(--color-client-bg) 72%, transparent)",
-              border: "1px solid var(--color-client-accent)",
-              color: "var(--color-client-text)",
-            }}
+            style={{ fontSize: 11, background: "rgba(21,14,10,0.72)", border: "1px solid #e8622c", color: "#f5ede3" }}
           >
             ★ Best-seller
           </span>
@@ -80,8 +75,8 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
               height: 34,
               right: 10,
               bottom: -14,
-              background: "var(--color-client-accent)",
-              color: "var(--color-client-accent-text)",
+              background: "#e8622c",
+              color: "#150e0a",
               fontSize: 20,
               lineHeight: 1,
               boxShadow: "0 2px 8px rgba(0,0,0,0.45)",
@@ -94,12 +89,12 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
 
       {/* Corps */}
       <div className="px-3.5 pt-4 pb-3.5 flex flex-col gap-1 flex-1">
-        <span className="font-bold leading-snug" style={{ color: "var(--color-client-text)", fontSize: 15 }}>
+        <span className="font-bold leading-snug" style={{ color: "#f5ede3", fontSize: 15 }}>
           {item.name}
         </span>
 
         {isFallback && (
-          <span className="font-bold" style={{ fontSize: 11, color: "var(--color-warning)" }}>
+          <span className="font-bold" style={{ fontSize: 11, color: "#ff5fa8" }}>
             🥡 Dépannage à emporter — stock sur place épuisé
           </span>
         )}
@@ -109,7 +104,7 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
             className="leading-snug"
             style={{
               fontSize: 12,
-              color: "var(--color-client-text-muted)",
+              color: "#b9a692",
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
@@ -121,29 +116,29 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 mt-auto pt-1">
-          <span className="display-font italic whitespace-nowrap shrink-0" style={{ color: "var(--color-client-accent-gold)", fontSize: 18 }}>
+          <span className="display-font italic whitespace-nowrap shrink-0" style={{ color: "#d9a94c", fontSize: 18 }}>
             {priceLabel}
           </span>
           {inCart > 0 && (
             <div
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1 rounded-full p-1 shrink-0"
-              style={{ background: "var(--color-client-surface)", border: "1px solid var(--color-client-border)" }}
+              style={{ background: "#1c1410", border: "1px solid #3a2a1f" }}
             >
               <button
                 onClick={onDecrement}
                 className="tap-scale w-6 h-6 rounded-full text-white text-sm font-bold flex items-center justify-center"
-                style={{ background: "var(--color-client-border)" }}
+                style={{ background: "#3a2a1f" }}
               >
                 −
               </button>
-              <span className="text-sm font-bold w-4 text-center" style={{ color: "var(--color-client-text)" }}>
+              <span className="text-sm font-bold w-4 text-center" style={{ color: "#f5ede3" }}>
                 {inCart}
               </span>
               <button
                 onClick={onIncrement}
                 className="tap-scale w-6 h-6 rounded-full text-sm font-bold flex items-center justify-center"
-                style={{ background: "var(--color-client-accent)", color: "var(--color-client-accent-text)" }}
+                style={{ background: "#e8622c", color: "#150e0a" }}
               >
                 +
               </button>

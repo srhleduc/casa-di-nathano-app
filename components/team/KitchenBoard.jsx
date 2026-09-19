@@ -70,12 +70,12 @@ export default function KitchenBoard() {
 
   function renderOrderCard(o) {
     return (
-      <div key={o.id} className="w-72 shrink-0 rounded-xl border p-4" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+      <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
         <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => cancelOrder(o)} showTime={false} />
         {o.slotAllocations && o.slotAllocations.length > 0 ? (
-          <div className="display-font text-3xl font-bold mb-1" style={{ color: "var(--color-accent-gold)" }}>🕐 {formatSlotAllocations(o.slotAllocations)}</div>
+          <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {formatSlotAllocations(o.slotAllocations)}</div>
         ) : o.scheduledTime ? (
-          <div className="display-font text-3xl font-bold mb-1" style={{ color: "var(--color-accent-gold)" }}>🕐 {o.scheduledTime}</div>
+          <div className="display-font text-3xl font-bold text-[#E8B23D] mb-1">🕐 {o.scheduledTime}</div>
         ) : null}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="display-font text-xl font-bold">{o.name}</div>
@@ -84,13 +84,13 @@ export default function KitchenBoard() {
             <DeadlineBadge order={o} />
           </div>
         </div>
-        <ul className="text-sm mb-3" style={{ color: "var(--color-text-subtle)" }}>
+        <ul className="text-sm text-[#c9b8a4] mb-3">
           {normalPizzaItems(o).map((it, idx) => (
             <ItemLine key={idx} it={it} />
           ))}
         </ul>
-        <div className="display-font font-bold mb-3" style={{ color: "var(--color-accent-gold)" }}>{eur(o.total)}</div>
-        <button onClick={() => sendToFinition(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+        <div className="display-font font-bold text-[#E8B23D] mb-3">{eur(o.total)}</div>
+        <button onClick={() => sendToFinition(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
           🔥 Four
         </button>
         <OrderNote note={o.note} />
@@ -102,13 +102,13 @@ export default function KitchenBoard() {
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <LiveClock
         className="fixed top-20 right-6 z-30 display-font text-4xl font-bold tabular-nums rounded-2xl px-6 py-3 border-2"
-        style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)", color: "var(--color-accent-gold)" }}
+        style={{ borderColor: "#3a2b1f", background: "#211712", color: "#E8B23D" }}
       />
 
       {aperoWaiting.length > 0 && (
         <div className="mb-6">
           <div className="font-bold mb-3">🍸 Apéro à préparer ({aperoWaiting.length})</div>
-          <p className="text-xs mb-3 -mt-2" style={{ color: "var(--color-text-muted)" }}>"Apéro servi" ici retire juste la carte de cet écran une fois la focaccia/pizza prête — la confirmation à table (qui libère les pizzas principales) reste du ressort de l'écran Service.</p>
+          <p className="text-[#a88f78] text-xs mb-3 -mt-2">"Apéro servi" ici retire juste la carte de cet écran une fois la focaccia/pizza prête — la confirmation à table (qui libère les pizzas principales) reste du ressort de l'écran Service.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {aperoWaiting.map(({ order: o, pendingItems, showMinimal }) => {
               // Apéro boissons seules : rien à préparer en cuisine, mais on
@@ -117,46 +117,46 @@ export default function KitchenBoard() {
               // arriver ses pizzas plus tard sans avoir rien vu passer.
               if (showMinimal) {
                 return (
-                  <div key={o.id} className="rounded-xl border-2 px-4 py-3 flex items-center justify-between gap-2" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-card)" }}>
+                  <div key={o.id} className="rounded-xl border-2 px-4 py-3 flex items-center justify-between gap-2" style={{ borderColor: "#3a2b1f", background: "#211712" }}>
                     <div className="display-font text-lg font-bold">{o.name}</div>
-                    <span className="text-xs font-bold rounded-full px-3 py-1 shrink-0" style={{ background: "var(--color-accent-gold-bg)", color: "var(--color-accent-gold)" }}>
+                    <span className="text-xs font-bold rounded-full px-3 py-1 shrink-0" style={{ background: "#4a2c14", color: "#E8B23D" }}>
                       🍸 Apéro en cours
                     </span>
                   </div>
                 );
               }
               return (
-                <div key={o.id} className="rounded-xl border-2 p-4" style={{ borderColor: "var(--color-accent)", background: "var(--color-surface-alt)" }}>
+                <div key={o.id} className="rounded-xl border-2 p-4" style={{ borderColor: "#C0392B", background: "#2c1c14" }}>
                   <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                    <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "var(--color-accent-gold-bg)", color: "var(--color-accent-gold)" }}>
+                    <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a2c14", color: "#E8B23D" }}>
                       ⏳ Attente apéro
                     </span>
                     <div className="flex items-center gap-2">
                       {o.isTest && (
-                        <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "var(--color-test-surface)", color: "var(--color-test-accent)" }}>
+                        <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
                           🧪 TEST
                         </span>
                       )}
-                      <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2" style={{ borderColor: "var(--color-border)" }}>
+                      <button onClick={() => setEditingOrder(o)} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
                         ✏️
                       </button>
                       <button
                         onClick={() => cancelOrder(o)}
                         aria-label="Annuler la commande"
                         className="tap-scale w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}
+                        style={{ background: "#4a2020", color: "#e88a8a" }}
                       >
                         ✕
                       </button>
                     </div>
                   </div>
                   <div className="display-font text-xl font-bold mb-2">{o.name}</div>
-                  <ul className="text-sm mb-3" style={{ color: "var(--color-text-subtle)" }}>
+                  <ul className="text-sm text-[#c9b8a4] mb-3">
                     {pendingItems.map((it, idx) => (
                       <ItemLine key={idx} it={it} />
                     ))}
                   </ul>
-                  <button onClick={() => markAperoKitchenPrepared(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "var(--color-accent)", color: "var(--color-text-alt)" }}>
+                  <button onClick={() => markAperoKitchenPrepared(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
                     ✅ Apéro servi
                   </button>
                   <OrderNote note={o.note} />
@@ -170,13 +170,13 @@ export default function KitchenBoard() {
       <div className="font-bold mb-3">🥡 À emporter ({takeawayQueue.length})</div>
       <div className="flex gap-4 overflow-x-auto pb-2 mb-6">
         {takeawayQueue.map(renderOrderCard)}
-        {takeawayQueue.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune pour l'instant.</p>}
+        {takeawayQueue.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
       </div>
 
       <div className="font-bold mb-3">🍽️ Sur place ({dineInQueue.length})</div>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {dineInQueue.map(renderOrderCard)}
-        {dineInQueue.length === 0 && <p style={{ color: "var(--color-text-faint)" }}>Aucune pour l'instant.</p>}
+        {dineInQueue.length === 0 && <p className="text-[#8a7561]">Aucune pour l'instant.</p>}
       </div>
 
       {editingOrder && (

@@ -19,7 +19,7 @@ export default function ItemLine({ it, showSource, onAck }) {
         {flagged && (
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ background: "var(--color-flag)", boxShadow: "0 0 6px var(--color-flag)" }}
+            style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
             aria-label="Ajout client — cliquer pour marquer vu"
           />
         )}
@@ -29,7 +29,7 @@ export default function ItemLine({ it, showSource, onAck }) {
         {showSource && it.source === "sat" && (
           <span
             className="ml-1.5 align-middle text-[10px] font-bold rounded px-1.5 py-0.5"
-            style={{ background: "var(--color-surface-alt)", color: "var(--color-accent-gold)" }}
+            style={{ background: "#2c1c14", color: "#E8B23D" }}
           >
             SAT
           </span>
@@ -41,12 +41,12 @@ export default function ItemLine({ it, showSource, onAck }) {
         )}
       </div>
       {it.note && (
-        <div className="text-xs pl-4" style={{ color: "var(--color-accent-gold)" }}>
+        <div className="text-xs text-[#E8B23D] pl-4">
           ↳ {noteIcon(it.name, it.note)} {it.note}
         </div>
       )}
       {it.itemNote && (
-        <div className="text-xs font-bold pl-4" style={{ color: "var(--color-warning)" }}>
+        <div className="text-xs font-bold pl-4" style={{ color: "#ff5fa8" }}>
           ↳ 📝 {it.itemNote}
         </div>
       )}
@@ -55,10 +55,10 @@ export default function ItemLine({ it, showSource, onAck }) {
         const label = isRemoved ? m.name.slice(5) : m.name.replace(/^Supplément /, "");
         return (
           <div key={mi} className="text-xs pl-4 flex items-center gap-1.5">
-            <span className="font-bold" style={{ color: isRemoved ? "var(--color-danger)" : "var(--color-success)" }}>
+            <span className="font-bold" style={{ color: isRemoved ? "#e88a8a" : "#a8e8c8" }}>
               {isRemoved ? "−" : "+"}
             </span>
-            <span style={{ color: "var(--color-text-muted)" }}>{label}</span>
+            <span className="text-[#a88f78]">{label}</span>
           </div>
         );
       })}
