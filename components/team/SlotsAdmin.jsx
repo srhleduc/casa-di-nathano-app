@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots, useSlotDefaults, setSlotDefaults, useServiceTypeSettings, setDineInCountsTowardSlots } from "@/lib/data";
+import { useSlots, insertSlot, updateSlotCapacity, deleteSlot, clearAllSlots, bulkUpsertSlots, useSlotDefaults, setSlotDefaults, useServiceTypeSettings, setDineInCountsTowardSlots, useTakeawayHours } from "@/lib/data";
 import { parseMinutes } from "@/lib/business";
 
 // Les créneaux midi/soir sont maintenant ouverts automatiquement chaque nuit
@@ -19,6 +19,11 @@ export default function SlotsAdmin() {
   const { slots, reload } = useSlots();
   const { slotDefaults, loading: defaultsLoading } = useSlotDefaults();
   const { serviceTypeSettings } = useServiceTypeSettings();
+  const { takeawayHours } = useTakeawayHours();
+  // Horaires du jour configurés (Logistique → Horaires d'ouverture) — les
+  // boutons "Générer" doivent s'y limiter, jamais générer au-delà de l'heure
+  // de fermeture réelle du soir (auparavant codée en dur jusqu'à minuit).
+  const hoursToday = takeawayHours.find((h) => h.weekday === new Date().getDay());
   const [label, setLabel] = useState("");
   const [capacity, setCapacity] = useState("6");
   const [capMidi, setCapMidi] = useState("6");
@@ -88,13 +93,15 @@ export default function SlotsAdmin() {
     }
   }
   async function generateMidi() {
+    if (!hoursToday?.midiOpen || !hoursToday?.midiClose) return;
     const cap = parseInt(capMidi, 10) || 0;
-    await bulkGenerate("12:00", "15:00", 10, cap);
+    await bulkGenerate(hoursToday.midiOpen, hoursToday.midiClose, 10, cap);
     setSlotDefaults({ midiCapacity: cap }).catch((err) => console.error(err));
   }
   async function generateSoir() {
+    if (!hoursToday?.soirOpen || !hoursToday?.soirClose) return;
     const cap = parseInt(capSoir, 10) || 0;
-    await bulkGenerate("18:00", "24:00", 10, cap);
+    await bulkGenerate(hoursToday.soirOpen, hoursToday.soirClose, 10, cap);
     setSlotDefaults({ soirCapacity: cap }).catch((err) => console.error(err));
   }
   async function clearAll() {
@@ -138,21 +145,35 @@ export default function SlotsAdmin() {
 
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
-          <div className="font-bold mb-2">☀️ Service midi (12h–15h, ttes les 10 min)</div>
+          <div className="font-bold mb-2">
+            ☀️ Service midi ({hoursToday?.midiOpen && hoursToday?.midiClose ? `${hoursToday.midiOpen}–${hoursToday.midiClose}` : "fermé aujourd'hui"}, ttes les 10 min)
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capMidi} onChange={(e) => setCapMidi(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
-            <button onClick={generateMidi} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            <button
+              onClick={generateMidi}
+              disabled={!hoursToday?.midiOpen || !hoursToday?.midiClose}
+              className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto disabled:opacity-40"
+              style={{ background: "#C0392B", color: "#fff5ea" }}
+            >
               Générer
             </button>
           </div>
         </div>
         <div className="rounded-xl border border-[#3a2b1f] p-4 flex-1 min-w-[240px]">
-          <div className="font-bold mb-2">🌙 Service soir (18h–minuit, ttes les 10 min)</div>
+          <div className="font-bold mb-2">
+            🌙 Service soir ({hoursToday?.soirOpen && hoursToday?.soirClose ? `${hoursToday.soirOpen}–${hoursToday.soirClose}` : "fermé aujourd'hui"}, ttes les 10 min)
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-[#a88f78]">Pizzas max / créneau</span>
             <input value={capSoir} onChange={(e) => setCapSoir(e.target.value)} type="number" className="w-16 text-center rounded-lg px-2 py-1" style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }} />
-            <button onClick={generateSoir} className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto" style={{ background: "#C0392B", color: "#fff5ea" }}>
+            <button
+              onClick={generateSoir}
+              disabled={!hoursToday?.soirOpen || !hoursToday?.soirClose}
+              className="tap-scale rounded-lg px-4 py-2 text-sm font-bold ml-auto disabled:opacity-40"
+              style={{ background: "#C0392B", color: "#fff5ea" }}
+            >
               Générer
             </button>
           </div>
