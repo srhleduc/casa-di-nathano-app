@@ -23,6 +23,7 @@ import {
   tableDisplayLabel,
   tableDisplayName,
   findOpenDineInOrderForTables,
+  countOvenItems,
 } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import {
@@ -123,7 +124,7 @@ export default function ServiceATable() {
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
-  const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+  const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
   // Groupe de tables solidaires de `id` (combinaison « Passage » / réservation
   // multi-tables) — /sat de n'importe laquelle vise la même commande.

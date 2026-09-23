@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -56,7 +56,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     };
   }, []);
 
-  const pizzaCount = items.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0);
+  const pizzaCount = countOvenItems(items);
   const total = items.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0);
 
   // Un article déjà marqué "servi" (boisson pointée sur l'écran Boissons,

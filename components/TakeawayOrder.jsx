@@ -12,6 +12,7 @@ import {
   withAutoFocaccia,
   computeSlotOptions,
   isSlotChoiceStillOffered,
+  countOvenItems,
   minutesFromNow,
   normalizePhoneFr,
   availableTakeawayDesserts,
@@ -182,7 +183,7 @@ export default function TakeawayOrder() {
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
-  const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+  const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
   function addItem(item, note) {
     setCart((prev) => {

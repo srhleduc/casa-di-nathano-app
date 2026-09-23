@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -66,7 +66,7 @@ export default function Kiosk() {
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
-  const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+  const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
   function addItem(item, note) {
     setCart((prev) => {

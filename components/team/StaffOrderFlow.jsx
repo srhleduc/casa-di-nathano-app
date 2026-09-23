@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useReservationSettings, useActiveMenuServiceGroups, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
@@ -140,7 +140,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
-  const pizzaCount = useMemo(() => cart.filter((i) => i.cat === "pizza").reduce((s, i) => s + i.qty, 0), [cart]);
+  const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
   const SERVICE_ENABLED_BY_VALUE = {
     "🍽️ Sur place": serviceTypeSettings.dineInEnabled,
