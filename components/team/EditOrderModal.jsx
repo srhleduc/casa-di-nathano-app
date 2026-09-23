@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups } from "@/lib/data";
+import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
+import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
 import PanuzzoModal from "../PanuzzoModal";
+import ServiceConflictBanner from "../ServiceConflictBanner";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
@@ -20,7 +21,6 @@ const SERVICE_OPTIONS = [
 export default function EditOrderModal({ order, menu, orders, slots, ruptures, dessertStock, pizzaStock, onClose }) {
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
-  const activeServiceGroups = useActiveMenuServiceGroups();
   const [view, setView] = useState("summary"); // summary | add | slot
   const [activeCat, setActiveCat] = useState("pizza");
   const [items, setItems] = useState(order.items);
@@ -40,6 +40,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [flavoring, setFlavoring] = useState(null);
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   const availableServiceOptions = SERVICE_OPTIONS.filter((o) => serviceTypeSettings[o.enabledKey] || o.value === order.serviceType);
 
@@ -63,7 +64,19 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   // pizza déjà envoyée en cuisine...) forme une ligne à part : on ne
   // fusionne jamais un ajout dedans, sinon la nouvelle quantité hériterait
   // du statut "déjà servi" et disparaîtrait des écrans équipe.
+  // Un produit "service midi/soir uniquement" ne peut pas rejoindre une
+  // commande qui contient déjà un produit de l'autre service — voir
+  // conflictingCartItem.
+  function blockedByServiceConflict(item) {
+    const conflict = conflictingCartItem(items, item);
+    if (!conflict) return false;
+    setServiceConflict(
+      `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais la commande contient déjà "${conflict.name}" (service ${conflict.serviceRestriction}).`
+    );
+    return true;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     setItems((prev) => {
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
@@ -73,6 +86,10 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -129,7 +146,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
       // bascule depuis à emporter) : on réserve automatiquement le créneau
       // le plus proche, comme à la prise de commande.
       const otherOrders = orders.filter((o) => o.id !== order.id);
-      const choice = computeSlotOptions(otherOrders, slots, pizzaCount);
+      const choice = computeSlotOptions(otherOrders, restrictSlotsForCart(slots, items), pizzaCount);
       finalSlotAllocations = earliestSlotPlan(choice, pizzaCount) || [];
     }
     const wasTakeaway = isTakeawayLike(order.serviceType);
@@ -192,7 +209,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           menu={menu}
           restaurantName={name || order.name}
           serviceType={serviceType}
-          activeServiceGroups={activeServiceGroups}
+          topBanner={<ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />}
           staffMode
           onFinishApero={() => {}}
         />
@@ -239,7 +256,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   if (view === "slot") {
     const otherOrders = orders.filter((o) => o.id !== order.id);
-    const slotOptions = slots
+    const slotOptions = restrictSlotsForCart(slots, items)
       .map((s) => ({ ...s, remaining: remainingForSlot(otherOrders, s, slots) }))
       .sort((a, b) => (parseMinutes(a.label) ?? 0) - (parseMinutes(b.label) ?? 0));
     return (

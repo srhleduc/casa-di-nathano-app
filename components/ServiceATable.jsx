@@ -18,6 +18,8 @@ import {
   lineUnitPrice,
   withAutoFocaccia,
   computeSlotOptions,
+  restrictSlotsForCart,
+  conflictingCartItem,
   earliestSlotPlan,
   kitchenPendingQty,
   tableDisplayLabel,
@@ -33,7 +35,6 @@ import {
   useDessertStock,
   usePizzaStock,
   useMenu,
-  useActiveMenuServiceGroups,
   useTables,
   useServiceTypeSettings,
   useCategoryOrder,
@@ -60,6 +61,7 @@ import FlavorModal from "./FlavorModal";
 import PanuzzoModal from "./PanuzzoModal";
 import CheckoutScreen from "./CheckoutScreen";
 import StatusScreen from "./StatusScreen";
+import ServiceConflictBanner from "./ServiceConflictBanner";
 
 const DINE_IN = "🍽️ Sur place";
 const tableNumberCollator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
@@ -87,6 +89,7 @@ export default function ServiceATable() {
   const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [submitted, setSubmitted] = useState(false); // évite un double envoi
   const [completing, setCompleting] = useState(false); // a rejoint une commande déjà ouverte
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   // Paramètre ?table= lu côté navigateur (pas de useSearchParams : évite la
   // Suspense boundary et reste cohérent avec le reste de l'app, tout client).
@@ -105,7 +108,6 @@ export default function ServiceATable() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
-  const activeServiceGroups = useActiveMenuServiceGroups();
   const { tables, loading: tablesLoading } = useTables();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
@@ -136,7 +138,18 @@ export default function ServiceATable() {
     return grp.length ? findOpenDineInOrderForTables(orders, { tableIds: grp }) : null;
   }
 
+  // Un produit "service midi/soir uniquement" ne peut pas rejoindre un panier
+  // qui contient déjà un produit de l'autre service — voir conflictingCartItem.
+  function blockedByServiceConflict(item) {
+    const conflict = conflictingCartItem(cart, item);
+    if (!conflict) return false;
+    setServiceConflict(
+      `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais le panier contient déjà "${conflict.name}" (service ${conflict.serviceRestriction}). Validez d'abord cette commande, puis recommencez pour l'autre service.`
+    );
+    return true;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
       const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       const next = existing
@@ -146,6 +159,10 @@ export default function ServiceATable() {
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -230,7 +247,9 @@ export default function ServiceATable() {
       // s'il n'y a aucune pizza.
       const skipsSlot = serviceTypeSettings.dineInCountsTowardSlots === false;
       const finalPlan =
-        pizzaCount === 0 || skipsSlot ? [] : earliestSlotPlan(computeSlotOptions(orders, slots, pizzaCount), pizzaCount) || [];
+        pizzaCount === 0 || skipsSlot
+          ? []
+          : earliestSlotPlan(computeSlotOptions(orders, restrictSlotsForCart(slots, cart), pizzaCount), pizzaCount) || [];
       try {
         return await insertOrder({
           items,
@@ -330,7 +349,7 @@ export default function ServiceATable() {
           showPhotos={true}
           clientView
           serviceType={DINE_IN}
-          activeServiceGroups={activeServiceGroups}
+          topBanner={<ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />}
           onFinishApero={() => {}}
         />
       )}

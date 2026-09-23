@@ -35,11 +35,6 @@ export default function OrderScreen({
   // Ordre des catégories choisi en Direction pour ce contexte (client / équipe).
   // Absent ou vide → ordre naturel de CATEGORIES.
   categoryOrder,
-  // Groupes de service ("midi"/"soir") actuellement ouverts (voir
-  // useActiveMenuServiceGroups) — filtre les produits restreints à un seul
-  // service (menu_items.serviceRestriction). Prop absente/non fournie =
-  // aucun filtrage (repli permissif, pour les écrans pas encore branchés).
-  activeServiceGroups,
 }) {
   const fullMenu = menu || [];
   const { forItem: optionGroupsForItem } = useOptionGroups();
@@ -54,16 +49,16 @@ export default function OrderScreen({
   // Drapeaux de disponibilité de l'admin Menu (Direction) : "sur place
   // uniquement" (dineInOnly) masqué en à emporter, "à emporter uniquement"
   // (takeawayOnly) masqué en sur place, "réservé espace équipe" (staffOnly)
-  // masqué de tout parcours client, "service du midi/soir uniquement"
-  // (serviceRestriction) masqué tant que ce groupe de service n'est pas
-  // ouvert (activeServiceGroups — absent = pas de filtrage, écran pas encore
-  // branché). Structurel — à distinguer des ruptures et stocks du jour
-  // épuisés, qui gardent leur onglet avec un message dédié.
+  // masqué de tout parcours client. Un produit "service midi/soir uniquement"
+  // (serviceRestriction) reste toujours visible (badge dédié + créneaux
+  // filtrés en aval) — plus de masquage selon l'heure, pour permettre les
+  // commandes en avance sur le service. Structurel — à distinguer des
+  // ruptures et stocks du jour épuisés, qui gardent leur onglet avec un
+  // message dédié.
   function isStructurallyAvailable(m) {
     if (m.staffOnly && !staffMode) return false;
     if (isTakeaway && m.dineInOnly) return false;
     if (!isTakeaway && m.takeawayOnly) return false;
-    if (m.serviceRestriction && activeServiceGroups && !activeServiceGroups.has(m.serviceRestriction)) return false;
     return true;
   }
 
@@ -272,6 +267,11 @@ export default function OrderScreen({
                 {showPhotos && item.photoUrl && <img src={item.photoUrl} alt={item.name} className="w-full h-28 object-cover" />}
                 <div className="p-5 flex flex-col flex-1 justify-between">
                   <span className="font-bold text-lg leading-snug">{item.name}</span>
+                  {item.serviceRestriction && (
+                    <span className="text-xs font-bold mt-1" style={{ color: "#E8B23D" }}>
+                      {item.serviceRestriction === "midi" ? "☀️ Service midi uniquement" : "🌙 Service soir uniquement"}
+                    </span>
+                  )}
                   {isFallback && (
                     <span className="text-xs font-bold mt-1" style={{ color: "#ff5fa8" }}>
                       🥡 Dépannage à emporter — stock sur place épuisé

@@ -12,6 +12,8 @@ import {
   withAutoFocaccia,
   computeSlotOptions,
   isSlotChoiceStillOffered,
+  restrictSlotsForCart,
+  conflictingCartItem,
   countOvenItems,
   minutesFromNow,
   normalizePhoneFr,
@@ -51,6 +53,7 @@ import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
 import DessertUpsellModal from "./DessertUpsellModal";
+import ServiceConflictBanner from "./ServiceConflictBanner";
 
 async function submitWithRetry(payload, attempt = 1) {
   try {
@@ -142,6 +145,7 @@ export default function TakeawayOrder() {
   const [phone, setPhone] = useState(""); // engagement client — numéro brut, aucun rapprochement profil
   const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
   const [cgvOpen, setCgvOpen] = useState(false);
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -185,7 +189,18 @@ export default function TakeawayOrder() {
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
   const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
+  // Un produit "service midi/soir uniquement" ne peut pas rejoindre un panier
+  // qui contient déjà un produit de l'autre service — voir conflictingCartItem.
+  function blockedByServiceConflict(item) {
+    const conflict = conflictingCartItem(cart, item);
+    if (!conflict) return false;
+    setServiceConflict(
+      `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais votre panier contient déjà "${conflict.name}" (service ${conflict.serviceRestriction}). Passez d'abord cette commande, puis recommencez pour l'autre service.`
+    );
+    return true;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
       const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       let next = existing
@@ -195,6 +210,10 @@ export default function TakeawayOrder() {
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -311,7 +330,7 @@ export default function TakeawayOrder() {
       submitOrder(null);
       return;
     }
-    const choice = computeSlotOptions(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES);
+    const choice = computeSlotOptions(orders, restrictSlotsForCart(slots, cart), pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES);
     setSelectedOption(null);
     setSlotChoice(choice);
     setScreen("slot");
@@ -329,7 +348,7 @@ export default function TakeawayOrder() {
       submitOrder(null);
       return;
     }
-    const { valid, freshChoice } = isSlotChoiceStillOffered(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES, selectedOption);
+    const { valid, freshChoice } = isSlotChoiceStillOffered(orders, restrictSlotsForCart(slots, cart), pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES, selectedOption);
     if (valid) {
       submitOrder(selectedOption.plan);
       return;
@@ -398,8 +417,12 @@ export default function TakeawayOrder() {
           showPhotos={true}
           clientView
           serviceType={serviceType}
-          activeServiceGroups={activeServiceGroups}
-          topBanner={availabilityBanner}
+          topBanner={
+            <>
+              <ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />
+              {availabilityBanner}
+            </>
+          }
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}
           dessertStockNote="🍰 Nos desserts sont proposés dans la limite des stocks disponibles. En cas de rupture, on vous prévient au retrait de la commande."

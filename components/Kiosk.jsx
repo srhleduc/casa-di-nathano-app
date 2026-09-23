@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
+import { cartSignature, lineUnitPrice, withAutoFocaccia, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, minutesFromNow, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, useActiveMenuServiceGroups, insertOrder } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useServiceTypeSettings, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -18,6 +18,7 @@ import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
 import PinScreen from "./PinScreen";
 import TeamSpace from "./TeamSpace";
+import ServiceConflictBanner from "./ServiceConflictBanner";
 
 async function submitWithRetry(order, attempt = 1) {
   try {
@@ -47,6 +48,7 @@ export default function Kiosk() {
   const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
   const [selectedOption, setSelectedOption] = useState(null); // option choisie (créneau simple ou réparti)
   const [confirmedNumber, setConfirmedNumber] = useState(null); // numéro de commande à emporter, une fois connu
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -54,7 +56,6 @@ export default function Kiosk() {
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
-  const activeServiceGroups = useActiveMenuServiceGroups();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
   const restaurant = useRestaurant();
@@ -68,7 +69,18 @@ export default function Kiosk() {
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
   const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
+  // Un produit "service midi/soir uniquement" ne peut pas rejoindre un panier
+  // qui contient déjà un produit de l'autre service — voir conflictingCartItem.
+  function blockedByServiceConflict(item) {
+    const conflict = conflictingCartItem(cart, item);
+    if (!conflict) return false;
+    setServiceConflict(
+      `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais le panier contient déjà "${conflict.name}" (service ${conflict.serviceRestriction}). Validez d'abord cette commande, puis recommencez pour l'autre service.`
+    );
+    return true;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
       const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
       let next = existing
@@ -78,6 +90,10 @@ export default function Kiosk() {
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -136,7 +152,7 @@ export default function Kiosk() {
       submitOrder(null);
       return;
     }
-    const choice = computeSlotOptions(orders, slots, pizzaCount, serviceType === "🍽️ Sur place" ? 0 : TAKEAWAY_SLOT_MARGIN_MINUTES);
+    const choice = computeSlotOptions(orders, restrictSlotsForCart(slots, cart), pizzaCount, serviceType === "🍽️ Sur place" ? 0 : TAKEAWAY_SLOT_MARGIN_MINUTES);
     if (serviceType === "🍽️ Sur place" && choice.mode !== "none") {
       const finalPlan =
         choice.mode === "split" ? choice.plans[0] : [{ slotId: choice.options[0].id, label: choice.options[0].label, qty: pizzaCount }];
@@ -223,7 +239,7 @@ export default function Kiosk() {
           showPhotos={true}
           clientView
           serviceType={serviceType}
-          activeServiceGroups={activeServiceGroups}
+          topBanner={<ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />}
           onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {
             setAperoMode(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, countOvenItems } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, slotServiceGroup, countOvenItems } from "@/lib/business";
 import { useRuptures, useMenu, useTestMode, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -10,6 +10,7 @@ import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
 import CheckoutScreen from "../CheckoutScreen";
 import StatusScreen from "../StatusScreen";
+import ServiceConflictBanner from "../ServiceConflictBanner";
 
 async function submitWithRetry(order, attempt = 1) {
   try {
@@ -41,12 +42,29 @@ export default function ScheduledOrderFlow({ onDone }) {
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
   const [paidUpfront, setPaidUpfront] = useState(false); // client règle dès la prise de commande
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
   const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
+  // Un produit "service midi/soir uniquement" n'est proposable que pour
+  // l'horaire choisi à l'étape précédente (voir slotServiceGroup) — la
+  // commande programmée fixe l'horaire avant de composer le panier, donc le
+  // conflit se vérifie contre celui-ci plutôt que contre le reste du panier.
+  function blockedByServiceConflict(item) {
+    if (!item.serviceRestriction) return false;
+    const chosenGroup = slotServiceGroup(scheduledTime);
+    if (chosenGroup && item.serviceRestriction !== chosenGroup) {
+      setServiceConflict(
+        `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais l'horaire choisi (${scheduledTime}) est le service ${chosenGroup}. Revenez à l'étape précédente pour changer d'horaire.`
+      );
+      return true;
+    }
+    return false;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
@@ -58,6 +76,10 @@ export default function ScheduledOrderFlow({ onDone }) {
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
       ...addedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -181,6 +203,7 @@ export default function ScheduledOrderFlow({ onDone }) {
           dessertStock={{}}
           menu={menuItems}
           restaurantName={restaurant.name}
+          topBanner={<ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />}
           staffMode
           onFinishApero={() => {}}
         />

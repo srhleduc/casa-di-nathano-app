@@ -60,6 +60,18 @@ export default function ProductCard({ item, inCart, onTap, onIncrement, onDecrem
           </span>
         )}
 
+        {/* Produit restreint à un seul service — toujours visible au
+            catalogue, ce badge prévient qu'il ne pourra être servi qu'au
+            créneau du service concerné (voir restrictSlotsForCart). */}
+        {item.serviceRestriction && (
+          <span
+            className="absolute top-2 right-2 rounded-full px-2.5 py-1 font-bold"
+            style={{ fontSize: 11, background: "rgba(21,14,10,0.72)", border: "1px solid #d9a94c", color: "#f5ede3" }}
+          >
+            {item.serviceRestriction === "midi" ? "☀️ Midi uniquement" : "🌙 Soir uniquement"}
+          </span>
+        )}
+
         {/* Bouton d'ajout — chevauche photo et corps, masqué une fois au panier
             (le pas-à-pas du corps prend le relais). */}
         {inCart === 0 && (

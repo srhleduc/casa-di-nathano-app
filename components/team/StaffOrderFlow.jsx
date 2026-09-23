@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, computeSlotOptions, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
 import { FORMULE_PRICE, eur } from "@/lib/menu";
-import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useReservationSettings, useActiveMenuServiceGroups, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
+import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useReservationSettings, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -23,6 +23,7 @@ import PanuzzoModal from "../PanuzzoModal";
 import CheckoutScreen from "../CheckoutScreen";
 import SlotScreen from "../SlotScreen";
 import StatusScreen from "../StatusScreen";
+import ServiceConflictBanner from "../ServiceConflictBanner";
 
 const STAFF_SERVICE_OPTIONS = [
   { value: "🍽️ Sur place", label: "Sur place", desc: "La table s'installe en salle" },
@@ -79,7 +80,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const { dessertStock } = useDessertStock();
   const { pizzaStock } = usePizzaStock();
   const { menuItems } = useMenu();
-  const activeServiceGroups = useActiveMenuServiceGroups();
   const { testMode } = useTestMode();
   const { serviceTypeSettings } = useServiceTypeSettings();
   const { categoryOrder } = useCategoryOrder();
@@ -137,6 +137,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander
   const [aperoMode, setAperoMode] = useState(false); // vrai pendant la sélection de l'apéro
   const [aperoUsed, setAperoUsed] = useState(false); // vrai si cette commande a démarré par un apéro
+  const [serviceConflict, setServiceConflict] = useState(null);
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
@@ -150,7 +151,18 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const availableServiceOptions = STAFF_SERVICE_OPTIONS.filter((o) => SERVICE_ENABLED_BY_VALUE[o.value]);
   const availableServiceValues = availableServiceOptions.map((o) => o.value);
 
+  // Un produit "service midi/soir uniquement" ne peut pas rejoindre un panier
+  // qui contient déjà un produit de l'autre service — voir conflictingCartItem.
+  function blockedByServiceConflict(item) {
+    const conflict = conflictingCartItem(cart, item);
+    if (!conflict) return false;
+    setServiceConflict(
+      `"${item.name}" est réservé au service ${item.serviceRestriction === "midi" ? "midi" : "soir"}, mais le panier contient déjà "${conflict.name}" (service ${conflict.serviceRestriction}). Enregistrez d'abord cette commande, puis recommencez pour l'autre service.`
+    );
+    return true;
+  }
   function addItem(item, note) {
+    if (blockedByServiceConflict(item)) return;
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     setCart((prev) => {
       const sig = cartSignature(item.id, note, null) + "|" + (phase || "");
@@ -164,6 +176,10 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {
+    if (blockedByServiceConflict(pizzaItem)) {
+      setCustomizing(null);
+      return;
+    }
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     const modifiers = [
       ...removedItems.map((i) => ({ name: i.name, price: i.price })),
@@ -317,12 +333,12 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     if (serviceType !== TAKEAWAY_SERVICE_TYPE) {
       // Sur place : le client est déjà à table, inutile de lui communiquer
       // un horaire — on réserve directement le créneau le plus proche.
-      const choice = computeSlotOptions(orders, slots, pizzaCount);
+      const choice = computeSlotOptions(orders, restrictSlotsForCart(slots, cart), pizzaCount);
       submitOrder(earliestSlotPlan(choice, pizzaCount));
       return;
     }
     setSelectedOption(null);
-    setSlotChoice(computeSlotOptions(orders, slots, pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES));
+    setSlotChoice(computeSlotOptions(orders, restrictSlotsForCart(slots, cart), pizzaCount, TAKEAWAY_SLOT_MARGIN_MINUTES));
     setScreen("slot");
   }
 
@@ -423,8 +439,12 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           menu={menuItems}
           restaurantName={restaurant.name}
           serviceType={serviceType}
-          activeServiceGroups={activeServiceGroups}
-          topBanner={availabilityBanner}
+          topBanner={
+            <>
+              <ServiceConflictBanner message={serviceConflict} onDismiss={() => setServiceConflict(null)} />
+              {availabilityBanner}
+            </>
+          }
           staffMode
           onFinishApero={() => {
             setAperoMode(false);
@@ -466,7 +486,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           selectedOption={selectedOption}
           setSelectedOption={setSelectedOption}
           allSlotsConfigured={slots.length > 0}
-          staffForceOptions={allUpcomingSlotsForStaff(orders, slots, pizzaCount)}
+          staffForceOptions={allUpcomingSlotsForStaff(orders, restrictSlotsForCart(slots, cart), pizzaCount)}
           onBack={() => setScreen("checkout")}
           onConfirm={(forced) => submitOrder(selectedOption?.plan || null, forced)}
         />
