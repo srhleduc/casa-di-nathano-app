@@ -55,16 +55,24 @@ import StatusScreen from "./StatusScreen";
 import DessertUpsellModal from "./DessertUpsellModal";
 import ServiceConflictBanner from "./ServiceConflictBanner";
 
+// Un rejet métier (créneau complet ou disparu — voir check_slot_capacity
+// côté base) ne se résoudra jamais en rejouant la même requête : on ne
+// retente que les échecs réseau/transitoires, pour rendre la main plus vite
+// avec un message exploitable plutôt que de faire attendre le client
+// 3 tentatives pour un refus qui ne changera pas.
+function isSlotRejection(err) {
+  return /créneau/i.test(err?.message || "");
+}
 async function submitWithRetry(payload, attempt = 1) {
   try {
-    return await submitTakeawayOrderWithCommitment(payload);
+    return { takeawayNumber: await submitTakeawayOrderWithCommitment(payload) };
   } catch (err) {
-    if (attempt < 3) {
+    if (!isSlotRejection(err) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(payload, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
-    return null;
+    return { error: err?.message || "Échec de l'enregistrement" };
   }
 }
 
@@ -141,6 +149,7 @@ export default function TakeawayOrder() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showDessertUpsell, setShowDessertUpsell] = useState(false);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
+  const [orderError, setOrderError] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander (miroir du flux serveuses)
   const [phone, setPhone] = useState(""); // engagement client — numéro brut, aucun rapprochement profil
   const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
@@ -301,6 +310,7 @@ export default function TakeawayOrder() {
       pizzaCount,
       total,
     };
+    setOrderError(null);
     setScreen("done");
     submitWithRetry({
       order: newOrder,
@@ -310,7 +320,13 @@ export default function TakeawayOrder() {
         cgvSnapshot: CGV_TEXT,
         cgvVersion: CGV_VERSION,
       },
-    }).then(setConfirmedNumber);
+    }).then(({ takeawayNumber, error }) => {
+      if (error) {
+        setOrderError(error);
+        return;
+      }
+      setConfirmedNumber(takeawayNumber);
+    });
   }
 
   // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier —
@@ -520,7 +536,15 @@ export default function TakeawayOrder() {
         />
       )}
 
-      {screen === "done" && (
+      {screen === "done" && orderError && (
+        <StatusScreen
+          title="Commande non enregistrée"
+          subtitle={`${orderError} Merci de recommencer, ou d'appeler directement le restaurant.`}
+          success={false}
+          onDone={resetAll}
+        />
+      )}
+      {screen === "done" && !orderError && (
         <StatusScreen title="Commande envoyée !" subtitle={doneMessage()} success onDone={resetAll} bigNumber={confirmedNumber} />
       )}
     </div>

@@ -20,16 +20,21 @@ import PinScreen from "./PinScreen";
 import TeamSpace from "./TeamSpace";
 import ServiceConflictBanner from "./ServiceConflictBanner";
 
+// Un rejet métier (créneau complet ou disparu — voir check_slot_capacity
+// côté base) ne se résoudra jamais en rejouant la même requête.
+function isSlotRejection(err) {
+  return /créneau/i.test(err?.message || "");
+}
 async function submitWithRetry(order, attempt = 1) {
   try {
-    return await insertOrder(order);
+    return { takeawayNumber: await insertOrder(order) };
   } catch (err) {
-    if (attempt < 3) {
+    if (!isSlotRejection(err) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(order, attempt + 1);
     }
     console.error("Échec définitif de l'enregistrement de la commande", err);
-    return null;
+    return { error: err?.message || "Échec de l'enregistrement" };
   }
 }
 
@@ -48,6 +53,7 @@ export default function Kiosk() {
   const [slotChoice, setSlotChoice] = useState(null); // résultat de computeSlotOptions
   const [selectedOption, setSelectedOption] = useState(null); // option choisie (créneau simple ou réparti)
   const [confirmedNumber, setConfirmedNumber] = useState(null); // numéro de commande à emporter, une fois connu
+  const [orderError, setOrderError] = useState(null);
   const [serviceConflict, setServiceConflict] = useState(null);
 
   const { orders } = useOrders();
@@ -126,6 +132,7 @@ export default function Kiosk() {
     setAperoMode(false);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
+    setOrderError(null);
     setScreen("welcome");
   }
 
@@ -139,8 +146,15 @@ export default function Kiosk() {
       total,
       status: "attente",
     };
+    setOrderError(null);
     setScreen("done");
-    submitWithRetry(newOrder).then(setConfirmedNumber);
+    submitWithRetry(newOrder).then(({ takeawayNumber, error }) => {
+      if (error) {
+        setOrderError(error);
+        return;
+      }
+      setConfirmedNumber(takeawayNumber);
+    });
   }
 
   function goToSlot() {
@@ -308,7 +322,15 @@ export default function Kiosk() {
         />
       )}
 
-      {screen === "done" && (
+      {screen === "done" && orderError && (
+        <StatusScreen
+          title="Commande non enregistrée"
+          subtitle={`${orderError} Merci de recommencer, ou d'en parler au pizzaiolo.`}
+          success={false}
+          onDone={resetAll}
+        />
+      )}
+      {screen === "done" && !orderError && (
         <StatusScreen title="Commande envoyée !" subtitle={onSiteDoneMessage()} success onDone={resetAll} bigNumber={confirmedNumber} />
       )}
     </div>

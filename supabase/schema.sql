@@ -2222,4 +2222,80 @@ alter publication supabase_realtime add table service_exceptions;
 insert into reservation_settings (restaurant_id) values ('riec'), ('quimperle') on conflict (restaurant_id) do nothing;
 insert into room_layouts (restaurant_id, name) values ('riec', 'Salle'), ('quimperle', 'Salle') on conflict (restaurant_id, name) do nothing;
 
+-- ---- Garde-fou capacité créneaux click & collect (voir migrations_manual/
+-- slot_capacity_guard.sql pour le contexte complet du bug corrigé) --------
+create or replace function check_slot_capacity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $func$
+declare
+  alloc jsonb;
+  v_slot_id uuid;
+  v_qty integer;
+  v_capacity integer;
+  v_slot_exists boolean;
+  v_other_used integer;
+  by_slot jsonb := '{}'::jsonb;
+  k text;
+begin
+  if new.is_test then
+    return new;
+  end if;
+  if new.slot_allocations is null or jsonb_array_length(new.slot_allocations) = 0 then
+    return new;
+  end if;
+
+  for alloc in select * from jsonb_array_elements(new.slot_allocations)
+  loop
+    k := alloc->>'slotId';
+    if k is null then
+      raise exception 'Créneau invalide : allocation sans slotId';
+    end if;
+    by_slot := jsonb_set(
+      by_slot, array[k],
+      to_jsonb(coalesce((by_slot->>k)::integer, 0) + coalesce((alloc->>'qty')::integer, 0))
+    );
+  end loop;
+
+  for k, v_qty in select * from jsonb_each_text(by_slot)
+  loop
+    begin
+      v_slot_id := k::uuid;
+    exception when invalid_text_representation then
+      raise exception 'Créneau invalide : identifiant % illisible', k;
+    end;
+
+    select capacity, true into v_capacity, v_slot_exists
+    from slots
+    where id = v_slot_id and restaurant_id = new.restaurant_id;
+
+    if not found then
+      raise exception 'Ce créneau n''existe plus (il a peut-être été régénéré) — merci de recharger la page et de choisir à nouveau un horaire.';
+    end if;
+
+    select coalesce(sum((a->>'qty')::integer), 0) into v_other_used
+    from orders o, jsonb_array_elements(o.slot_allocations) a
+    where o.restaurant_id = new.restaurant_id
+      and o.status <> 'servie'
+      and not o.is_test
+      and o.id <> new.id
+      and (a->>'slotId') = v_slot_id::text;
+
+    if (coalesce(v_other_used, 0) + v_qty) > v_capacity and not coalesce(new.slot_forced, false) then
+      raise exception 'Créneau complet (% pizza(s) déjà prévues sur % places) — confirmation de forçage requise.', coalesce(v_other_used, 0), v_capacity;
+    end if;
+  end loop;
+
+  return new;
+end;
+$func$;
+
+drop trigger if exists trg_check_slot_capacity on orders;
+create trigger trg_check_slot_capacity
+  before insert or update of slot_allocations, slot_forced on orders
+  for each row
+  execute function check_slot_capacity();
+
 notify pgrst, 'reload schema';

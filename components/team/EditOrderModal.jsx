@@ -141,10 +141,19 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
         : selectedSlot
         ? [{ slotId: selectedSlot.id, label: selectedSlot.label, qty: pizzaCount }]
         : order.slotAllocations || [];
-    if (pizzaCount > 0 && !selectedSlot && finalSlotAllocations.length === 0 && serviceType === "🍽️ Sur place" && !dineInSkipsSlot) {
-      // Sur place sans créneau existant (nouvelles pizzas ajoutées, ou
-      // bascule depuis à emporter) : on réserve automatiquement le créneau
-      // le plus proche, comme à la prise de commande.
+    if (
+      pizzaCount > 0 &&
+      !selectedSlot &&
+      finalSlotAllocations.length === 0 &&
+      !order.scheduledTime &&
+      serviceType !== IMMEDIATE_TAKEAWAY_SERVICE_TYPE &&
+      !dineInSkipsSlot
+    ) {
+      // Créneau manquant (commande sans pizza à l'origine puis pizzas
+      // ajoutées, ou bascule de service type) — sur place comme à emporter :
+      // on réserve automatiquement le créneau le plus proche, comme à la
+      // prise de commande initiale, plutôt que de laisser ces pizzas ne
+      // jamais décompter aucun créneau (voir bug du 27/09/2026, Luigi).
       const otherOrders = orders.filter((o) => o.id !== order.id);
       const choice = computeSlotOptions(otherOrders, restrictSlotsForCart(slots, items), pizzaCount);
       finalSlotAllocations = earliestSlotPlan(choice, pizzaCount) || [];
