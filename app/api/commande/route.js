@@ -1,7 +1,13 @@
 // Route Handler du click & collect : seul chemin où une commande passe par le
-// serveur, pour (1) capturer l'IP du client (indisponible côté navigateur) et
-// (2) insérer atomiquement `orders` + `order_commitments` via la fonction
-// Postgres create_takeaway_order.
+// serveur, pour (1) capturer l'IP et le user-agent du client (indisponibles
+// ou non fiables côté navigateur) et (2) insérer atomiquement `orders` +
+// `order_commitments` via la fonction Postgres create_takeaway_order.
+//
+// L'IP et le user-agent sont des données techniques standards envoyées par
+// tout navigateur à chaque requête HTTP — pas de fingerprinting avancé, pas
+// de cookie de suivi. Objectif : garder une trace exploitable en cas de
+// no-show (numéro bidon, commande fantôme), documenté dans les CGV
+// (lib/cgv.js, section 7).
 //
 // On ne stocke aucun secret service-role : le navigateur envoie son jeton de
 // session Supabase (compte du restaurant) dans l'en-tête Authorization, on le
@@ -63,6 +69,9 @@ export async function POST(request) {
 
   const forwarded = request.headers.get("x-forwarded-for") || "";
   const ip = forwarded.split(",")[0].trim() || request.headers.get("x-real-ip") || null;
+  // Header standard envoyé par tout navigateur/app ; tronqué par sécurité
+  // (certains clients envoient des UA anormalement longs).
+  const userAgent = (request.headers.get("user-agent") || "").slice(0, 500) || null;
 
   const supabase = createClient(url, anon, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -80,6 +89,7 @@ export async function POST(request) {
     p_cgv_text_snapshot: cgvSnapshot,
     p_cgv_version: cgvVersion || null,
     p_ip_address: ip,
+    p_user_agent: userAgent,
   });
 
   if (error) {

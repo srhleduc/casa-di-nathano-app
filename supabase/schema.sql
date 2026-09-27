@@ -1052,8 +1052,11 @@ alter table menu_items
 -- =====================================================================
 create table if not exists order_commitments (
   id uuid primary key default gen_random_uuid(),
-  order_id uuid not null
-    references orders (id) on delete cascade,
+  -- ON DELETE SET NULL (pas cascade) : la preuve de commande doit survivre
+  -- à la purge quotidienne de `orders` (cron casa-di-nathano-daily-reset).
+  -- Voir migrations_manual/order_commitments_retention.sql.
+  order_id uuid
+    references orders (id) on delete set null,
   restaurant_id text references restaurants (id),
   customer_phone text not null,
   commitment_accepted boolean not null default false,
@@ -1061,6 +1064,7 @@ create table if not exists order_commitments (
   cgv_text_snapshot text not null,
   cgv_version text,
   ip_address text,
+  user_agent text,
   order_status text not null default 'pending',
   created_at timestamptz not null default now()
 );
@@ -1107,6 +1111,10 @@ drop function if exists create_takeaway_order(
   jsonb, text, text, jsonb, integer, numeric,
   text, text, text, text
 );
+drop function if exists create_takeaway_order(
+  jsonb, text, text, jsonb, integer, numeric,
+  text, text, text, text, text
+);
 
 create or replace function create_takeaway_order(
   p_items jsonb,
@@ -1118,7 +1126,8 @@ create or replace function create_takeaway_order(
   p_customer_phone text,
   p_cgv_text_snapshot text,
   p_cgv_version text,
-  p_ip_address text
+  p_ip_address text,
+  p_user_agent text default null
 )
 returns table (order_id uuid, takeaway_number integer)
 language plpgsql
@@ -1163,6 +1172,7 @@ begin
     cgv_text_snapshot,
     cgv_version,
     ip_address,
+    user_agent,
     order_status
   )
   values (
@@ -1174,6 +1184,7 @@ begin
     p_cgv_text_snapshot,
     p_cgv_version,
     p_ip_address,
+    p_user_agent,
     'pending'
   );
 
@@ -1183,7 +1194,7 @@ begin
   -- lui-meme le telephone. JAMAIS bloquant : une erreur cote fidelite ne
   -- doit pas faire echouer la commande.
   begin
-    perform award_loyalty_points(p_customer_phone, coalesce(p_total, 0), v_order_id, 'click_and_collect');
+    perform award_loyalty_points(p_customer_phone, coalesce(p_total, 0), v_order_id, 'click_and_collect', v_rid);
   exception when others then
     null;
   end;
@@ -1196,7 +1207,7 @@ $func$;
 
 grant execute on function create_takeaway_order(
   jsonb, text, text, jsonb, integer, numeric,
-  text, text, text, text
+  text, text, text, text, text
 ) to authenticated;
 
 -- =====================================================================
@@ -1496,6 +1507,22 @@ select cron.schedule(
 );
 
 -- Pour désactiver : select cron.unschedule('loyalty-purge-inactifs');
+
+-- Purge des preuves de commande (order_commitments : téléphone, IP,
+-- user-agent, CGV acceptées) de plus de 24 mois — voir
+-- migrations_manual/order_commitments_retention.sql pour le contexte
+-- (avant ce fix, elles disparaissaient dès le lendemain avec la commande,
+-- via le cascade sur orders).
+select cron.schedule(
+  'order-commitments-purge',
+  '35 5 2 * *',
+  $$
+    delete from order_commitments
+    where created_at < now() - interval '24 months';
+  $$
+);
+
+-- Pour désactiver : select cron.unschedule('order-commitments-purge');
 
 -- Pour désactiver plus tard :
 --   select cron.unschedule('loyalty-anniversaires');
