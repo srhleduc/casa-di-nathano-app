@@ -253,6 +253,7 @@ export default function TakeawayOrder() {
     setSelectedOption(null);
     setPanuzzoOrdering(null);
     setConfirmedNumber(null);
+    setOrderError(null);
     setShowDessertUpsell(false);
     setCheckPizzaCount(0);
     setPhone("");
