@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRuptures, addRupture, removeRupture, useMenu, useOptionGroups } from "@/lib/data";
-import { CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
+import { CATEGORIES, ADMIN_ONLY_CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
+
+// Suppléments inclus ici (voir ADMIN_ONLY_CATEGORIES, lib/menu.js) : pas un
+// onglet de commande côté client, mais on doit pouvoir en mettre en rupture
+// comme n'importe quel produit.
+const RUPTURES_CATEGORIES = [...CATEGORIES, ...ADMIN_ONLY_CATEGORIES];
 
 const CHIP_OUT = {
   background: "#C0392B",
@@ -77,7 +82,7 @@ export default function RupturesAdmin() {
       )}
 
       <div className="flex gap-3 mb-5 overflow-x-auto">
-        {CATEGORIES.map((c) => (
+        {RUPTURES_CATEGORIES.map((c) => (
           <button
             key={c.key}
             onClick={() => {

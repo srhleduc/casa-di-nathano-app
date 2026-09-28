@@ -16,7 +16,11 @@ import {
   updateOptionGroupLink,
   unlinkOptionGroup,
 } from "@/lib/data";
-import { CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
+import { CATEGORIES, ADMIN_ONLY_CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
+
+// Suppléments inclus ici (voir ADMIN_ONLY_CATEGORIES) : gérables depuis cet
+// écran, jamais proposés comme onglet de commande côté client.
+const MENU_ADMIN_CATEGORIES = [...CATEGORIES, ...ADMIN_ONLY_CATEGORIES];
 
 function ingredientNamesFromMenu(menuItems) {
   return menuItems
@@ -337,7 +341,7 @@ export default function MenuAdmin({ canEdit = false }) {
         </div>
 
         <div className="flex gap-3 mb-5 overflow-x-auto">
-          {CATEGORIES.map((c) => (
+          {MENU_ADMIN_CATEGORIES.map((c) => (
             <button
               key={c.key}
               onClick={() => setBrowseCat(c.key)}
@@ -349,7 +353,7 @@ export default function MenuAdmin({ canEdit = false }) {
         </div>
 
         <div className="font-bold mb-3">
-          {CATEGORIES.find((c) => c.key === browseCat)?.label} ({items.length})
+          {MENU_ADMIN_CATEGORIES.find((c) => c.key === browseCat)?.label} ({items.length})
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {items.map((item) => (
@@ -424,7 +428,7 @@ export default function MenuAdmin({ canEdit = false }) {
         <div className="mb-4">
           <div className="text-xs text-[#a88f78] uppercase font-bold mb-1">Catégorie</div>
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
+            {MENU_ADMIN_CATEGORIES.map((c) => (
               <button
                 key={c.key}
                 onClick={() => setForm({ ...form, cat: c.key })}
@@ -573,7 +577,7 @@ export default function MenuAdmin({ canEdit = false }) {
       </div>
 
       <div className="flex gap-3 mb-5 overflow-x-auto">
-        {CATEGORIES.map((c) => (
+        {MENU_ADMIN_CATEGORIES.map((c) => (
           <button
             key={c.key}
             onClick={() => setBrowseCat(c.key)}
@@ -585,7 +589,7 @@ export default function MenuAdmin({ canEdit = false }) {
       </div>
 
       <div className="font-bold mb-3">
-        {CATEGORIES.find((c) => c.key === browseCat)?.label} ({items.length})
+        {MENU_ADMIN_CATEGORIES.find((c) => c.key === browseCat)?.label} ({items.length})
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((item) => (
