@@ -104,6 +104,7 @@ function PlanView({
   onSelectTable = null,
   selectedTableId = null,
   flaggedTableIds = null,
+  pickIds = null,
 }) {
   if (!layout) return null;
   const cols = layout.gridCols || 12;
@@ -168,6 +169,8 @@ function PlanView({
           const note = noteByTable?.[t.id] || null;
           const flagged = flaggedTableIds ? flaggedTableIds.has(t.id) : false;
           const selected = selectedTableId === t.id;
+          // Mode « combiner » : tables choisies pour rejoindre la table sélectionnée.
+          const picked = pickIds ? pickIds.has(t.id) : false;
           return (
             <div
               key={t.id}
@@ -179,10 +182,12 @@ function PlanView({
                 top: t.gridRow * CELL + 2,
                 width: CELL - 4,
                 height: CELL - 4,
-                background: highlighted ? "#2c1a24" : s.bg,
-                border: highlighted ? `2px solid ${PINK}` : `2px solid ${s.border}`,
+                background: picked ? "#1a2740" : highlighted ? "#2c1a24" : s.bg,
+                border: picked ? `2px solid ${COMBO_LINK}` : highlighted ? `2px solid ${PINK}` : `2px solid ${s.border}`,
                 boxShadow: selected
                   ? "0 0 0 3px #e8622c"
+                  : picked
+                  ? `0 0 0 3px ${COMBO_LINK}`
                   : highlighted
                   ? `0 0 0 2px ${PINK}55`
                   : "none",
@@ -199,6 +204,15 @@ function PlanView({
                   style={{ top: 2, right: 2, width: 8, height: 8, background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
                   aria-label="Ajout client /sat non pointé"
                 />
+              )}
+              {picked && (
+                <span
+                  className="absolute rounded-full flex items-center justify-center"
+                  style={{ top: 2, right: 2, width: 14, height: 14, background: COMBO_LINK, color: "#fff", fontSize: 10 }}
+                  aria-label="Table choisie pour la combinaison"
+                >
+                  ✓
+                </span>
               )}
               <span>{labelById[t.id]}</span>
               {note ? (
@@ -705,8 +719,15 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
         0
       )
     : 0;
+  // Question déjà posée (« Non ») pour ces clients : on ne la repose pas.
+  const [dismissedTableQuestion, setDismissedTableQuestion] = useState(() => new Set());
+  // Pas de question une fois la table déjà combinée (l'équipe a tranché).
   const walkInTooSmall =
-    selectedTableResa?.source === "walk_in" && selectedOrderMains > selectedResaSeats && selectedResaSeats > 0;
+    selectedTableResa?.source === "walk_in" &&
+    effectiveTables(selectedTableResa.id).length < 2 &&
+    selectedOrderMains > selectedResaSeats &&
+    selectedResaSeats > 0 &&
+    !dismissedTableQuestion.has(selectedTableResa.id);
 
   // --- Actions rapides sur une table du plan (statut + combinaison) ---
   const [combineOpen, setCombineOpen] = useState(false);
@@ -717,6 +738,19 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     setCombineOpen(false);
     setCombinePick([]);
   }, [selectedTableId]);
+
+  // Tables qu'on ne peut pas rejoindre à une combinaison (déjà occupées).
+  const isCombinable = (tid) => !["occupee", "groupee", "bientot"].includes(statuses[tid]?.status);
+  // Clic sur un carré du plan : en mode « combiner », il (dé)coche la table ;
+  // sinon il ouvre / ferme le résumé de la table.
+  function handlePlanTableClick(tid) {
+    if (combineOpen && selectedTableId && tid !== selectedTableId) {
+      if (!isCombinable(tid)) return;
+      setCombinePick((p) => (p.includes(tid) ? p.filter((x) => x !== tid) : [...p, tid]));
+      return;
+    }
+    toggleTablePanel(tid);
+  }
 
   // « Marquer occupée » : réservation « Passage » installée, sans commande.
   function markSelectedTableOccupied() {
@@ -1118,9 +1152,10 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
             highlightIds={selectedService ? selectedServiceInfo.highlightIds : null}
             noteByTable={selectedService ? selectedServiceInfo.noteByTable : null}
             comboGroups={comboGroups}
-            onSelectTable={toggleTablePanel}
+            onSelectTable={handlePlanTableClick}
             selectedTableId={selectedTableId}
             flaggedTableIds={flaggedTableIds}
+            pickIds={combineOpen ? new Set(combinePick) : null}
           />
           {selectedTableId && (
             <div className="mt-3 rounded-xl border-2 p-4" style={{ borderColor: "#e8622c", background: "#211712" }}>
@@ -1182,32 +1217,30 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               </div>
 
               {combineOpen && (
-                <div className="mb-3 rounded-lg p-3" style={{ background: "#1a120b", border: "1px solid #3a2b1f" }}>
-                  <div className="text-xs text-[#a88f78] mb-2">
-                    Cocher les tables à combiner avec {selectedTable ? tableDisplayName(selectedTable) : "cette table"} :
+                <div className="mb-3 rounded-lg p-3" style={{ background: "#1a2740", border: "2px solid #3f6ab5" }}>
+                  <div className="text-sm font-bold mb-1" style={{ color: "#cfe0ff" }}>
+                    Quelle(s) table(s) occupent-ils aussi ?
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="text-xs mb-2.5" style={{ color: "#a8c0e8" }}>
+                    Touche la ou les tables sur le plan (ou ci-dessous), puis confirme.
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {placedTables
-                      .filter(
-                        (t) =>
-                          t.id !== selectedTableId &&
-                          !["occupee", "groupee", "bientot"].includes(statuses[t.id]?.status)
-                      )
+                      .filter((t) => t.id !== selectedTableId && isCombinable(t.id))
                       .map((t) => {
                         const on = combinePick.includes(t.id);
                         return (
                           <button
                             key={t.id}
-                            onClick={() =>
-                              setCombinePick((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))
-                            }
-                            className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2"
+                            onClick={() => setCombinePick((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
+                            className="tap-scale text-sm font-bold rounded-full px-4 py-1.5 border-2"
                             style={
                               on
-                                ? { borderColor: "#3f6ab5", background: "#1a2740", color: "#cfe0ff" }
-                                : { borderColor: "#3a2b1f", color: "#c9b8a4" }
+                                ? { borderColor: "#3f6ab5", background: "#3f6ab5", color: "#fff" }
+                                : { borderColor: "#3a4f7a", color: "#cfe0ff" }
                             }
                           >
+                            {on ? "✓ " : ""}
                             {tableDisplayName(t)}
                           </button>
                         );
@@ -1216,10 +1249,25 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   <button
                     onClick={() => combineSelectedTableWith(combinePick)}
                     disabled={tableActionBusy || combinePick.length === 0}
-                    className="tap-scale text-xs font-bold rounded-full px-4 py-1.5 disabled:opacity-40"
-                    style={{ background: "#3f6ab5", color: "#0e141f" }}
+                    className="tap-scale w-full rounded-xl py-3.5 text-base font-bold disabled:opacity-40"
+                    style={{ background: "#2f9e5e", color: "#06140c" }}
                   >
-                    Combiner
+                    {combinePick.length === 0
+                      ? "Choisis au moins une table"
+                      : `✅ Confirmer : ${[selectedTable, ...combinePick.map((id) => tables.find((t) => t.id === id))]
+                          .filter(Boolean)
+                          .map((t) => tableDisplayName(t))
+                          .join(" + ")}`}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCombineOpen(false);
+                      setCombinePick([]);
+                    }}
+                    className="tap-scale w-full mt-2 text-xs font-bold py-1.5"
+                    style={{ color: "#a8c0e8" }}
+                  >
+                    Annuler
                   </button>
                 </div>
               )}
@@ -1229,13 +1277,31 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   <ResaNote note={selectedTableResa.note} />
                 </div>
               )}
-              {walkInTooSmall && (
-                <div className="rounded-lg px-3 py-2 mb-2 text-xs" style={{ background: "#332a12", color: "#e8b23d" }}>
-                  ⚠ {selectedOrderMains} plats commandés pour {selectedResaSeats} places : des clients occupent peut-être aussi une
-                  table voisine, qui resterait réservable en ligne.{" "}
-                  <button onClick={() => setCombineOpen(true)} className="tap-scale font-bold underline">
-                    Combiner avec une autre table
-                  </button>
+              {walkInTooSmall && !combineOpen && (
+                <div className="rounded-lg p-3 mb-2" style={{ background: "#332a12", border: "1px solid #6b5416" }}>
+                  <div className="text-sm font-bold mb-1" style={{ color: "#f0c860" }}>
+                    Ces clients occupent-ils aussi une autre table ?
+                  </div>
+                  <div className="text-xs mb-2.5" style={{ color: "#e8b23d" }}>
+                    {selectedOrderMains} plats commandés pour {selectedResaSeats} places. Une table voisine reste sinon
+                    réservable en ligne.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCombineOpen(true)}
+                      className="tap-scale rounded-full px-5 py-2 text-sm font-bold"
+                      style={{ background: "#e8b23d", color: "#150e0a" }}
+                    >
+                      Oui
+                    </button>
+                    <button
+                      onClick={() => setDismissedTableQuestion((prev) => new Set(prev).add(selectedTableResa.id))}
+                      className="tap-scale rounded-full px-5 py-2 text-sm font-bold border-2"
+                      style={{ borderColor: "#6b5416", color: "#e8b23d" }}
+                    >
+                      Non
+                    </button>
+                  </div>
                 </div>
               )}
               {selectedOrder ? (
