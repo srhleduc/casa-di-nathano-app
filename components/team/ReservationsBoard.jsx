@@ -240,6 +240,10 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     return d.getHours() * 60 + d.getMinutes();
   });
   const [solveResult, setSolveResult] = useState({ assignments: [], unassigned: [] });
+  // Vrai dès qu'un calcul du moteur a réellement abouti : tant que ce n'est pas
+  // le cas, `solveResult` n'est que la valeur vide initiale et ne doit JAMAIS
+  // être persistée (sinon toutes les affectations auto du jour sont effacées).
+  const [solveReady, setSolveReady] = useState(false);
   const lastSig = useRef("");
 
   // Ajout rapide d'une réservation depuis une carte de service (bouton « + »).
@@ -336,6 +340,14 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     [tables]
   );
 
+  // Changement de jour : le résultat en mémoire est celui de l'AUTRE jour, il ne
+  // doit pas être persisté tant que le calcul du nouveau jour n'a pas abouti.
+  // (Déclaré avant l'effet de calcul : ils s'exécutent dans cet ordre.)
+  useEffect(() => {
+    setSolveReady(false);
+    lastSig.current = "";
+  }, [date]);
+
   // --- appel du moteur (débouncé par signature) ---
   useEffect(() => {
     const existing = reservationsForSolver(reservations, date);
@@ -369,14 +381,30 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     lastSig.current = sig;
     if (!existing.length) {
       setSolveResult({ assignments: [], unassigned: [] });
+      setSolveReady(true);
       return;
     }
     let cancelled = false;
+    let done = false;
     solveReservations(input)
-      .then((res) => !cancelled && setSolveResult(res))
-      .catch((e) => console.error(e));
+      .then((res) => {
+        done = true;
+        if (cancelled) return;
+        setSolveResult(res);
+        setSolveReady(true);
+      })
+      .catch((e) => {
+        done = true;
+        console.error(e);
+        // Échec : on oublie la signature pour pouvoir réessayer au prochain changement.
+        if (lastSig.current === sig) lastSig.current = "";
+      });
     return () => {
       cancelled = true;
+      // Le calcul est abandonné (les dépendances ont changé) AVANT d'avoir répondu :
+      // sans ça, la relance qui suit retrouve la même signature, sort aussitôt, et
+      // le résultat n'est jamais appliqué (plan vide, affectations auto effacées).
+      if (!done && lastSig.current === sig) lastSig.current = "";
     };
   }, [reservations, date, manualByRes, solverTables, combinations, settings.safetyMarginMinutes, tables]);
 
@@ -406,7 +434,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   // de verrouiller, avant que le realtime ne les fasse apparaître).
   const syncTimer = useRef(null);
   useEffect(() => {
-    if (!isToday) return undefined;
+    if (!isToday || !solveReady) return undefined;
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
       try {
@@ -422,7 +450,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       }
     }, 3000);
     return () => clearTimeout(syncTimer.current);
-  }, [solveResult, isToday, manualByRes, boardReservations, services, asgByRes, nowMin]);
+  }, [solveResult, solveReady, isToday, manualByRes, boardReservations, services, asgByRes, nowMin]);
 
   // Commande sur place liée à chaque réservation (orders.reservation_id).
   const linkedOrderByRes = useMemo(() => {
