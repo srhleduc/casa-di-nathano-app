@@ -153,15 +153,18 @@ function PlanView({
           </svg>
         )}
         {placedTables.map((t) => {
-          const st = statuses[t.id]?.status || "libre";
-          const s = STATUS_STYLE[st];
-          const cur = statuses[t.id]?.current;
-          const nxt = statuses[t.id]?.next;
-          const sub = cur ? resById[cur] : nxt ? resById[nxt] : null;
           // Mode « plan d'un service » : les tables réservées pour ce service
-          // sont entourées en rose, les autres estompées.
+          // sont entourées en rose, les autres estompées. Une table estompée
+          // n'est pas réservée POUR CE SERVICE : on ne montre ni son état
+          // « à venir »/« occupée » ni l'horaire d'une réservation d'un autre
+          // service — elle apparaît simplement libre (estompée).
           const highlighted = highlightIds ? highlightIds.has(t.id) : false;
           const dim = highlightIds && !highlighted;
+          const st = dim ? "libre" : statuses[t.id]?.status || "libre";
+          const s = STATUS_STYLE[st];
+          const cur = dim ? null : statuses[t.id]?.current;
+          const nxt = dim ? null : statuses[t.id]?.next;
+          const sub = cur ? resById[cur] : nxt ? resById[nxt] : null;
           const note = noteByTable?.[t.id] || null;
           const flagged = flaggedTableIds ? flaggedTableIds.has(t.id) : false;
           const selected = selectedTableId === t.id;
@@ -613,7 +616,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
 
   // Le résumé se referme quand on change de jour ou de zone (le carré
   // sélectionné n'est plus à l'écran).
-  useEffect(() => setSelectedTableId(null), [layoutId, date]);
+  useEffect(() => setSelectedTableId(null), [layoutId, date, selectedServiceNum]);
 
   const selectedOrder = selectedTableId ? orderByTableId[selectedTableId] || null : null;
   const selectedTable = selectedTableId ? tables.find((t) => t.id === selectedTableId) || null : null;
