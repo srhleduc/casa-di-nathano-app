@@ -235,6 +235,8 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const [date, setDate] = useState(todayISO());
   const [layoutId, setLayoutId] = useState(null);
   const [selectedServiceNum, setSelectedServiceNum] = useState(null);
+  // « Tout afficher » : la liste du bas montre toute la journée au lieu du seul service.
+  const [showAllDay, setShowAllDay] = useState(false);
   const [nowMin, setNowMin] = useState(() => {
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
@@ -559,14 +561,39 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   // en cliquant sur une carte de synthèse.
   const currentService = isToday ? services.find((s) => nowMin >= s.startMin && nowMin < s.endMin) || null : null;
   const selectedService = services.find((s) => s.serviceNumber === selectedServiceNum) || null;
-  useEffect(() => setSelectedServiceNum(null), [date]);
-  // Liste du bas : quand un service est inspecté, uniquement ses réservations.
-  const visibleReservationRows = selectedService
-    ? reservationListRows.filter((r) => {
-        const st = startMinOf(r);
-        return st >= selectedService.startMin && st < selectedService.endMin;
-      })
-    : reservationListRows;
+  useEffect(() => {
+    setSelectedServiceNum(null);
+    setShowAllDay(false);
+  }, [date]);
+
+  // Liste du bas : par défaut, uniquement le service EN COURS (aujourd'hui) — ou,
+  // entre deux services, le prochain (à défaut le dernier) ; un autre jour : le
+  // premier service. Cliquer sur une carte de service affiche celui-là à la
+  // place. Le plan, lui, garde son mode « état en direct » tant qu'on n'a rien
+  // cliqué (cette sélection par défaut ne concerne que la liste).
+  const defaultListService = useMemo(() => {
+    const sorted = [...services].sort((a, b) => a.startMin - b.startMin);
+    if (!sorted.length) return null;
+    if (!isToday) return sorted[0];
+    return (
+      sorted.find((s) => nowMin >= s.startMin && nowMin < s.endMin) ||
+      sorted.find((s) => s.startMin > nowMin) ||
+      sorted[sorted.length - 1]
+    );
+  }, [services, isToday, nowMin]);
+  const listService = selectedService || defaultListService;
+  const inListService = (r) => {
+    if (!listService) return true;
+    const st = startMinOf(r);
+    return st >= listService.startMin && st < listService.endMin;
+  };
+  // Sans clic explicite, les tables encore « à table » d'un autre service (ex.
+  // le midi qui finit de manger quand le soir commence) restent visibles :
+  // il faut pouvoir leur ajouter une commande ou les encaisser.
+  const visibleReservationRows = showAllDay
+    ? reservationListRows
+    : reservationListRows.filter((r) => inListService(r) || (!selectedService && r.status === "seated"));
+  const hiddenReservationCount = reservationListRows.length - visibleReservationRows.length;
 
   // Tables réservées à l'avance pour le service inspecté (affectation auto ou forcée).
   const selectedServiceInfo = useMemo(() => {
@@ -1258,31 +1285,41 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       )}
 
       {/* --- Liste des réservations --- */}
-      <div className="text-xs text-[#5a4a3a] mb-1">
-        {selectedService
-          ? `Réservations du ${selectedService.label} uniquement — « état en direct » pour tout voir.`
-          : "Pas encore arrivées en premier, puis à table, puis terminées."}
+      <div className="text-xs text-[#5a4a3a] mb-1 flex items-center gap-2 flex-wrap">
+        <span>
+          {showAllDay || !listService
+            ? "Toute la journée — pas encore arrivées en premier, puis à table, puis terminées."
+            : `Réservations du ${listService.label} — pas encore arrivées en premier, puis à table, puis terminées.`}
+        </span>
+        {!showAllDay && hiddenReservationCount > 0 && (
+          <button onClick={() => setShowAllDay(true)} className="tap-scale font-bold text-[#a88f78] underline">
+            {hiddenReservationCount} autre{hiddenReservationCount > 1 ? "s" : ""} masquée{hiddenReservationCount > 1 ? "s" : ""} · tout afficher
+          </button>
+        )}
+        {showAllDay && listService && (
+          <button onClick={() => setShowAllDay(false)} className="tap-scale font-bold text-[#a88f78] underline">
+            n'afficher que le {listService.label}
+          </button>
+        )}
       </div>
       <div className="flex flex-col gap-2">
         {dayReservations.length === 0 && <p className="text-[#8a7561] text-sm">Aucune réservation ce jour-là.</p>}
-        {dayReservations.length > 0 && selectedService && visibleReservationRows.length === 0 && (
+        {dayReservations.length > 0 && visibleReservationRows.length === 0 && (
           <p className="text-[#8a7561] text-sm">Aucune réservation dans ce service.</p>
         )}
         {visibleReservationRows.map((r) => {
+          const order = linkedOrderByRes[r.id] || null;
+          const orderFlagged = hasUnseenSatAddition(order);
           const tids = effectiveTables(r.id);
           const isManual = !!manualByRes[r.id];
           const warn = isManual ? warnFor(r, tids) : null;
           const labels = tids.map((tid) => labelById[tid] || "?").join(" + ");
-          const st = startMinOf(r);
-          const inSelectedService = selectedService && st >= selectedService.startMin && st < selectedService.endMin;
           return (
             <div
               key={r.id}
               className="relative rounded-xl border bg-[#211712] p-3 pr-9 flex flex-wrap items-center gap-3 text-sm"
-              style={{
-                borderColor: inSelectedService ? PINK : "#3a2b1f",
-                opacity: selectedService && !inSelectedService ? 0.5 : 1,
-              }}
+              // Contour rose : un client a ajouté quelque chose en /sat, pas encore pointé.
+              style={{ borderColor: orderFlagged ? "#ff2d95" : "#3a2b1f" }}
             >
               <button
                 onClick={() => removeReservation(r)}
@@ -1327,18 +1364,20 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   );
                 })}
               </div>
-              {linkedOrderByRes[r.id] && (
+              {order && (
                 <span
-                  className="text-xs rounded-full px-2 py-0.5"
+                  className="text-xs rounded-full px-2 py-0.5 inline-flex items-center gap-1.5"
                   style={{ background: "#1c2c3a", color: "#a8c8e8" }}
                   title="Commande sur place liée à cette réservation"
                 >
-                  🍽️ {Number(linkedOrderByRes[r.id].total || 0).toFixed(2)} € ·{" "}
-                  {linkedOrderByRes[r.id].status === "servie"
-                    ? "servie"
-                    : isOrderPaid(linkedOrderByRes[r.id])
-                    ? "payée"
-                    : "en cours"}
+                  {orderFlagged && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                      aria-label="Ajout client"
+                    />
+                  )}
+                  🍽️ {Number(order.total || 0).toFixed(2)} € · {order.status === "servie" ? "servie" : isOrderPaid(order) ? "payée" : "en cours"}
                 </span>
               )}
               <span className="text-xs">
@@ -1392,6 +1431,52 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   </button>
                 )}
               </div>
+
+              {/* Ce que la table a commandé — mêmes actions que l'onglet « Service » :
+                  ✏️ pour ajouter des produits / modifier, point rose par article
+                  (et pastille) pour un ajout client en /sat à pointer. */}
+              {order && (
+                <div
+                  className="w-full rounded-lg border p-2.5"
+                  style={{ borderColor: orderFlagged ? "#ff2d95" : "#3a2b1f", background: "#1a120b" }}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#a88f78]">
+                      {order.satAdditionAt && (
+                        <button
+                          onClick={() => updateOrder(order.id, { satAdditionAt: null }).catch((e) => console.error(e))}
+                          aria-label="Ajout client en /sat — marquer comme vu"
+                          title="Ajout client en /sat — toucher pour marquer comme vu"
+                          className="tap-scale w-3 h-3 rounded-full shrink-0"
+                          style={{ background: "#ff2d95", boxShadow: "0 0 6px #ff2d95" }}
+                        />
+                      )}
+                      <span>🍽️ Commande{labels ? ` · ${labels}` : ""}</span>
+                      {isOrderPaid(order) && order.status !== "servie" && (
+                        <span
+                          className="rounded-full px-2 py-0.5"
+                          style={{ background: "#204a3a", color: "#a8e8c8" }}
+                          title="Déjà réglée — ne pas encaisser une deuxième fois"
+                        >
+                          💰 Déjà payée
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setEditingOrder(order)}
+                      aria-label="Ajouter des produits ou modifier la commande"
+                      className="tap-scale text-xs font-bold border-2 border-[#3a2b1f] rounded-full px-3 py-1"
+                    >
+                      ✏️ Ajouter / modifier
+                    </button>
+                  </div>
+                  <GroupedItemList items={order.items || []} onAckItem={(it) => ackSatItem(order, it)} />
+                  <div className="text-sm font-bold mt-1.5" style={{ color: "#E8B23D" }}>
+                    {eur(order.total)}
+                  </div>
+                  <OrderNote note={order.note} />
+                </div>
+              )}
 
               <div className="w-full flex items-center gap-2 mt-1">
                 {noteEditId === r.id ? (
