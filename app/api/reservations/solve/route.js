@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { solve, feasibleSlots } from "@/lib/reservation/optimizer";
+import { sanitizePinned } from "@/lib/reservation/pinned";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,9 @@ export async function POST(request) {
     combinations,
     reservations,
     safetyMarginMinutes: Number(body.safetyMarginMinutes) || 0,
+    // Affectations forcées (tables réellement occupées) : sans ça, elles étaient
+    // silencieusement ignorées et le moteur re-plaçait librement ces réservations.
+    pinned: sanitizePinned(body.pinned),
   };
 
   try {

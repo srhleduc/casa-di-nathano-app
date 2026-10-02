@@ -690,6 +690,23 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const resasOnSelectedTable = selectedTableId
     ? dayReservations.filter((r) => effectiveTables(r.id).includes(selectedTableId))
     : [];
+  // « Passage » installé sur trop peu de tables : le nombre de couverts d'un
+  // passage n'est qu'une estimation (places des tables cochées). Si la commande
+  // contient plus de plats principaux que de places, des clients occupent sans
+  // doute aussi une table voisine non déclarée — qui resterait réservable.
+  const selectedOrderMains = selectedOrder
+    ? (selectedOrder.items || [])
+        .filter((it) => ["pizza", "panuzzo", "salade"].includes(it.cat))
+        .reduce((sum, it) => sum + (Number(it.qty) || 1), 0)
+    : 0;
+  const selectedResaSeats = selectedTableResa
+    ? effectiveTables(selectedTableResa.id).reduce(
+        (sum, tid) => sum + (tables.find((t) => t.id === tid)?.capacityMax || tables.find((t) => t.id === tid)?.capacityBase || 2),
+        0
+      )
+    : 0;
+  const walkInTooSmall =
+    selectedTableResa?.source === "walk_in" && selectedOrderMains > selectedResaSeats && selectedResaSeats > 0;
 
   // --- Actions rapides sur une table du plan (statut + combinaison) ---
   const [combineOpen, setCombineOpen] = useState(false);
@@ -1210,6 +1227,15 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               {selectedTableResa?.note && (
                 <div className="mb-2">
                   <ResaNote note={selectedTableResa.note} />
+                </div>
+              )}
+              {walkInTooSmall && (
+                <div className="rounded-lg px-3 py-2 mb-2 text-xs" style={{ background: "#332a12", color: "#e8b23d" }}>
+                  ⚠ {selectedOrderMains} plats commandés pour {selectedResaSeats} places : des clients occupent peut-être aussi une
+                  table voisine, qui resterait réservable en ligne.{" "}
+                  <button onClick={() => setCombineOpen(true)} className="tap-scale font-bold underline">
+                    Combiner avec une autre table
+                  </button>
                 </div>
               )}
               {selectedOrder ? (

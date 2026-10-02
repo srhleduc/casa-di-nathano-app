@@ -22,6 +22,7 @@ import {
   useTables,
   useTableCombinations,
   useReservations,
+  useReservationTableAssignments,
   useRoomLayouts,
   createReservation,
   updateReservation,
@@ -29,6 +30,7 @@ import {
 import { servicesForDate } from "@/lib/reservation/services";
 import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from "@/lib/reservation/slots";
 import { solveReservations } from "@/lib/reservation/api";
+import { pinnedFromAssignments } from "@/lib/reservation/pinned";
 import { findUpcomingReservations } from "@/lib/reservation/booking-identity";
 import { sortByFillPriority, sortByComboPriority } from "@/lib/business";
 import ResaNote from "@/components/ResaNote";
@@ -75,6 +77,7 @@ export default function ReservationBooking() {
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
+  const { assignments: tableAssignments } = useReservationTableAssignments();
   const { layouts } = useRoomLayouts();
 
   // Zones ouvertes (une zone fermée — ex. terrasse s'il pleut — n'est pas
@@ -157,6 +160,15 @@ export default function ReservationBooking() {
       preferredLayoutId: zoneLayoutId || null,
     }));
     const existing = excludeReservationId ? reservations.filter((r) => r.id !== excludeReservationId) : reservations;
+    const existingForSolver = reservationsForSolver(existing, targetDate);
+    // Tables réellement occupées / forcées par l'équipe (« Passage », forçage
+    // manuel, service commencé) : le moteur ne doit pas pouvoir les re-placer
+    // ailleurs, sinon une table déjà occupée apparaît libre au client.
+    const pinned = pinnedFromAssignments(
+      tableAssignments,
+      existingForSolver.map((r) => r.id),
+      (tid) => tables.find((t) => t.id === tid)?.capacityBase || 2
+    );
     const input = {
       tables: sortByFillPriority(
         tables.filter((t) => t.active && (t.bookableOnline ?? true) && !t.blocked && !closedLayoutIds.has(t.layoutId))
@@ -171,7 +183,8 @@ export default function ReservationBooking() {
         active: true,
       })),
       combinations: sortByComboPriority(combinations).map((c) => ({ id: c.id, tableIds: c.tableIds, capacity: c.capacity, isUsual: c.isUsual, penaltyScore: c.penaltyScore })),
-      reservations: reservationsForSolver(existing, targetDate),
+      reservations: existingForSolver,
+      pinned,
       safetyMarginMinutes: settings.safetyMarginMinutes || 0,
       candidateSlots,
     };
