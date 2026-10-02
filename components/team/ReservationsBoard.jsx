@@ -560,6 +560,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const currentService = isToday ? services.find((s) => nowMin >= s.startMin && nowMin < s.endMin) || null : null;
   const selectedService = services.find((s) => s.serviceNumber === selectedServiceNum) || null;
   useEffect(() => setSelectedServiceNum(null), [date]);
+  // Liste du bas : quand un service est inspecté, uniquement ses réservations.
+  const visibleReservationRows = selectedService
+    ? reservationListRows.filter((r) => {
+        const st = startMinOf(r);
+        return st >= selectedService.startMin && st < selectedService.endMin;
+      })
+    : reservationListRows;
 
   // Tables réservées à l'avance pour le service inspecté (affectation auto ou forcée).
   const selectedServiceInfo = useMemo(() => {
@@ -1251,10 +1258,17 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       )}
 
       {/* --- Liste des réservations --- */}
-      <div className="text-xs text-[#5a4a3a] mb-1">Pas encore arrivées en premier, puis à table, puis terminées.</div>
+      <div className="text-xs text-[#5a4a3a] mb-1">
+        {selectedService
+          ? `Réservations du ${selectedService.label} uniquement — « état en direct » pour tout voir.`
+          : "Pas encore arrivées en premier, puis à table, puis terminées."}
+      </div>
       <div className="flex flex-col gap-2">
         {dayReservations.length === 0 && <p className="text-[#8a7561] text-sm">Aucune réservation ce jour-là.</p>}
-        {reservationListRows.map((r) => {
+        {dayReservations.length > 0 && selectedService && visibleReservationRows.length === 0 && (
+          <p className="text-[#8a7561] text-sm">Aucune réservation dans ce service.</p>
+        )}
+        {visibleReservationRows.map((r) => {
           const tids = effectiveTables(r.id);
           const isManual = !!manualByRes[r.id];
           const warn = isManual ? warnFor(r, tids) : null;
