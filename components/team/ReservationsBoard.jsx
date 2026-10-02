@@ -612,7 +612,10 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   // Tables réservées à l'avance pour le service inspecté (affectation auto ou forcée).
   const selectedServiceInfo = useMemo(() => {
     if (!selectedService) return null;
+    // Les réservations terminées (encaissées, clients partis) ne tiennent plus
+    // leur table : elles ne la colorent plus en rose, la table repasse en vert.
     const rs = dayReservations.filter((r) => {
+      if (r.status === "completed" || r.status === "no_show") return false;
       const st = startMinOf(r);
       return st >= selectedService.startMin && st < selectedService.endMin;
     });
