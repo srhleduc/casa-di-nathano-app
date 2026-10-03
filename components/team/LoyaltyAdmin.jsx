@@ -6,7 +6,7 @@
 // réactiver à une date au choix ou supprimer). Base clients partagée entre les
 // deux restaurants (voir lib/data.js et supabase/schema.sql).
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import {
@@ -56,12 +56,67 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   const [error, setError] = useState(null);
   const ficheRef = useRef(null);
 
+  // Suggestions en direct pendant la saisie (menu déroulant sous le champ),
+  // dès 3 caractères. Le bouton « Rechercher » reste disponible.
+  const [suggestions, setSuggestions] = useState([]);
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugIdx, setSugIdx] = useState(-1);
+  const sugReq = useRef(0); // ignore les réponses arrivées en retard
+
+  useEffect(() => {
+    const id = ++sugReq.current;
+    const term = rawQuery.trim();
+    if (term.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const list = await searchLoyaltyCustomers(term);
+        if (id === sugReq.current) {
+          setSuggestions(list.slice(0, 8));
+          setSugIdx(-1);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [rawQuery]);
+
+  function pickSuggestion(c) {
+    setSugOpen(false);
+    setSuggestions([]);
+    setRawQuery(c.nom || c.phone || "");
+    setError(null);
+    setCreatePhone(null);
+    setCreatingNew(false);
+    setResults([c]);
+    setSelectedId(c.id);
+    scrollToFiche();
+  }
+  function onQueryKeyDown(e) {
+    if (!sugOpen || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSugIdx((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSugIdx((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Escape") {
+      setSugOpen(false);
+    } else if (e.key === "Enter" && sugIdx >= 0) {
+      e.preventDefault();
+      pickSuggestion(suggestions[sugIdx]);
+    }
+  }
   function scrollToFiche() {
     setTimeout(() => ficheRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
   async function search(e) {
     e?.preventDefault();
+    setSugOpen(false);
     setError(null);
     setSelectedId(null);
     setCreatePhone(null);
@@ -145,16 +200,51 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <form onSubmit={search} className="flex flex-wrap items-end gap-3 mb-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-[#a88f78] uppercase">Nom, prénom ou téléphone</span>
-          <input
-            value={rawQuery}
-            onChange={(e) => setRawQuery(e.target.value)}
-            placeholder="Le Berre, Marie, ou 06 12 34 56 78"
-            className="rounded-lg px-3 py-2 w-72"
-            style={INPUT_STYLE}
-          />
-        </label>
+        <div className="relative">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Nom, prénom ou téléphone</span>
+            <input
+              value={rawQuery}
+              onChange={(e) => {
+                setRawQuery(e.target.value);
+                setSugOpen(true);
+              }}
+              onFocus={() => setSugOpen(true)}
+              onBlur={() => setTimeout(() => setSugOpen(false), 150)}
+              onKeyDown={onQueryKeyDown}
+              autoComplete="off"
+              placeholder="Le Berre, Marie, ou 06 12 34 56 78"
+              className="rounded-lg px-3 py-2 w-72"
+              style={INPUT_STYLE}
+            />
+          </label>
+          {sugOpen && suggestions.length > 0 && (
+            <div
+              className="absolute left-0 top-full mt-1 z-30 w-80 max-h-72 overflow-y-auto rounded-lg border border-[#3a2b1f] shadow-xl"
+              style={{ background: "#211712" }}
+              role="listbox"
+            >
+              {suggestions.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="option"
+                  aria-selected={i === sugIdx}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickSuggestion(c)}
+                  className="w-full text-left px-3 py-2 flex items-center justify-between gap-3 border-b border-[#2c1f15] last:border-b-0"
+                  style={{ background: i === sugIdx ? "#3a2b1f" : "transparent" }}
+                >
+                  <span className="min-w-0">
+                    <span className="font-bold text-sm">{c.nom || "Client sans nom"}</span>
+                    <span className="text-[#a88f78] text-xs block">{c.phone}</span>
+                  </span>
+                  <span className="shrink-0 font-bold text-xs text-[#E8B23D]">{c.soldePoints} pts</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button type="submit" disabled={busy} className="tap-scale rounded-lg px-5 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
           🔎 Rechercher
         </button>
