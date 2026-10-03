@@ -50,17 +50,32 @@ const REASON_LABEL = { palier_150: "Palier 150 points", anniversaire: "Anniversa
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const DIR_PAGE = 100; // lignes affichées d'un coup dans le listing
 
-// Initiale du nom (sans accent, en majuscule) ; "#" si pas de nom ou pas une lettre.
+// Les noms sont enregistrés « Prénom Nom » : le nom de famille est la fin du
+// texte. Les particules (Le, La, De, Du, Van…) restent collées au nom :
+// « Marie Le Berre » → « Le Berre » (rangé sous L).
+const NAME_PARTICLES = new Set(["le", "la", "les", "de", "du", "des", "d'", "l'", "van", "von", "der", "den", "da", "di", "dos", "el", "al", "ben"]);
+function familyNameOf(nom) {
+  const tokens = String(nom || "").trim().split(/\s+/).filter(Boolean);
+  if (tokens.length <= 1) return tokens[0] || "";
+  let i = tokens.length - 1;
+  while (i > 1 && NAME_PARTICLES.has(tokens[i - 1].toLowerCase())) i--;
+  return tokens.slice(i).join(" ");
+}
+function stripAccents(s) {
+  return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+// Initiale du nom de famille (sans accent, en majuscule) ; "#" si pas de nom ou pas une lettre.
 function initialOf(nom) {
-  const s = String(nom || "").trim().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const ch = s.charAt(0).toUpperCase();
+  const ch = stripAccents(familyNameOf(nom)).charAt(0).toUpperCase();
   return /^[A-Z]$/.test(ch) ? ch : "#";
 }
+// Tri par nom de famille, puis par nom complet ; sans nom en fin de liste.
 function compareByNom(a, b) {
   if (!a.nom && !b.nom) return 0;
-  if (!a.nom) return 1; // sans nom en fin de liste
+  if (!a.nom) return 1;
   if (!b.nom) return -1;
-  return a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" });
+  const byFamily = familyNameOf(a.nom).localeCompare(familyNameOf(b.nom), "fr", { sensitivity: "base" });
+  return byFamily || a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" });
 }
 
 export default function LoyaltyAdmin({ readOnly = false }) {
