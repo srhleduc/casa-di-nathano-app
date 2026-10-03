@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots, updateOrder, deleteOrders } from "@/lib/data";
-import { isOrderActiveToday, orderSortMinutes, sortKitchenQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
+import { isOrderActiveToday, orderSortMinutes, sortPickupQueue, formatSlotAllocations, isTakeawayLike } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import ItemLine from "../ItemLine";
 import DeadlineBadge from "../DeadlineBadge";
@@ -47,7 +47,7 @@ export default function KitchenBoard() {
     return !["waiting", "served_by_kitchen"].includes(o.aperoStatus) && normalPizzaItems(o).length > 0;
   }
 
-  const queue = sortKitchenQueue(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
+  const queue = sortPickupQueue(active.filter((o) => (o.status === "attente" || o.status === "preparation") && isNormalQueueOrder(o)));
   const takeawayQueue = queue.filter((o) => isTakeawayLike(o.serviceType));
   const dineInQueue = queue.filter((o) => !isTakeawayLike(o.serviceType));
 
