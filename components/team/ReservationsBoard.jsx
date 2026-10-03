@@ -24,6 +24,7 @@ import {
   useRoomLayouts,
   useReservationTableAssignments,
   useLoyaltyByPhones,
+  searchLoyaltyCustomers,
   syncAutoReservationTables,
   setReservationTables,
   clearReservationTables,
@@ -268,6 +269,36 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState(null);
   const [noteEditId, setNoteEditId] = useState(null); // réservation dont on édite la note
+
+  // Bouton « ⭐ Fidélité » du formulaire : recherche d'un client fidélité pour
+  // pré-remplir nom + téléphone (côté équipe uniquement).
+  const [loyOpen, setLoyOpen] = useState(false);
+  const [loyQuery, setLoyQuery] = useState("");
+  const [loySugs, setLoySugs] = useState([]);
+  const loyReq = useRef(0);
+  useEffect(() => {
+    const id = ++loyReq.current;
+    const term = loyQuery.trim();
+    if (!loyOpen || term.length < 3) {
+      setLoySugs([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const list = await searchLoyaltyCustomers(term);
+        if (id === loyReq.current) setLoySugs(list.slice(0, 8));
+      } catch (err) {
+        console.error(err);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [loyQuery, loyOpen]);
+  function pickLoyaltyCustomer(c) {
+    setAf((x) => ({ ...x, name: c.nom || x.name, phone: c.phone || x.phone }));
+    setLoyOpen(false);
+    setLoyQuery("");
+    setLoySugs([]);
+  }
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -892,6 +923,8 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   function openAddForm(s) {
     const first = buildCandidateSlots([s], settings, 2, { nowMin: null })[0];
     setAf({ editId: null, name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableIds: [], note: "" });
+    setLoyOpen(false);
+    setLoyQuery("");
     setAddErr(null);
     setAddForm({ service: s });
   }
@@ -912,6 +945,8 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       tableIds: manualByRes[r.id] ? [...manualByRes[r.id]] : [],
       note: r.note || "",
     });
+    setLoyOpen(false);
+    setLoyQuery("");
     setAddErr(null);
     setAddForm({ service: s });
   }
@@ -1674,16 +1709,64 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               {addForm.service.label} · {addForm.service.startTime}–{addForm.service.endTime}
             </div>
 
-            <label className="block mb-3 text-xs text-[#a88f78]">
-              Nom <span className="text-[#5a4a3a]">(facultatif — « Passage » si vide)</span>
-              <input
-                value={af.name}
-                onChange={(e) => setAf((x) => ({ ...x, name: e.target.value }))}
-                placeholder="Passage"
-                className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
-                style={inputStyle}
-              />
-            </label>
+            <div className="mb-3">
+              <div className="flex items-end gap-2">
+                <label className="flex-1 block text-xs text-[#a88f78]">
+                  Nom <span className="text-[#5a4a3a]">(facultatif — « Passage » si vide)</span>
+                  <input
+                    value={af.name}
+                    onChange={(e) => setAf((x) => ({ ...x, name: e.target.value }))}
+                    placeholder="Passage"
+                    className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
+                    style={inputStyle}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setLoyOpen((v) => !v)}
+                  className="tap-scale shrink-0 rounded-lg px-3 py-2 text-xs font-bold border-2"
+                  style={loyOpen ? { borderColor: "#e8b23d", background: "#3a2f12", color: "#f0c860" } : { borderColor: "#3a2b1f", color: "#f0c860" }}
+                  title="Chercher un client fidélité pour remplir le nom et le téléphone"
+                >
+                  ⭐ Fidélité
+                </button>
+              </div>
+              {loyOpen && (
+                <div className="mt-2 rounded-lg border border-[#3a2b1f] p-2" style={{ background: "#150e0a" }}>
+                  <input
+                    autoFocus
+                    value={loyQuery}
+                    onChange={(e) => setLoyQuery(e.target.value)}
+                    autoComplete="off"
+                    placeholder="Nom, prénom ou téléphone (3 lettres min.)"
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                    style={inputStyle}
+                  />
+                  {loyQuery.trim().length >= 3 && loySugs.length === 0 && (
+                    <div className="text-xs text-[#8a7561] mt-2 px-1">Aucun client fidélité trouvé.</div>
+                  )}
+                  {loySugs.length > 0 && (
+                    <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-[#2c1f15]">
+                      {loySugs.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => pickLoyaltyCustomer(c)}
+                          className="tap-scale w-full text-left px-3 py-2 flex items-center justify-between gap-3 border-b border-[#2c1f15] last:border-b-0"
+                          style={{ background: "#211712" }}
+                        >
+                          <span className="min-w-0">
+                            <span className="font-bold text-sm">{c.nom || "Client sans nom"}</span>
+                            <span className="text-[#a88f78] text-xs block">{c.phone}</span>
+                          </span>
+                          <span className="shrink-0 font-bold text-xs text-[#E8B23D]">{c.soldePoints} pts</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <label className="block mb-3 text-xs text-[#a88f78]">
               Téléphone <span className="text-[#5a4a3a]">(facultatif)</span>
               <input
