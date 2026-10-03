@@ -6,7 +6,7 @@ import {
   updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended,
   awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone, fetchReservationPhoneForOrder,
 } from "@/lib/data";
-import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortKitchenQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
+import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortPickupQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
@@ -70,7 +70,7 @@ export default function CaisseBoard({ readOnly = false }) {
   }
 
   const cancellable = sortOrdersByTime([...active, ...paidToday]);
-  const activeQueue = sortKitchenQueue(active);
+  const activeQueue = sortPickupQueue(active);
   const activeTakeaway = activeQueue.filter((o) => isTakeawayLike(o.serviceType));
   // Sur place trié par numéro/nom de table plutôt que par créneau, pour
   // retrouver une table au coup d'œil, comme sur l'écran Service.
