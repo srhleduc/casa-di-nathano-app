@@ -6,11 +6,12 @@
 // réactiver à une date au choix ou supprimer). Base clients partagée entre les
 // deux restaurants (voir lib/data.js et supabase/schema.sql).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import {
   fetchLoyaltyCustomerByPhone,
+  fetchAllLoyaltyCustomers,
   searchLoyaltyCustomers,
   createLoyaltyCustomer,
   updateLoyaltyCustomer,
@@ -46,6 +47,22 @@ const MOVEMENT_LABEL = { gain: "Gain", depense: "Bon débloqué", ajustement: "A
 const SOURCE_LABEL = { click_and_collect: "Click & collect", caisse: "Caisse" };
 const REASON_LABEL = { palier_150: "Palier 150 points", anniversaire: "Anniversaire", manuel: "Ajout manuel" };
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DIR_PAGE = 100; // lignes affichées d'un coup dans le listing
+
+// Initiale du nom (sans accent, en majuscule) ; "#" si pas de nom ou pas une lettre.
+function initialOf(nom) {
+  const s = String(nom || "").trim().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const ch = s.charAt(0).toUpperCase();
+  return /^[A-Z]$/.test(ch) ? ch : "#";
+}
+function compareByNom(a, b) {
+  if (!a.nom && !b.nom) return 0;
+  if (!a.nom) return 1; // sans nom en fin de liste
+  if (!b.nom) return -1;
+  return a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" });
+}
+
 export default function LoyaltyAdmin({ readOnly = false }) {
   const [rawQuery, setRawQuery] = useState("");
   const [results, setResults] = useState(null); // null = pas encore cherché ; [] = aucun résultat
@@ -62,6 +79,60 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   const [sugOpen, setSugOpen] = useState(false);
   const [sugIdx, setSugIdx] = useState(-1);
   const sugReq = useRef(0); // ignore les réponses arrivées en retard
+
+  // Listing complet des clients fidèles + filtre par initiale du nom.
+  const [directory, setDirectory] = useState(null); // null = chargement
+  const [dirError, setDirError] = useState(false);
+  const [letter, setLetter] = useState(null); // null = tous
+  const [dirLimit, setDirLimit] = useState(DIR_PAGE);
+
+  async function loadDirectory() {
+    try {
+      const all = await fetchAllLoyaltyCustomers();
+      setDirectory(all.sort(compareByNom));
+      setDirError(false);
+    } catch (err) {
+      console.error(err);
+      setDirError(true);
+    }
+  }
+  useEffect(() => {
+    loadDirectory();
+  }, []);
+
+  const letterCounts = useMemo(() => {
+    const counts = {};
+    for (const c of directory || []) {
+      const k = initialOf(c.nom);
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    return counts;
+  }, [directory]);
+  const dirList = useMemo(
+    () => (letter ? (directory || []).filter((c) => initialOf(c.nom) === letter) : directory || []),
+    [directory, letter]
+  );
+
+  function pickLetter(l) {
+    setLetter((cur) => (cur === l ? null : l));
+    setDirLimit(DIR_PAGE);
+  }
+  function openFromDirectory(c) {
+    setError(null);
+    setResults([c]);
+    setSelectedId(c.id);
+    scrollToFiche();
+  }
+  // Retour au listing depuis une recherche / une fiche (recharge les soldes).
+  function backToDirectory() {
+    setResults(null);
+    setSelectedId(null);
+    setCreatePhone(null);
+    setCreatingNew(false);
+    setError(null);
+    setRawQuery("");
+    loadDirectory();
+  }
 
   useEffect(() => {
     const id = ++sugReq.current;
@@ -265,6 +336,12 @@ export default function LoyaltyAdmin({ readOnly = false }) {
         )}
       </form>
 
+      {(results !== null || creatingNew) && (
+        <button type="button" onClick={backToDirectory} className="tap-scale mb-4 text-sm font-bold text-[#a88f78] underline">
+          ← Tous les clients
+        </button>
+      )}
+
       {error && (
         <p className="mb-4 text-sm font-bold" style={{ color: "#e88a8a" }}>
           {error}
@@ -313,6 +390,85 @@ export default function LoyaltyAdmin({ readOnly = false }) {
               <span className="shrink-0 font-bold text-[#E8B23D]">{c.soldePoints} pts</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {results === null && !creatingNew && !createPhone && (
+        <div className="max-w-2xl">
+          {directory === null && !dirError && <p className="text-sm text-[#a88f78]">Chargement des clients…</p>}
+          {dirError && (
+            <p className="text-sm font-bold" style={{ color: "#e88a8a" }}>
+              Impossible de charger le listing.{" "}
+              <button type="button" onClick={loadDirectory} className="underline">
+                Réessayer
+              </button>
+            </p>
+          )}
+          {directory !== null && (
+            <>
+              <div className="flex flex-wrap gap-1.5 mb-3" role="group" aria-label="Filtrer par initiale">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLetter(null);
+                    setDirLimit(DIR_PAGE);
+                  }}
+                  className="tap-scale h-9 px-3 rounded-lg text-sm font-bold border-2"
+                  style={letter === null ? { ...PRIMARY_BTN, borderColor: "#C0392B" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                >
+                  Tous
+                </button>
+                {[...ALPHABET, ...(letterCounts["#"] ? ["#"] : [])].map((l) => {
+                  const n = letterCounts[l] || 0;
+                  const on = letter === l;
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      disabled={n === 0}
+                      onClick={() => pickLetter(l)}
+                      title={n ? `${n} client${n > 1 ? "s" : ""}` : "Aucun client"}
+                      className="tap-scale h-9 w-9 rounded-lg text-sm font-bold border-2 disabled:opacity-25"
+                      style={on ? { ...PRIMARY_BTN, borderColor: "#C0392B" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                    >
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">
+                {letter ? (letter === "#" ? "Sans nom" : `Lettre ${letter}`) : "Tous les clients"} · {dirList.length} client
+                {dirList.length > 1 ? "s" : ""}
+              </div>
+              <div className="flex flex-col gap-2">
+                {dirList.slice(0, dirLimit).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => openFromDirectory(c)}
+                    className="tap-scale text-left rounded-lg border border-[#3a2b1f] bg-[#211712] px-4 py-3 flex items-center justify-between gap-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-bold">{c.nom || "Client sans nom"}</span>
+                      <span className="text-[#a88f78] text-sm"> · {c.phone}</span>
+                    </span>
+                    <span className="shrink-0 font-bold text-[#E8B23D]">{c.soldePoints} pts</span>
+                  </button>
+                ))}
+                {dirList.length > dirLimit && (
+                  <button
+                    type="button"
+                    onClick={() => setDirLimit((n) => n + DIR_PAGE)}
+                    className="tap-scale rounded-lg border-2 border-[#3a2b1f] px-4 py-2 text-sm font-bold"
+                  >
+                    Afficher plus ({dirList.length - dirLimit} restants)
+                  </button>
+                )}
+                {dirList.length === 0 && <p className="text-sm text-[#a88f78]">Aucun client.</p>}
+              </div>
+            </>
+          )}
         </div>
       )}
 
