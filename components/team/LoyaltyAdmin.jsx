@@ -585,7 +585,21 @@ function CustomerFile({ customerId, readOnly, onBack }) {
       <div className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="display-font text-2xl font-bold">{customer.nom || "Client sans nom"}</div>
+            <div className="flex items-start gap-2">
+              <div className="display-font text-2xl font-bold">{customer.nom || "Client sans nom"}</div>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => setEditing((v) => !v)}
+                  aria-label="Modifier la fiche client"
+                  title="Modifier la fiche client"
+                  className="tap-scale shrink-0 mt-0.5 w-9 h-9 rounded-full flex items-center justify-center text-base border-2"
+                  style={editing ? { borderColor: "#e8b23d", background: "#3a2f12" } : { borderColor: "#3a2b1f" }}
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
             <div className="text-[#a88f78] text-sm">{customer.phone}</div>
             {customer.dateAnniversaire && <div className="text-[#a88f78] text-sm">🎂 {fmtBirthday(customer.dateAnniversaire)}</div>}
           </div>
@@ -594,11 +608,6 @@ function CustomerFile({ customerId, readOnly, onBack }) {
             <div className="display-font text-3xl font-bold text-[#E8B23D]">{customer.soldePoints} pts</div>
           </div>
         </div>
-        {!readOnly && (
-          <button onClick={() => setEditing((v) => !v)} className="tap-scale mt-3 rounded-full px-4 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]">
-            {editing ? "Fermer" : "✏️ Modifier nom / anniversaire"}
-          </button>
-        )}
         {editing && !readOnly && <EditForm customer={customer} onDone={() => setEditing(false)} />}
         {!readOnly && <WalletButton customer={customer} />}
       </div>
@@ -926,17 +935,30 @@ function PromoCodeRow({ bon, readOnly }) {
 
 function EditForm({ customer, onDone }) {
   const [nom, setNom] = useState(customer.nom || "");
+  const [phone, setPhone] = useState(customer.phone || "");
   const [dateAnniversaire, setDateAnniversaire] = useState(customer.dateAnniversaire || "");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
 
   async function save(e) {
     e.preventDefault();
+    setErr(null);
+    // Le téléphone est la clé du compte fidélité : on ne l'envoie que s'il change,
+    // sous sa forme canonique.
+    const patch = { nom: nom.trim(), dateAnniversaire };
+    if (phone.trim() !== (customer.phone || "")) {
+      const canon = canonicalLoyaltyPhone(phone);
+      if (!canon) return setErr("Numéro invalide — format attendu : 0X XX XX XX XX.");
+      if (canon !== customer.phone) patch.phone = canon;
+    }
     setBusy(true);
     try {
-      await updateLoyaltyCustomer(customer.id, { nom: nom.trim(), dateAnniversaire });
+      await updateLoyaltyCustomer(customer.id, patch);
       onDone();
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
+      // 23505 = ce numéro appartient déjà à un autre compte fidélité.
+      setErr(error?.code === "23505" ? "Ce numéro est déjà utilisé par un autre compte." : "Enregistrement impossible.");
     } finally {
       setBusy(false);
     }
@@ -949,12 +971,21 @@ function EditForm({ customer, onDone }) {
         <input value={nom} onChange={(e) => setNom(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
       </label>
       <label className="flex flex-col gap-1">
+        <span className="text-xs font-bold text-[#a88f78] uppercase">Téléphone</span>
+        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
+      </label>
+      <label className="flex flex-col gap-1">
         <span className="text-xs font-bold text-[#a88f78] uppercase">Anniversaire</span>
         <input type="date" value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
       </label>
       <button type="submit" disabled={busy} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
         Enregistrer
       </button>
+      {err && (
+        <p className="basis-full text-sm font-bold" style={{ color: "#e88a8a" }}>
+          {err}
+        </p>
+      )}
     </form>
   );
 }
