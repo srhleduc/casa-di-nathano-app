@@ -264,7 +264,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
 
   // Ajout rapide d'une réservation depuis une carte de service (bouton « + »).
   const [addForm, setAddForm] = useState(null); // { service } | null
-  const [af, setAf] = useState({ name: "", phone: "", party: 2, slotMin: null, tableIds: [], note: "" });
+  const [af, setAf] = useState({ editId: null, name: "", phone: "", party: 2, slotMin: null, tableIds: [], note: "" });
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState(null);
   const [noteEditId, setNoteEditId] = useState(null); // réservation dont on édite la note
@@ -845,10 +845,16 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   }
 
   // --- ajout rapide d'une réservation depuis une carte de service ---
-  const addSlots = useMemo(
-    () => (addForm ? buildCandidateSlots([addForm.service], settings, af.party || 2, { nowMin: null }) : []),
-    [addForm, settings, af.party]
-  );
+  const addSlots = useMemo(() => {
+    if (!addForm) return [];
+    const base = buildCandidateSlots([addForm.service], settings, af.party || 2, { nowMin: null });
+    // En modification, l'heure actuelle de la réservation doit toujours rester
+    // sélectionnable, même si elle ne tombe pas sur la grille de créneaux.
+    if (af.editId && af.slotMin != null && !base.some((sl) => sl.startMin === af.slotMin)) {
+      return [{ startMin: af.slotMin }, ...base].sort((a, b) => a.startMin - b.startMin);
+    }
+    return base;
+  }, [addForm, settings, af.party, af.editId, af.slotMin]);
   const tablesForPick = useMemo(
     () => [...solverTables].sort((a, b) => tableDisplayName(a).localeCompare(tableDisplayName(b), "fr", { numeric: true })),
     [solverTables]
@@ -863,6 +869,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     const newEnd = newStart + estimateDurationMin(af.party || 2, settings) + margin;
     const taken = new Set();
     for (const r of dayReservations) {
+      if (r.id === af.editId) continue; // en modification, ses propres tables restent libres
       if (r.status === "cancelled" || r.status === "completed") continue;
       const rs = startMinOf(r);
       const re = rs + (r.estimatedDurationMinutes || estimateDurationMin(r.partySize, settings)) + margin;
@@ -870,7 +877,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
       for (const tid of effectiveTables(r.id)) taken.add(tid);
     }
     return tablesForPick.filter((t) => !taken.has(t.id));
-  }, [addForm, af.slotMin, af.party, dayReservations, tablesForPick, settings, manualByRes, asgByRes]);
+  }, [addForm, af.slotMin, af.party, af.editId, dayReservations, tablesForPick, settings, manualByRes, asgByRes]);
 
   // Retire de la sélection une table devenue indisponible (créneau changé).
   useEffect(() => {
@@ -884,7 +891,27 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
 
   function openAddForm(s) {
     const first = buildCandidateSlots([s], settings, 2, { nowMin: null })[0];
-    setAf({ name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableIds: [], note: "" });
+    setAf({ editId: null, name: "", phone: "", party: 2, slotMin: first ? first.startMin : s.startMin, tableIds: [], note: "" });
+    setAddErr(null);
+    setAddForm({ service: s });
+  }
+  // Bouton « Modifier » d'une réservation : rouvre le même formulaire, pré-rempli.
+  function openEditForm(r) {
+    const start = startMinOf(r);
+    const s =
+      services.find((x) => start >= x.startMin && start < x.endMin) ||
+      listService ||
+      services[0] ||
+      { label: "Service", startTime: "", endTime: "", startMin: start, endMin: start };
+    setAf({
+      editId: r.id,
+      name: r.customerName && r.customerName !== "Passage" ? r.customerName : "",
+      phone: r.customerPhone || "",
+      party: r.partySize,
+      slotMin: start,
+      tableIds: manualByRes[r.id] ? [...manualByRes[r.id]] : [],
+      note: r.note || "",
+    });
     setAddErr(null);
     setAddForm({ service: s });
   }
@@ -930,6 +957,27 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
     setAddBusy(true);
     setAddErr(null);
     try {
+      if (af.editId) {
+        const orig = dayReservations.find((x) => x.id === af.editId);
+        const partyChanged = !orig || orig.partySize !== af.party;
+        await updateReservation(af.editId, {
+          customerName: af.name.trim() || "Passage",
+          customerPhone: af.phone.trim() || null,
+          partySize: af.party,
+          requestedAt: buildRequestedAtISO(date, af.slotMin),
+          // Durée recalculée seulement si le nombre de personnes change.
+          ...(partyChanged ? { estimatedDurationMinutes: estimateDurationMin(af.party, settings) } : {}),
+          note: af.note.trim() || null,
+        });
+        const before = manualByRes[af.editId] || [];
+        const same = before.length === af.tableIds.length && before.every((id) => af.tableIds.includes(id));
+        if (!same) {
+          if (af.tableIds.length) await setReservationTables(af.editId, af.tableIds, { manual: true });
+          else await clearReservationTables(af.editId);
+        }
+        setAddForm(null);
+        return;
+      }
       const rid = await createReservation({
         customerName: af.name.trim() || "Passage",
         customerPhone: af.phone.trim() || null,
@@ -1496,6 +1544,13 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               )}
 
               <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => openEditForm(r)}
+                  className="tap-scale text-xs font-bold rounded-full px-2.5 py-1 border-2"
+                  style={{ borderColor: "#e8622c", color: "#e8622c" }}
+                >
+                  ✎ Modifier la réservation
+                </button>
                 <select
                   value={isManual ? (tids.length > 1 ? `combo:${combinations.find((c) => c.tableIds.length === tids.length && c.tableIds.every((x) => tids.includes(x)))?.id || ""}` : tids[0]) : "auto"}
                   onChange={(e) => forceTables(r.id, e.target.value)}
@@ -1614,7 +1669,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
             style={{ background: "#1a120b", border: "1px solid #3a2b1f", maxHeight: "88vh" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="font-bold text-sm mb-1">Ajouter une réservation</div>
+            <div className="font-bold text-sm mb-1">{af.editId ? "Modifier la réservation" : "Ajouter une réservation"}</div>
             <div className="text-xs text-[#8a7561] mb-4">
               {addForm.service.label} · {addForm.service.startTime}–{addForm.service.endTime}
             </div>
@@ -1658,9 +1713,18 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                 Personnes
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   value={af.party}
-                  onChange={(e) => setAf((x) => ({ ...x, party: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                  // Le champ doit pouvoir être vide pendant la frappe (sinon
+                  // « effacer puis taper 4 » donne 14). La validation du
+                  // minimum se fait à l'enregistrement.
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const n = parseInt(raw, 10);
+                    setAf((x) => ({ ...x, party: raw === "" || Number.isNaN(n) ? "" : Math.max(1, n) }));
+                  }}
+                  onFocus={(e) => e.target.select()}
                   className="w-full rounded-lg px-3 py-2 mt-1 text-sm"
                   style={inputStyle}
                 />
@@ -1727,7 +1791,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                 className="tap-scale rounded-full px-5 py-2 text-sm font-bold disabled:opacity-40"
                 style={{ background: "#e8622c", color: "#150e0a" }}
               >
-                {addBusy ? "…" : "Ajouter"}
+                {addBusy ? "…" : af.editId ? "Enregistrer" : "Ajouter"}
               </button>
               <button onClick={() => setAddForm(null)} className="tap-scale text-xs text-[#8a7561] font-bold">
                 Annuler
