@@ -6,8 +6,10 @@
 -- la session permettent de reconnaître l'appareil.
 --
 -- Le PIN n'est jamais copié dans l'historique : on note seulement qu'il a changé.
--- takeaway_order_counter est ignoré (il bouge à chaque commande, ça noierait le reste).
--- Idempotent : peut être rejoué sans risque.
+-- takeaway_order_counter est ignoré (il bouge à chaque commande).
+-- Appliqué en production le 2026-10-12. Les instructions ci-dessous sont
+-- rejouables (create ... if not exists / or replace) sauf la policy : la
+-- supprimer avant de rejouer.
 
 create table if not exists team_config_audit (
   id bigint generated always as identity primary key,
@@ -26,7 +28,7 @@ create index if not exists team_config_audit_restaurant_changed_at_idx
 alter table team_config_audit enable row level security;
 
 -- Lecture : son propre restaurant ou la Direction. Aucune policy d'écriture :
--- seul le trigger (security definer) insère, personne ne peut modifier l'historique.
+-- seul le trigger (security definer) insère, l'historique n'est pas modifiable.
 drop policy if exists "team_config_audit_select" on team_config_audit;
 create policy "team_config_audit_select" on team_config_audit
   for select to authenticated
@@ -36,55 +38,27 @@ create or replace function log_team_config_change()
 returns trigger
 language plpgsql
 security definer set search_path = public
-as $$
+as $fn$
 declare
   diff jsonb := '{}'::jsonb;
   k text;
-  old_j jsonb := to_jsonb(old);
-  new_j jsonb := to_jsonb(new);
-  headers jsonb;
-  claims jsonb;
+  o jsonb := to_jsonb(old) - 'takeaway_order_counter';
+  n jsonb := to_jsonb(new) - 'takeaway_order_counter';
+  h jsonb := nullif(current_setting('request.headers', true), '')::jsonb;
+  c jsonb := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
 begin
-  for k in select jsonb_object_keys(new_j) loop
-    if k = 'takeaway_order_counter' then
-      continue;
-    end if;
-    if old_j -> k is distinct from new_j -> k then
-      if k = 'pin' then
-        diff := diff || jsonb_build_object(k, jsonb_build_object('old', '***', 'new', '***'));
-      else
-        diff := diff || jsonb_build_object(k, jsonb_build_object('old', old_j -> k, 'new', new_j -> k));
-      end if;
+  for k in select jsonb_object_keys(n) loop
+    if o -> k is distinct from n -> k then
+      diff := diff || jsonb_build_object(k, case when k = 'pin' then jsonb_build_object('old', '***', 'new', '***') else jsonb_build_object('old', o -> k, 'new', n -> k) end);
     end if;
   end loop;
-
-  if diff = '{}'::jsonb then
-    return null;
+  if diff <> '{}'::jsonb then
+    insert into team_config_audit (restaurant_id, changes, auth_uid, session_id, ip_address, user_agent)
+    values (new.restaurant_id, diff, auth.uid(), c ->> 'session_id', h ->> 'cf-connecting-ip', h ->> 'user-agent');
   end if;
-
-  begin
-    headers := nullif(current_setting('request.headers', true), '')::jsonb;
-  exception when others then
-    headers := null;
-  end;
-  begin
-    claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
-  exception when others then
-    claims := null;
-  end;
-
-  insert into team_config_audit (restaurant_id, changes, auth_uid, session_id, ip_address, user_agent)
-  values (
-    new.restaurant_id,
-    diff,
-    auth.uid(),
-    claims ->> 'session_id',
-    headers ->> 'cf-connecting-ip',
-    headers ->> 'user-agent'
-  );
   return null;
 end;
-$$;
+$fn$;
 
 drop trigger if exists team_config_audit_trg on team_config;
 create trigger team_config_audit_trg
