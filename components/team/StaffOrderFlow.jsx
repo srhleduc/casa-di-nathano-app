@@ -64,7 +64,7 @@ async function submitWithRetry(order, attempt = 1) {
   }
 }
 
-export default function StaffOrderFlow({ initialTableIds = null, onConsumed = null } = {}) {
+export default function StaffOrderFlow({ initialTableIds = null, onConsumed = null, onOpenServiceTypes = null } = {}) {
   // Lancé depuis le plan du board (« Prise de commande » sur une table) :
   // sur place, table pré-cochée, on saute l'écran type de service / apéro.
   const prefilled = Array.isArray(initialTableIds) && initialTableIds.length > 0;
@@ -382,7 +382,24 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           🧪 MODE TEST ACTIF — cette commande ne sera pas comptabilisée dans le chiffre du jour et sera supprimée à la désactivation
         </div>
       )}
-      {screen === "service" && (
+      {screen === "service" && availableServiceOptions.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <h2 className="display-font text-3xl font-semibold mb-4">Aucun mode de commande actif</h2>
+          <p className="text-[#a88f78] max-w-md mb-8">
+            « Sur place » et « À emporter » sont tous les deux désactivés, donc on ne peut pas prendre de commande. Active-en au moins un pour continuer.
+          </p>
+          {onOpenServiceTypes && (
+            <button
+              onClick={onOpenServiceTypes}
+              className="tap-scale rounded-2xl border-2 border-[#C0392B] bg-[#2c1c14] px-8 py-4 font-bold"
+            >
+              🔀 Activer un type de service
+            </button>
+          )}
+        </div>
+      )}
+
+      {screen === "service" && availableServiceOptions.length > 0 && (
         <ServiceTypeScreen
           options={availableServiceOptions}
           onSelect={(type) => {
