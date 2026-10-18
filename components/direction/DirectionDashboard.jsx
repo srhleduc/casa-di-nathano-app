@@ -205,6 +205,9 @@ export default function DirectionDashboard() {
               const restaurantOrders = realOrders.filter((o) => o.restaurantId === r.id);
               const total = restaurantOrders.reduce((s, o) => s + o.total, 0);
               const collected = restaurantOrders.filter((o) => o.status === "servie").reduce((s, o) => s + o.total, 0);
+              // Même base que le décompte des pâtons (remainingPizzaStock) :
+              // commandes réelles du jour, quel que soit le statut.
+              const pizzas = restaurantOrders.reduce((s, o) => s + (o.pizzaCount || 0), 0);
               return (
                 <div key={r.id} className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-6">
                   <div className="display-font text-2xl font-bold mb-1">{r.name}</div>
@@ -215,6 +218,13 @@ export default function DirectionDashboard() {
                   </div>
                   <div className="text-xs text-[#8a7561] mb-4">
                     {restaurantOrders.length} commande{restaurantOrders.length > 1 ? "s" : ""} · dont {eur(collected)} déjà encaissé
+                  </div>
+
+                  <div className="flex items-end justify-between mb-4">
+                    <span className="text-xs text-[#a88f78] uppercase font-bold">Pizzas du jour</span>
+                    <span className="display-font text-3xl font-bold" style={{ color: "#C0392B" }}>
+                      {pizzas}
+                    </span>
                   </div>
 
                   <div className="flex items-end justify-between mb-1">
