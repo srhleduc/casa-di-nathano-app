@@ -901,14 +901,7 @@ function PromoCodeRow({ bon, readOnly }) {
             <span className="text-[10px] uppercase font-bold text-[#a88f78]">
               {isExpired ? "Réactiver jusqu'au" : "Prolonger jusqu'au"}
             </span>
-            <input
-              type="date"
-              min={isoDay(0)}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="rounded px-2 py-1 text-sm"
-              style={INPUT_STYLE}
-            />
+            <BirthdayInput future min={isoDay(0)} value={date} onChange={setDate} className="text-sm" style={INPUT_STYLE} />
           </label>
           <button
             onClick={applyExpiry}

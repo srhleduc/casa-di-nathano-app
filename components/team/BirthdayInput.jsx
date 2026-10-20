@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-// Sélecteur de date d'anniversaire en 3 listes (jour / mois / année).
+// Sélecteur de date en 3 listes (jour / mois / année), utilisé pour les
+// anniversaires (passé) et les dates d'expiration (futur : `future`, `min`).
 // Remplace <input type="date"> : sur certaines tablettes de la pizzeria, le
 // calendrier natif ne s'ouvre pas (le clavier s'affiche à la place). Les <select>
 // ouvrent toujours le sélecteur natif de l'appareil.
@@ -14,7 +15,7 @@ function parse(value) {
   return m ? { y: m[1], m: String(Number(m[2])), d: String(Number(m[3])) } : { y: "", m: "", d: "" };
 }
 
-export default function BirthdayInput({ value, onChange, className = "", style }) {
+export default function BirthdayInput({ value, onChange, className = "", style, future = false, min }) {
   const [parts, setParts] = useState(() => parse(value));
 
   function update(next) {
@@ -27,12 +28,14 @@ export default function BirthdayInput({ value, onChange, className = "", style }
     // Ramène le jour à la fin du mois si besoin (ex. 31 -> 30 en avril).
     const maxDay = new Date(Number(y), Number(m), 0).getDate();
     const day = Math.min(Number(d), maxDay);
-    onChange(`${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+    const iso = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    onChange(min && iso < min ? "" : iso); // date antérieure au minimum -> invalide
   }
 
   const thisYear = new Date().getFullYear();
   const years = [];
-  for (let y = thisYear; y >= thisYear - 100; y--) years.push(y);
+  if (future) for (let y = thisYear; y <= thisYear + 5; y++) years.push(y);
+  else for (let y = thisYear; y >= thisYear - 100; y--) years.push(y);
 
   const cls = `rounded-lg px-2 py-2 ${className}`;
   return (
