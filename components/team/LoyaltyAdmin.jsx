@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { canonicalLoyaltyPhone } from "@/lib/business";
+import BirthdayInput from "./BirthdayInput";
 import { eur } from "@/lib/menu";
 import {
   fetchLoyaltyCustomerByPhone,
@@ -538,7 +539,7 @@ function CreateForm({ phone, phoneEditable = false, busy, onCreate, onCancel }) 
       </label>
       <label className="flex flex-col gap-1">
         <span className="text-xs font-bold text-[#a88f78] uppercase">Date d&apos;anniversaire (facultatif)</span>
-        <input type="date" value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
+        <BirthdayInput value={dateAnniversaire} onChange={setDateAnniversaire} style={INPUT_STYLE} />
       </label>
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
@@ -994,7 +995,7 @@ function EditForm({ customer, onDone, onDeleted }) {
       </label>
       <label className="flex flex-col gap-1">
         <span className="text-xs font-bold text-[#a88f78] uppercase">Anniversaire</span>
-        <input type="date" value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} className="rounded-lg px-3 py-2" style={INPUT_STYLE} />
+        <BirthdayInput value={dateAnniversaire} onChange={setDateAnniversaire} style={INPUT_STYLE} />
       </label>
       <button type="submit" disabled={busy} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50" style={PRIMARY_BTN}>
         Enregistrer
