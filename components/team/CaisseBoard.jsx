@@ -12,6 +12,7 @@ import OrderCardHeader from "../OrderCardHeader";
 import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import EditOrderModal from "./EditOrderModal";
+import BirthdayInput from "./BirthdayInput";
 
 export default function CaisseBoard({ readOnly = false }) {
   const { orders } = useOrders();
@@ -434,7 +435,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
       {step === "unknown" && (
         <>
           <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom (facultatif)" className="rounded px-2 py-1 text-sm" style={LOYALTY_INPUT_STYLE} />
-          <input value={dateAnniversaire} onChange={(e) => setDateAnniversaire(e.target.value)} type="date" className="rounded px-2 py-1 text-sm" style={LOYALTY_INPUT_STYLE} />
+          <BirthdayInput value={dateAnniversaire} onChange={setDateAnniversaire} className="text-sm" style={LOYALTY_INPUT_STYLE} />
           <button
             onClick={associate}
             disabled={pts <= 0}
