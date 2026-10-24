@@ -37,9 +37,14 @@ export async function POST(request) {
   if (!url || !anon || !token) return new NextResponse(null, { status: 204 });
 
   let success = false;
+  let deviceId = null;
   try {
     const body = await request.json();
     success = body?.success === true;
+    // Identifiant aléatoire généré par le navigateur ; on n'accepte qu'un format simple.
+    if (typeof body?.deviceId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(body.deviceId)) {
+      deviceId = body.deviceId;
+    }
   } catch {
     // corps invalide : on journalise comme un échec
   }
@@ -60,6 +65,7 @@ export async function POST(request) {
       p_region: readGeoHeader(request, "x-vercel-ip-country-region"),
       p_country: readGeoHeader(request, "x-vercel-ip-country"),
       p_user_agent: userAgent,
+      p_device_id: deviceId,
     });
     if (error) console.error("[team-access] journal:", error.message);
   } catch (err) {
