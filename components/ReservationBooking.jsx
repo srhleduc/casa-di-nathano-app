@@ -19,6 +19,7 @@ import {
   useServiceTemplates,
   useServiceOverrides,
   useServiceExceptions,
+  useOnlineBookingClosures,
   useTables,
   useTableCombinations,
   useReservations,
@@ -27,7 +28,7 @@ import {
   createReservation,
   updateReservation,
 } from "@/lib/data";
-import { servicesForDate } from "@/lib/reservation/services";
+import { servicesForDate, onlineBookableServices } from "@/lib/reservation/services";
 import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from "@/lib/reservation/slots";
 import { solveReservations } from "@/lib/reservation/api";
 import { pinnedFromAssignments } from "@/lib/reservation/pinned";
@@ -74,6 +75,7 @@ export default function ReservationBooking() {
   const { serviceTemplates } = useServiceTemplates();
   const { serviceOverrides } = useServiceOverrides();
   const { serviceExceptions } = useServiceExceptions();
+  const { onlineBookingClosures } = useOnlineBookingClosures();
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
@@ -98,6 +100,8 @@ export default function ReservationBooking() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [slots, setSlots] = useState([]); // [{ startMin, durationMin, serviceLabel }]
+  // Services dont la réservation en ligne est bloquée pour la date cherchée (libellés).
+  const [closedLabels, setClosedLabels] = useState([]);
   const [note, setNote] = useState("");
   const [confirmed, setConfirmed] = useState(null); // { name, party, date, startMin }
 
@@ -148,7 +152,11 @@ export default function ReservationBooking() {
   // ignore une réservation existante (elle ne doit pas bloquer son propre
   // créneau quand le client la modifie).
   async function runFeasibility(targetDate, targetParty, { excludeReservationId, zoneLayoutId } = {}) {
-    const svcs = servicesForDate(targetDate, serviceTemplates, serviceOverrides, serviceExceptions);
+    const allSvcs = servicesForDate(targetDate, serviceTemplates, serviceOverrides, serviceExceptions);
+    // Services bloqués à la réservation en ligne : ils restent actifs côté
+    // équipe mais ne sont plus proposés ici (voir online_booking_closures).
+    const svcs = onlineBookableServices(allSvcs, targetDate, onlineBookingClosures);
+    setClosedLabels(allSvcs.filter((s) => !svcs.includes(s)).map((s) => s.label));
     if (svcs.length === 0) return [];
     const isToday = targetDate === todayISO();
     const now = new Date();
@@ -233,7 +241,13 @@ export default function ReservationBooking() {
       setScreen("done");
     } catch (e) {
       console.error(e);
-      setErr("La réservation n'a pas pu être enregistrée. Réessayez.");
+      // Bloqué entre-temps par le restaurant (page restée ouverte) : garde-fou base.
+      if (String(e?.message || "").includes("online_booking_closed")) {
+        setErr("Désolé, les réservations en ligne viennent d'être closes pour ce service. Merci de nous contacter directement.");
+        setSlots((cur) => cur.filter((s) => s.startMin !== slot.startMin));
+      } else {
+        setErr("La réservation n'a pas pu être enregistrée. Réessayez.");
+      }
     } finally {
       setBusy(false);
     }
@@ -467,6 +481,11 @@ export default function ReservationBooking() {
           {REMINDER}
         </div>
 
+        {closedLabels.length > 0 && (
+          <div className="rounded-xl p-4 mb-5 text-sm" style={{ background: "#2c1c14", border: "1px solid #4a2020", color: "#e8c8a8" }}>
+            La réservation en ligne est close pour : <b>{closedLabels.join(", ")}</b>. Pour ce service, merci de nous contacter directement.
+          </div>
+        )}
         {slots.length === 0 ? (
           <p className="text-[#b9a692]">
             Aucun créneau disponible {multiZone && zoneId ? `en ${layoutNameById[zoneId] || "cette zone"} ` : ""}ce jour-là pour {party} personne
@@ -642,6 +661,11 @@ export default function ReservationBooking() {
           {editParty} personne{editParty > 1 ? "s" : ""} · {prettyDate(date)}
         </p>
 
+        {closedLabels.length > 0 && (
+          <div className="rounded-xl p-4 mb-5 text-sm" style={{ background: "#2c1c14", border: "1px solid #4a2020", color: "#e8c8a8" }}>
+            La réservation en ligne est close pour : <b>{closedLabels.join(", ")}</b>. Pour ce service, merci de nous contacter directement.
+          </div>
+        )}
         {slots.length === 0 ? (
           <p className="text-[#b9a692]">
             Aucun créneau disponible pour {editParty} personne{editParty > 1 ? "s" : ""} ce jour-là. Réduisez le nombre

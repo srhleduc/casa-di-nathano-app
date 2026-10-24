@@ -5,6 +5,8 @@ import {
   useServiceTemplates,
   useServiceOverrides,
   useServiceExceptions,
+  useOnlineBookingClosures,
+  setOnlineBookingClosed,
   useReservationSettings,
   useRoomLayouts,
   useTables,
@@ -18,7 +20,7 @@ import {
   deleteServiceException,
   updateReservationSettings,
 } from "@/lib/data";
-import { servicesForDate, servicesOverlap, toMin, autoZoneCovers } from "@/lib/reservation/services";
+import { servicesForDate, servicesOverlap, toMin, autoZoneCovers, isOnlineClosed } from "@/lib/reservation/services";
 import { useRestaurantFilter } from "@/lib/restaurant";
 import TakeawayHoursAdmin from "./TakeawayHoursAdmin";
 
@@ -129,6 +131,7 @@ export default function ServicesAdmin() {
   const { serviceTemplates } = useServiceTemplates();
   const { serviceOverrides } = useServiceOverrides();
   const { serviceExceptions } = useServiceExceptions();
+  const { onlineBookingClosures } = useOnlineBookingClosures();
   const { settings } = useReservationSettings();
   const { layouts } = useRoomLayouts();
   const { tables } = useTables();
@@ -428,6 +431,14 @@ export default function ServicesAdmin() {
                   <NumInput value={s.maxCovers} min={1} placeholder={autoTotal} onCommit={(v) => overrideService(s, { maxCovers: v })} />
                 </label>
               )}
+              <button
+                onClick={() => setOnlineBookingClosed({ date, service: s, closed: !isOnlineClosed(s, date, onlineBookingClosures), restaurantId: restaurantFilter }).catch((e) => console.error(e))}
+                title="Coupe uniquement la réservation par les clients sur /reserver : le service reste actif côté équipe"
+                className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2"
+                style={isOnlineClosed(s, date, onlineBookingClosures) ? { borderColor: "#C0392B", background: "#3a1414", color: "#e8a8a8" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+              >
+                {isOnlineClosed(s, date, onlineBookingClosures) ? "🔒 Résa en ligne bloquée · Rouvrir" : "Bloquer la résa en ligne"}
+              </button>
               <button
                 onClick={() => overrideService(s, { isActive: false })}
                 className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2 border-[#4a2020] text-[#e8a8a8]"

@@ -12,6 +12,8 @@ import {
   useServiceTemplates,
   useServiceOverrides,
   useServiceExceptions,
+  useOnlineBookingClosures,
+  setOnlineBookingClosed,
   useTables,
   useTableCombinations,
   useReservations,
@@ -35,7 +37,7 @@ import {
   setRoomLayoutActive,
   updateOrder,
 } from "@/lib/data";
-import { servicesForDate, applyAutoZoneCovers } from "@/lib/reservation/services";
+import { servicesForDate, applyAutoZoneCovers, isOnlineClosed } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis, reservationsToAutoLock } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
@@ -235,6 +237,7 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const { serviceTemplates } = useServiceTemplates();
   const { serviceOverrides } = useServiceOverrides();
   const { serviceExceptions } = useServiceExceptions();
+  const { onlineBookingClosures } = useOnlineBookingClosures();
   const { tables } = useTables();
   const { combinations } = useTableCombinations();
   const { reservations } = useReservations();
@@ -1201,6 +1204,22 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
                   ⚠️ {syn.unassignedCount} non placée{syn.unassignedCount > 1 ? "s" : ""}
                 </div>
               )}
+              {settings.onlineBookingEnabled && (() => {
+                const closedOnline = isOnlineClosed(s, date, onlineBookingClosures);
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOnlineBookingClosed({ date, service: s, closed: !closedOnline }).catch((err) => console.error(err));
+                    }}
+                    title={closedOnline ? "Les clients peuvent de nouveau réserver ce service sur /reserver" : "Les clients ne pourront plus réserver ce service sur /reserver (l'équipe peut toujours ajouter des réservations)"}
+                    className="tap-scale mt-2 rounded-full px-3 py-1 text-xs font-bold border-2"
+                    style={closedOnline ? { borderColor: "#C0392B", background: "#3a1414", color: "#e8a8a8" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
+                  >
+                    {closedOnline ? "🔒 Résa en ligne bloquée · Rouvrir" : "Bloquer la résa en ligne"}
+                  </button>
+                );
+              })()}
             </div>
           );
         })}
