@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTeamPin, logTeamPinAttempt } from "@/lib/data";
+import { useTeamPin, logTeamPinAttempt, checkTeamDeviceAllowed } from "@/lib/data";
 import { primeAudioContext } from "@/lib/sound";
 
 export default function PinScreen({ onSuccess, onCancel }) {
@@ -9,6 +9,7 @@ export default function PinScreen({ onSuccess, onCancel }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
   const [pressed, setPressed] = useState(null);
+  const [refused, setRefused] = useState(false);
 
   function press(d) {
     setPressed(d);
@@ -16,13 +17,24 @@ export default function PinScreen({ onSuccess, onCancel }) {
     const next = (pin + d).slice(0, 4);
     setPin(next);
     setErr(false);
+    setRefused(false);
     if (next.length === 4) {
       logTeamPinAttempt(next === teamPin);
       if (next === teamPin) {
         // Débloque l'audio pendant qu'on est encore dans le geste utilisateur
-        // (clic) — voir lib/sound.js. Fait ici, pas dans onSuccess (async).
+        // (clic) — voir lib/sound.js. Fait ici, avant tout await, pas dans onSuccess.
         primeAudioContext();
-        setTimeout(onSuccess, 150);
+        // Mode « appareils autorisés » (désactivé par défaut) : la Direction peut
+        // n'accepter que les appareils qu'elle a nommés. En cas de panne du
+        // contrôle, checkTeamDeviceAllowed laisse passer.
+        checkTeamDeviceAllowed().then((allowed) => {
+          if (allowed) {
+            setTimeout(onSuccess, 150);
+          } else {
+            setRefused(true);
+            setPin("");
+          }
+        });
       }
       else
         setTimeout(() => {
@@ -35,6 +47,11 @@ export default function PinScreen({ onSuccess, onCancel }) {
   return (
     <div className="kiosk-root--pin">
       <p className="text-[#a88f78] mb-4 uppercase text-sm tracking-wide font-bold">Code équipe</p>
+      {refused && (
+        <p className="text-[#C0392B] text-sm font-bold text-center max-w-xs mb-4">
+          Appareil non autorisé. Demande à la direction de l'ajouter.
+        </p>
+      )}
       <div className="flex gap-4 mb-8">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`w-5 h-5 rounded-full border-2 ${pin.length > i ? "bg-[#C0392B] border-[#C0392B]" : "border-[#4a3826]"} ${err ? "border-red-500" : ""}`} />

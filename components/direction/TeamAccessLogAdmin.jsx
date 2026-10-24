@@ -11,7 +11,13 @@
 // Riec »…) puis ne garder que les appareils inconnus.
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchTeamPinLog, fetchTeamDeviceNames, saveTeamDeviceName } from "@/lib/data";
+import {
+  fetchTeamPinLog,
+  fetchTeamDeviceNames,
+  saveTeamDeviceName,
+  fetchTeamDeviceSettings,
+  saveTeamDeviceSetting,
+} from "@/lib/data";
 import { useRestaurantsList } from "@/lib/restaurant";
 
 function deviceLabel(ua) {
@@ -61,13 +67,21 @@ export default function TeamAccessLogAdmin() {
   const [editingDevice, setEditingDevice] = useState(null); // device_id en cours de nommage
   const [draftName, setDraftName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({}); // { restaurantId: mode « appareils autorisés » actif ? }
+  const [confirmingEnable, setConfirmingEnable] = useState(null); // restaurantId en attente de confirmation
+  const [settingBusy, setSettingBusy] = useState(false);
 
   async function load() {
     setError(null);
     try {
-      const [log, names] = await Promise.all([fetchTeamPinLog(300), fetchTeamDeviceNames()]);
+      const [log, names, deviceSettings] = await Promise.all([
+        fetchTeamPinLog(300),
+        fetchTeamDeviceNames(),
+        fetchTeamDeviceSettings(),
+      ]);
       setRows(log);
       setDeviceNames(names);
+      setSettings(deviceSettings);
     } catch (err) {
       setError(err?.message || "Impossible de charger le journal.");
       setRows([]);
@@ -83,13 +97,40 @@ export default function TeamAccessLogAdmin() {
   const filtered = useMemo(() => {
     const q = cityFilter.trim().toLowerCase();
     return (rows || []).filter((r) => {
-      if (onlySuccess && !r.success) return false;
+      if (onlySuccess && (!r.success || r.refused)) return false;
       // « Inconnus » : appareil jamais nommé, ou sans identifiant (ancienne saisie).
       if (onlyUnknown && r.device_id && deviceNames[r.device_id]) return false;
       if (!q) return true;
       return [r.city, r.region, r.ip_address, deviceNames[r.device_id]].some((v) => (v || "").toLowerCase().includes(q));
     });
   }, [rows, cityFilter, onlySuccess, onlyUnknown, deviceNames]);
+
+  // Avant d'activer le mode : combien d'appareils vus récemment dans ce restaurant
+  // ne sont pas nommés (ils seraient refusés), et combien de saisies sans identifiant.
+  function unnamedSummary(restaurantId) {
+    const unnamed = new Set();
+    let withoutId = 0;
+    for (const r of rows || []) {
+      if (r.restaurant_id !== restaurantId || !r.success) continue;
+      if (!r.device_id) withoutId += 1;
+      else if (!deviceNames[r.device_id]) unnamed.add(r.device_id);
+    }
+    return { unnamed: unnamed.size, withoutId };
+  }
+
+  async function applySetting(restaurantId, enabled) {
+    setSettingBusy(true);
+    setError(null);
+    try {
+      await saveTeamDeviceSetting(restaurantId, enabled);
+      setSettings(await fetchTeamDeviceSettings());
+      setConfirmingEnable(null);
+    } catch (err) {
+      setError(err?.message || "Impossible d'enregistrer le réglage.");
+    } finally {
+      setSettingBusy(false);
+    }
+  }
 
   function startNaming(deviceId) {
     setEditingDevice(deviceId);
@@ -120,6 +161,77 @@ export default function TeamAccessLogAdmin() {
         (« Nommer ») pour le reconnaître ensuite, même si son IP change ; un appareil sans nom ou dont les données du
         navigateur ont été effacées apparaît comme inconnu.
       </p>
+
+      <div className="rounded-xl px-4 py-4 mb-6 max-w-3xl" style={{ background: "#211712", border: "1px solid #3a2b1f" }}>
+        <p className="font-bold mb-1">🔒 Appareils autorisés</p>
+        <p className="text-[#a88f78] text-sm mb-3">
+          Désactivé par défaut. Quand il est activé pour un restaurant, seul un appareil que tu as nommé peut ouvrir
+          l'espace équipe, même avec le bon code. Pour retirer un appareil (départ d'un salarié), retire-lui son nom : le
+          code n'a pas à changer. Ce contrôle se fait au moment de la saisie du code ; ce n'est pas une barrière contre
+          une personne technique.
+        </p>
+        <div className="flex flex-col gap-3">
+          {restaurants.length === 0 && <p className="text-sm text-[#8a7561]">Chargement…</p>}
+          {restaurants.map((rest) => {
+            const enabled = settings[rest.id] === true;
+            const summary = unnamedSummary(rest.id);
+            const confirming = confirmingEnable === rest.id;
+            return (
+              <div key={rest.id}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-bold text-sm">{rest.name || rest.id}</span>
+                  <span className={`text-sm font-bold ${enabled ? "text-[#7fb069]" : "text-[#8a7561]"}`}>
+                    {enabled ? "Activé" : "Désactivé"}
+                  </span>
+                  {enabled ? (
+                    <button
+                      onClick={() => applySetting(rest.id, false)}
+                      disabled={settingBusy}
+                      className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f] disabled:opacity-50"
+                    >
+                      Désactiver
+                    </button>
+                  ) : (
+                    !confirming && (
+                      <button
+                        onClick={() => setConfirmingEnable(rest.id)}
+                        disabled={settingBusy}
+                        className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f] disabled:opacity-50"
+                      >
+                        Activer…
+                      </button>
+                    )
+                  )}
+                </div>
+                {confirming && !enabled && (
+                  <div className="mt-3 rounded-xl px-4 py-3" style={{ background: "#14100c", border: "1px solid #6b2a22" }}>
+                    <p className="text-sm mb-2">
+                      Attention : une fois activé, tout appareil non nommé sera refusé, y compris les tablettes et caisses.
+                      {summary.unnamed > 0 || summary.withoutId > 0
+                        ? ` Dans le journal récent de ce restaurant : ${summary.unnamed} appareil${summary.unnamed > 1 ? "s" : ""} non nommé${summary.unnamed > 1 ? "s" : ""}${summary.withoutId > 0 ? ` et ${summary.withoutId} saisie${summary.withoutId > 1 ? "s" : ""} sans identifiant` : ""} serai${summary.unnamed + summary.withoutId > 1 ? "ent" : "t"} refusé${summary.unnamed + summary.withoutId > 1 ? "s" : ""}.`
+                        : " Tous les appareils vus récemment sont nommés."}{" "}
+                      Nomme d'abord tous les appareils de l'équipe.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => applySetting(rest.id, true)}
+                        disabled={settingBusy}
+                        className="tap-scale rounded-full px-5 py-2 font-bold disabled:opacity-50"
+                        style={{ background: "#C0392B", color: "#fff5ea" }}
+                      >
+                        {settingBusy ? "…" : "Activer quand même"}
+                      </button>
+                      <button onClick={() => setConfirmingEnable(null)} className="tap-scale text-sm text-[#8a7561]">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <input
@@ -167,8 +279,10 @@ export default function TeamAccessLogAdmin() {
             >
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="text-sm font-bold w-36 shrink-0">{formatWhen(r.created_at)}</span>
-                <span className={`text-sm font-bold ${r.success ? "text-[#7fb069]" : "text-[#C0392B]"}`}>
-                  {r.success ? "Réussie" : "Ratée"}
+                <span
+                  className={`text-sm font-bold ${r.refused ? "text-[#e0a030]" : r.success ? "text-[#7fb069]" : "text-[#C0392B]"}`}
+                >
+                  {r.refused ? "Refusée (appareil non autorisé)" : r.success ? "Réussie" : "Ratée"}
                 </span>
                 <span className="text-sm">
                   {r.city ? `${r.city}${r.region ? ` (${r.region})` : ""}` : "Ville inconnue"}
@@ -220,6 +334,28 @@ export default function TeamAccessLogAdmin() {
                   <button onClick={() => setEditingDevice(null)} className="tap-scale text-sm text-[#8a7561]">
                     Annuler
                   </button>
+                  {deviceName && (
+                    <button
+                      onClick={async () => {
+                        setDraftName("");
+                        setSaving(true);
+                        setError(null);
+                        try {
+                          await saveTeamDeviceName(r.device_id, "");
+                          setDeviceNames(await fetchTeamDeviceNames());
+                          setEditingDevice(null);
+                        } catch (err) {
+                          setError(err?.message || "Impossible de retirer le nom.");
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      disabled={saving}
+                      className="tap-scale text-sm font-bold text-[#C0392B] disabled:opacity-50"
+                    >
+                      Retirer l'autorisation
+                    </button>
+                  )}
                 </div>
               )}
             </div>
