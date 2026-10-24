@@ -49,7 +49,7 @@ export default function PinScreen({ onSuccess, onCancel }) {
       <p className="text-[#a88f78] mb-4 uppercase text-sm tracking-wide font-bold">Code équipe</p>
       {refused && (
         <p className="text-[#C0392B] text-sm font-bold text-center max-w-xs mb-4">
-          Appareil non autorisé. Demande à la direction de l'ajouter.
+          Cet appareil n'est plus autorisé. Contacte la direction.
         </p>
       )}
       <div className="flex gap-4 mb-8">
