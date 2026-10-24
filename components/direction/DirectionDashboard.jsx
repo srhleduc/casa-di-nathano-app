@@ -31,6 +31,7 @@ import MenuCategoryOrderAdmin from "./MenuCategoryOrderAdmin";
 import PayrollExportAdmin from "./PayrollExportAdmin";
 import NotificationSoundAdmin from "./NotificationSoundAdmin";
 import ServicesDirectionAdmin from "./ServicesDirectionAdmin";
+import TeamAccessLogAdmin from "./TeamAccessLogAdmin";
 
 function NotificationsToggle() {
   const { session } = useManagerSession();
@@ -192,6 +193,9 @@ export default function DirectionDashboard() {
         <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🗓️ Services
         </button>
+        <button onClick={() => setTab("teamaccess")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "teamaccess" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          🔐 Connexions équipe
+        </button>
       </div>
 
       {tab === "overview" && (
@@ -259,6 +263,7 @@ export default function DirectionDashboard() {
       {tab === "payroll" && <PayrollExportAdmin />}
       {tab === "sound" && <NotificationSoundAdmin />}
       {tab === "services" && <ServicesDirectionAdmin />}
+      {tab === "teamaccess" && <TeamAccessLogAdmin />}
     </div>
   );
 }

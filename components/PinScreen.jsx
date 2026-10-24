@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTeamPin } from "@/lib/data";
+import { useTeamPin, logTeamPinAttempt } from "@/lib/data";
 import { primeAudioContext } from "@/lib/sound";
 
 export default function PinScreen({ onSuccess, onCancel }) {
@@ -17,6 +17,7 @@ export default function PinScreen({ onSuccess, onCancel }) {
     setPin(next);
     setErr(false);
     if (next.length === 4) {
+      logTeamPinAttempt(next === teamPin);
       if (next === teamPin) {
         // Débloque l'audio pendant qu'on est encore dans le geste utilisateur
         // (clic) — voir lib/sound.js. Fait ici, pas dans onSuccess (async).
