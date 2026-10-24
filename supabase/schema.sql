@@ -2221,7 +2221,7 @@ alter publication supabase_realtime add table service_exceptions;
 -- ---- Blocage de la réservation en ligne par service/date (voir
 -- migrations_manual/online_booking_closures.sql : table, policies, realtime
 -- et trigger check_online_booking_open sur reservations source = 'client').
-create table if not exists online_booking_closures (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, created_at timestamptz not null default now(), unique (restaurant_id, date, service_number));
+create table if not exists online_booking_closures (id uuid primary key default gen_random_uuid(), restaurant_id text not null references restaurants (id), date date not null, service_number int not null, start_time time not null, end_time time not null, max_covers int check (max_covers >= 0), created_at timestamptz not null default now(), unique (restaurant_id, date, service_number));
 alter table online_booking_closures enable row level security;
 drop policy if exists "online_booking_closures_select" on online_booking_closures;
 drop policy if exists "online_booking_closures_write" on online_booking_closures;
@@ -2229,16 +2229,34 @@ create policy "online_booking_closures_select" on online_booking_closures for se
 create policy "online_booking_closures_write" on online_booking_closures for all to authenticated using (restaurant_id = my_restaurant_id() or is_manager()) with check (restaurant_id = my_restaurant_id() or is_manager());
 alter publication supabase_realtime add table online_booking_closures;
 create or replace function check_online_booking_open() returns trigger language plpgsql as $$
+declare
+  c record;
+  booked int;
 begin
-  if new.source = 'client' and exists (
-    select 1 from online_booking_closures c
-    where c.restaurant_id = new.restaurant_id
-      and c.date = (new.requested_at at time zone 'UTC')::date
-      and (new.requested_at at time zone 'UTC')::time >= c.start_time
-      and (new.requested_at at time zone 'UTC')::time < c.end_time
-  ) then
-    raise exception 'online_booking_closed' using errcode = 'P0001';
+  if new.source <> 'client' then
+    return new;
   end if;
+  for c in
+    select * from online_booking_closures x
+    where x.restaurant_id = new.restaurant_id
+      and x.date = (new.requested_at at time zone 'UTC')::date
+      and (new.requested_at at time zone 'UTC')::time >= x.start_time
+      and (new.requested_at at time zone 'UTC')::time < x.end_time
+  loop
+    if c.max_covers is null then
+      raise exception 'online_booking_closed' using errcode = 'P0001';
+    end if;
+    select coalesce(sum(r.party_size), 0) into booked
+    from reservations r
+    where r.restaurant_id = new.restaurant_id
+      and r.status not in ('cancelled', 'no_show')
+      and (r.requested_at at time zone 'UTC')::date = c.date
+      and (r.requested_at at time zone 'UTC')::time >= c.start_time
+      and (r.requested_at at time zone 'UTC')::time < c.end_time;
+    if booked + new.party_size > c.max_covers then
+      raise exception 'online_booking_limit_reached' using errcode = 'P0001';
+    end if;
+  end loop;
   return new;
 end;
 $$;

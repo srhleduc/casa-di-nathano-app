@@ -37,7 +37,7 @@ import {
   setRoomLayoutActive,
   updateOrder,
 } from "@/lib/data";
-import { servicesForDate, applyAutoZoneCovers, isOnlineClosed } from "@/lib/reservation/services";
+import { servicesForDate, applyAutoZoneCovers, isOnlineClosed, onlineCoversCap } from "@/lib/reservation/services";
 import { reservationsForSolver, estimateDurationMin, buildCandidateSlots, buildRequestedAtISO } from "@/lib/reservation/slots";
 import { computeTableStatuses, serviceSynthesis, reservationsToAutoLock } from "@/lib/reservation/board";
 import { solveReservations } from "@/lib/reservation/api";
@@ -253,6 +253,8 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
   const [date, setDate] = useState(todayISO());
   const [layoutId, setLayoutId] = useState(null);
   const [selectedServiceNum, setSelectedServiceNum] = useState(null);
+  // Saisie du plafond « encore X couverts en ligne » d'un service : { serviceNumber, value } | null.
+  const [limitForm, setLimitForm] = useState(null);
   // « Tout afficher » : la liste du bas montre toute la journée au lieu du seul service.
   const [showAllDay, setShowAllDay] = useState(false);
   const [nowMin, setNowMin] = useState(() => {
@@ -1206,18 +1208,89 @@ export default function ReservationsBoard({ onTakeOrder = null } = {}) {
               )}
               {settings.onlineBookingEnabled && (() => {
                 const closedOnline = isOnlineClosed(s, date, onlineBookingClosures);
+                const cap = onlineCoversCap(s, date, onlineBookingClosures);
+                const remainingOnline = cap != null ? Math.max(0, cap - syn.reserved) : null;
+                const pill = "tap-scale rounded-full px-3 py-1 text-xs font-bold border-2";
+                const neutral = { borderColor: "#3a2b1f", color: "#c9b8a4" };
+                const red = { borderColor: "#C0392B", background: "#3a1414", color: "#e8a8a8" };
+                const stop = (fn) => (e) => {
+                  e.stopPropagation();
+                  fn();
+                };
+                const reopen = () => setOnlineBookingClosed({ date, service: s, closed: false }).catch((err) => console.error(err));
+                if (limitForm?.serviceNumber === s.serviceNumber) {
+                  const n = parseInt(limitForm.value, 10);
+                  return (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-[#a88f78]">Encore</span>
+                      <input
+                        type="number"
+                        min={1}
+                        autoFocus
+                        value={limitForm.value}
+                        onChange={(e) => setLimitForm({ serviceNumber: s.serviceNumber, value: e.target.value })}
+                        className="w-16 rounded-lg px-2 py-1 text-sm"
+                        style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+                      />
+                      <span className="text-[#a88f78]">couverts en ligne</span>
+                      <button
+                        disabled={!(n >= 1)}
+                        onClick={stop(() => {
+                          setOnlineBookingClosed({ date, service: s, closed: true, maxCovers: syn.reserved + n }).catch((err) => console.error(err));
+                          setLimitForm(null);
+                        })}
+                        className={`${pill} disabled:opacity-40`}
+                        style={{ borderColor: "#204a3a", background: "#16281c", color: "#a8e8c8" }}
+                      >
+                        OK
+                      </button>
+                      <button onClick={stop(() => setLimitForm(null))} className={pill} style={neutral}>
+                        Annuler
+                      </button>
+                    </div>
+                  );
+                }
+                if (closedOnline) {
+                  return (
+                    <button onClick={stop(reopen)} title="Les clients peuvent de nouveau réserver ce service sur /reserver" className={`${pill} mt-2`} style={red}>
+                      🔒 Résa en ligne bloquée · Rouvrir
+                    </button>
+                  );
+                }
+                if (cap != null) {
+                  return (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-bold" style={{ color: remainingOnline > 0 ? "#e8b23d" : "#e88a8a" }}>
+                        En ligne : {remainingOnline > 0 ? `encore ${remainingOnline} couvert${remainingOnline > 1 ? "s" : ""}` : "complet"}
+                      </span>
+                      <button onClick={stop(() => setLimitForm({ serviceNumber: s.serviceNumber, value: String(Math.max(1, remainingOnline)) }))} className={pill} style={neutral}>
+                        Modifier
+                      </button>
+                      <button onClick={stop(reopen)} className={pill} style={neutral}>
+                        Rouvrir
+                      </button>
+                    </div>
+                  );
+                }
                 return (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOnlineBookingClosed({ date, service: s, closed: !closedOnline }).catch((err) => console.error(err));
-                    }}
-                    title={closedOnline ? "Les clients peuvent de nouveau réserver ce service sur /reserver" : "Les clients ne pourront plus réserver ce service sur /reserver (l'équipe peut toujours ajouter des réservations)"}
-                    className="tap-scale mt-2 rounded-full px-3 py-1 text-xs font-bold border-2"
-                    style={closedOnline ? { borderColor: "#C0392B", background: "#3a1414", color: "#e8a8a8" } : { borderColor: "#3a2b1f", color: "#c9b8a4" }}
-                  >
-                    {closedOnline ? "🔒 Résa en ligne bloquée · Rouvrir" : "Bloquer la résa en ligne"}
-                  </button>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={stop(() => setOnlineBookingClosed({ date, service: s, closed: true }).catch((err) => console.error(err)))}
+                      title="Les clients ne pourront plus réserver ce service sur /reserver (l'équipe peut toujours ajouter des réservations)"
+                      className={pill}
+                      style={neutral}
+                    >
+                      Bloquer la résa en ligne
+                    </button>
+                    <button
+                      onClick={stop(() => setLimitForm({ serviceNumber: s.serviceNumber, value: "10" }))}
+                      title="Limiter les réservations en ligne à un nombre de couverts en plus de ceux déjà réservés"
+                      className={pill}
+                      style={neutral}
+                    >
+                      Limiter…
+                    </button>
+                  </div>
                 );
               })()}
             </div>

@@ -28,7 +28,7 @@ import {
   createReservation,
   updateReservation,
 } from "@/lib/data";
-import { servicesForDate, onlineBookableServices } from "@/lib/reservation/services";
+import { servicesForDate, onlineBookableServices, onlineCoversCap, reservedCoversInService } from "@/lib/reservation/services";
 import { buildCandidateSlots, buildRequestedAtISO, reservationsForSolver } from "@/lib/reservation/slots";
 import { solveReservations } from "@/lib/reservation/api";
 import { pinnedFromAssignments } from "@/lib/reservation/pinned";
@@ -156,18 +156,30 @@ export default function ReservationBooking() {
     // Services bloqués à la réservation en ligne : ils restent actifs côté
     // équipe mais ne sont plus proposés ici (voir online_booking_closures).
     const svcs = onlineBookableServices(allSvcs, targetDate, onlineBookingClosures);
-    setClosedLabels(allSvcs.filter((s) => !svcs.includes(s)).map((s) => s.label));
+    const existing = excludeReservationId ? reservations.filter((r) => r.id !== excludeReservationId) : reservations;
+    // Plafond de couverts en ligne : un service dont les couverts déjà réservés
+    // + ce groupe dépasseraient le plafond n'est plus proposé.
+    const full = new Set(
+      svcs
+        .filter((s) => {
+          const cap = onlineCoversCap(s, targetDate, onlineBookingClosures);
+          return cap != null && reservedCoversInService(existing, targetDate, s) + targetParty > cap;
+        })
+        .map((s) => s.serviceNumber)
+    );
+    setClosedLabels([...allSvcs.filter((s) => !svcs.includes(s)), ...svcs.filter((s) => full.has(s.serviceNumber))].map((s) => s.label));
     if (svcs.length === 0) return [];
     const isToday = targetDate === todayISO();
     const now = new Date();
     const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : null;
     // Le créneau candidat porte la zone choisie → le moteur ne le retient que
     // si une table de cette zone est libre.
-    const candidateSlots = buildCandidateSlots(svcs, settings, targetParty, { nowMin }).map((c) => ({
-      ...c,
-      preferredLayoutId: zoneLayoutId || null,
-    }));
-    const existing = excludeReservationId ? reservations.filter((r) => r.id !== excludeReservationId) : reservations;
+    const candidateSlots = buildCandidateSlots(svcs, settings, targetParty, { nowMin })
+      .filter((c) => !full.has(c.serviceNumber))
+      .map((c) => ({
+        ...c,
+        preferredLayoutId: zoneLayoutId || null,
+      }));
     const existingForSolver = reservationsForSolver(existing, targetDate);
     // Tables réellement occupées / forcées par l'équipe (« Passage », forçage
     // manuel, service commencé) : le moteur ne doit pas pouvoir les re-placer
@@ -242,7 +254,7 @@ export default function ReservationBooking() {
     } catch (e) {
       console.error(e);
       // Bloqué entre-temps par le restaurant (page restée ouverte) : garde-fou base.
-      if (String(e?.message || "").includes("online_booking_closed")) {
+      if (/online_booking_(closed|limit_reached)/.test(String(e?.message || ""))) {
         setErr("Désolé, les réservations en ligne viennent d'être closes pour ce service. Merci de nous contacter directement.");
         setSlots((cur) => cur.filter((s) => s.startMin !== slot.startMin));
       } else {
