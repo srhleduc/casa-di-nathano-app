@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder } from "@/lib/data";
+import { useState, useEffect, useMemo } from "react";
+import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useTables } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
-import { cartSignature, lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
+import { tableDisplayName, tableDisplayLabel, findOpenDineInOrderForTables, cartSignature,lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
@@ -26,6 +26,16 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [items, setItems] = useState(order.items);
   const [serviceType, setServiceType] = useState(order.serviceType);
   const [name, setName] = useState(order.name);
+  const { tables } = useTables();
+  // Sur place : tables cochées + texte libre (hors registre), comme à la prise
+  // de commande (StaffOrderFlow). Une ancienne commande sans table rattachée
+  // reprend son nom comme texte libre, sauf si c'était un client à emporter
+  // (son nom est alors un prénom, pas une table).
+  const [selectedTableIds, setSelectedTableIds] = useState(order.tableIds || []);
+  const [otherTableLabel, setOtherTableLabel] = useState(
+    order.tableLabel ||
+      (!isTakeawayLike(order.serviceType) && !(order.tableIds || []).length && order.name && order.name !== "Commande équipe" ? order.name : "")
+  );
   const [note, setNote] = useState(order.note || "");
   const [selectedSlot, setSelectedSlot] = useState(
     order.slotAllocations && order.slotAllocations.length === 1 ? { id: order.slotAllocations[0].slotId, label: order.slotAllocations[0].label } : null
@@ -59,6 +69,28 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
 
   const pizzaCount = countOvenItems(items);
   const total = items.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0);
+
+  // Vignettes de tables : tables actives du registre (+ celles déjà cochées
+  // sur la commande, même désactivées depuis), triées par nom naturel.
+  const tableCollator = useMemo(() => new Intl.Collator("fr", { numeric: true, sensitivity: "base" }), []);
+  const pickableTables = useMemo(
+    () =>
+      tables
+        .filter((t) => t.active || selectedTableIds.includes(t.id))
+        .sort((a, b) => tableCollator.compare(tableDisplayName(a), tableDisplayName(b))),
+    [tables, selectedTableIds, tableCollator]
+  );
+  const useTableChips = !isTakeawayLike(serviceType) && pickableTables.length > 0;
+  // Une seule commande ouverte par table : on repère celles déjà prises par une
+  // autre commande (la commande en cours d'édition n'est jamais comptée).
+  const otherOrders = useMemo(() => orders.filter((o) => o.id !== order.id), [orders, order.id]);
+  const orderIsOpen = order.status !== "servie" && !isOrderPaid(order);
+  function takenByOtherOrder(tableId) {
+    return findOpenDineInOrderForTables(otherOrders, { tableIds: [tableId] });
+  }
+  function toggleTableId(id) {
+    setSelectedTableIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   // Un article déjà marqué "servi" (boisson pointée sur l'écran Boissons,
   // pizza déjà envoyée en cuisine...) forme une ligne à part : on ne
@@ -160,10 +192,29 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     }
     const wasTakeaway = isTakeawayLike(order.serviceType);
     const isTakeawayNow = isTakeawayLike(serviceType);
+    const sortedTableIds = [...selectedTableIds].sort();
+    if (useTableChips && orderIsOpen && serviceType === "🍽️ Sur place" && sortedTableIds.length > 0) {
+      const clash = findOpenDineInOrderForTables(otherOrders, { tableIds: sortedTableIds });
+      if (clash) {
+        alert(`Cette table est déjà prise par une autre commande en cours (« ${clash.name} »). Choisis une autre table ou termine d'abord l'autre commande.`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const cleanedItems = items.map((it) => ({ ...it, itemNote: (it.itemNote || "").trim() || null }));
       const patch = { items: cleanedItems, slotAllocations: finalSlotAllocations, total, pizzaCount, serviceType, name: name || "", note: note.trim() || null };
+      // Sur place avec vignettes : le nom affiché et le rattachement aux tables
+      // suivent les tables cochées (+ texte libre), comme à la prise de commande.
+      // À emporter : plus aucune table rattachée.
+      if (useTableChips) {
+        patch.tableIds = sortedTableIds;
+        patch.tableLabel = otherTableLabel.trim() || null;
+        patch.name = tableDisplayLabel({ tableIds: sortedTableIds, tableLabel: otherTableLabel }, tables);
+      } else if (isTakeawayNow) {
+        patch.tableIds = [];
+        patch.tableLabel = null;
+      }
       // Une commande déjà passée le four/la Finition ("prête", "prêt à
       // servir" ou même déjà "servie") n'y repasse jamais tant que son
       // statut ne bouge pas : si le client redemande une pizza en plein
@@ -343,13 +394,50 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
             <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">
               {!isTakeawayLike(serviceType) ? "Numéro de table" : "Nom du client"}
             </div>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
-              className="w-full rounded-xl px-4 py-3 outline-none"
-              style={inputStyle}
-            />
+            {useTableChips ? (
+              <>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {pickableTables.map((t) => {
+                    const on = selectedTableIds.includes(t.id);
+                    const taken = !on && !!takenByOtherOrder(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleTableId(t.id)}
+                        title={taken ? "Déjà prise par une autre commande en cours" : undefined}
+                        className="tap-scale rounded-full px-4 py-2 font-bold border-2 text-sm"
+                        style={
+                          on
+                            ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" }
+                            : { borderColor: "#3a2b1f", color: taken ? "#6f5d4c" : "#c9b8a4", opacity: taken ? 0.6 : 1 }
+                        }
+                      >
+                        {on ? "✓ " : ""}
+                        {tableDisplayName(t)}
+                        {taken ? " · occupée" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-xs text-[#a88f78] uppercase font-bold mb-2">Autre / texte libre</div>
+                <input
+                  value={otherTableLabel}
+                  onChange={(e) => setOtherTableLabel(e.target.value)}
+                  placeholder="Ex. Terrasse 3, table d'appoint…"
+                  className="w-full rounded-xl px-4 py-3 outline-none"
+                  style={inputStyle}
+                />
+              </>
+            ) : (
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
+                className="w-full rounded-xl px-4 py-3 outline-none"
+                style={inputStyle}
+              />
+            )}
             <div className="text-xs uppercase font-bold mb-2 mt-4" style={{ color: "#ff5fa8" }}>
               📝 Note pour l'équipe
             </div>
