@@ -21,9 +21,12 @@ export default function DeadlineBadge({ order }) {
   const deadlineMinutes = orderDeadlineMinutes(order);
   if (deadlineMinutes == null) return null;
 
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
-  const targetMs = midnight.getTime() + deadlineMinutes * 60000;
+  // On construit l'heure visée en heure locale (setHours) plutôt qu'en ajoutant
+  // des minutes à minuit : les jours de changement d'heure font 23 h ou 25 h,
+  // et minuit + N minutes serait alors décalé d'une heure.
+  const target = new Date(now);
+  target.setHours(Math.floor(deadlineMinutes / 60), deadlineMinutes % 60, 0, 0);
+  const targetMs = target.getTime();
   const diff = targetMs - now;
   const late = diff < 0;
   const inSlot = !late && diff <= SLOT_DURATION_MS;
