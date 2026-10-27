@@ -18,6 +18,7 @@ import {
   fetchTeamDeviceNames,
   saveTeamDeviceName,
   fetchTeamBlockedDevices,
+  fetchTeamDeviceNumbers,
   setTeamDeviceBlocked,
 } from "@/lib/data";
 import { useRestaurantsList } from "@/lib/restaurant";
@@ -63,6 +64,9 @@ export default function TeamAccessLogAdmin() {
   const [rows, setRows] = useState(null);
   const [deviceNames, setDeviceNames] = useState({});
   const [blockedDevices, setBlockedDevices] = useState({}); // { deviceId: true }
+  // Numéro fixe attribué à la première connexion de chaque appareil jamais nommé
+  // (table team_device_numbers) : « Appareil inconnu 1 », « 2 »…
+  const [deviceNumbers, setDeviceNumbers] = useState({}); // { deviceId: numéro }
   const [error, setError] = useState(null);
   const [cityFilter, setCityFilter] = useState("");
   const [onlySuccess, setOnlySuccess] = useState(false);
@@ -75,14 +79,16 @@ export default function TeamAccessLogAdmin() {
   async function load() {
     setError(null);
     try {
-      const [log, nameMap, blocked] = await Promise.all([
-        fetchTeamPinLog(1000),
+      const [log, nameMap, blocked, numbers] = await Promise.all([
+        fetchTeamPinLog(300),
         fetchTeamDeviceNames(),
         fetchTeamBlockedDevices(),
+        fetchTeamDeviceNumbers(),
       ]);
       setRows(log);
       setDeviceNames(nameMap);
       setBlockedDevices(blocked);
+      setDeviceNumbers(numbers);
     } catch (err) {
       setError(err?.message || "Impossible de charger le journal.");
       setRows([]);
@@ -97,22 +103,6 @@ export default function TeamAccessLogAdmin() {
     () => Object.fromEntries(restaurants.map((r) => [r.id, r.name || r.id])),
     [restaurants]
   );
-
-  // Numéro des appareils inconnus : « Appareil inconnu 1 », « 2 »… attribué dans
-  // l'ordre de première connexion (le plus ancien = 1). Un même appareil garde son
-  // numéro à chaque reconnexion. Calculé sur tout le journal chargé (pas sur le
-  // filtre affiché). Si tu nommes un appareil, il sort de la liste et les suivants
-  // se décalent d'un cran.
-  const unknownNumbers = useMemo(() => {
-    const seen = {};
-    let next = 1;
-    const oldestFirst = [...(rows || [])].reverse();
-    for (const r of oldestFirst) {
-      if (!r.device_id || deviceNames[r.device_id] || seen[r.device_id]) continue;
-      seen[r.device_id] = next++;
-    }
-    return seen;
-  }, [rows, deviceNames]);
 
   const filtered = useMemo(() => {
     const q = cityFilter.trim().toLowerCase();
@@ -275,7 +265,7 @@ export default function TeamAccessLogAdmin() {
                   </span>
                 ) : (
                   <span className="text-xs text-[#C0392B] font-bold">
-                    {r.device_id ? `Appareil inconnu ${unknownNumbers[r.device_id] ?? ""}`.trim() : "Appareil non identifié"}
+                    {r.device_id ? `Appareil inconnu ${deviceNumbers[r.device_id] ?? ""}`.trim() : "Appareil non identifié"}
                   </span>
                 )}
                 {isBlocked && <span className="text-xs font-bold text-[#e0a030]">⛔ Bloqué</span>}
