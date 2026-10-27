@@ -1059,6 +1059,9 @@ create table if not exists order_commitments (
     references orders (id) on delete set null,
   restaurant_id text references restaurants (id),
   customer_phone text not null,
+  -- Nom donné par le client (orders.name est purgé chaque nuit, pas ce champ).
+  -- Voir migrations_manual/order_commitments_customer_name.sql.
+  customer_name text,
   commitment_accepted boolean not null default false,
   commitment_accepted_at timestamptz,
   cgv_text_snapshot text not null,
@@ -1068,6 +1071,8 @@ create table if not exists order_commitments (
   order_status text not null default 'pending',
   created_at timestamptz not null default now()
 );
+
+alter table order_commitments add column if not exists customer_name text;
 
 alter table order_commitments
   drop constraint if exists order_commitments_status_chk;
@@ -1167,6 +1172,7 @@ begin
     order_id,
     restaurant_id,
     customer_phone,
+    customer_name,
     commitment_accepted,
     commitment_accepted_at,
     cgv_text_snapshot,
@@ -1179,6 +1185,7 @@ begin
     v_order_id,
     v_rid,
     p_customer_phone,
+    case when nullif(trim(p_name), '') is null or trim(p_name) = 'Commande en ligne' then null else left(trim(p_name), 120) end,
     true,
     now(),
     p_cgv_text_snapshot,
