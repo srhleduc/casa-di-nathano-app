@@ -107,7 +107,7 @@ export default function OrderScreen({
     });
   }
 
-  const items = fullMenu.filter(
+  const availableItems = fullMenu.filter(
     (m) =>
       m.cat === currentCat &&
       !(ruptures || []).includes(m.id) &&
@@ -117,6 +117,12 @@ export default function OrderScreen({
       isStructurallyAvailable(m) &&
       !(m.cat === "panuzzo" && !isPanuzzoTime)
   );
+  // Côté client (borne + click & collect) : les produits « Best-seller »
+  // (menu_items.featured) passent toujours en tête de leur catégorie. Le reste
+  // garde son ordre d'origine (tri stable via partition). Vue équipe inchangée.
+  const items = clientView
+    ? [...availableItems.filter((m) => m.featured), ...availableItems.filter((m) => !m.featured)]
+    : availableItems;
 
   return (
     <div className="flex-1 flex flex-col min-h-0" style={clientView ? { background: "#150e0a" } : undefined}>
