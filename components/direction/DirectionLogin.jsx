@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signInManager } from "@/lib/managerAuth";
 
-export default function DirectionLogin({ title = "Espace Direction", icon = "🧑‍💼" }) {
+export default function DirectionLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -20,8 +20,8 @@ export default function DirectionLogin({ title = "Espace Direction", icon = "�
 
   return (
     <div className="kiosk-root--pin px-8">
-      <span className="text-5xl mb-6">{icon}</span>
-      <h1 className="display-font text-3xl font-semibold mb-8">{title}</h1>
+      <span className="text-5xl mb-6">🧑‍💼</span>
+      <h1 className="display-font text-3xl font-semibold mb-8">Espace Direction</h1>
       <form onSubmit={handleSubmit} className="w-full max-w-sm flex flex-col gap-4">
         <input
           type="email"

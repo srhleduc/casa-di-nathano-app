@@ -3,20 +3,17 @@
 // tous les restaurants) pour que le nom affiché sur l'écran d'accueil
 // corresponde au bon établissement.
 const RESTAURANT_NAMES = { riec: "Casa Di Nathano", quimperle: "Casa Di Luigi" };
-const APP_MODE = process.env.NEXT_PUBLIC_APP_MODE;
 const restaurantName =
-  APP_MODE === "direction"
+  process.env.NEXT_PUBLIC_APP_MODE === "direction"
     ? "Direction"
-    : APP_MODE === "communication"
-    ? "Casa communication"
     : RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
 
 export default function manifest() {
   return {
     id: "/",
     name: restaurantName,
-    short_name: APP_MODE === "communication" ? "Communication" : restaurantName.length > 14 ? "Casa" : restaurantName,
-    description: APP_MODE === "communication" ? "Posts réseaux sociaux et visuels — Casa" : `Borne de commande et espace équipe — ${restaurantName}`,
+    short_name: restaurantName.length > 14 ? "Casa" : restaurantName,
+    description: `Borne de commande et espace équipe — ${restaurantName}`,
     start_url: "/",
     scope: "/",
     display: "standalone",
