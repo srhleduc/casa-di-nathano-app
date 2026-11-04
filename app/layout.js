@@ -22,14 +22,17 @@ const manrope = Manrope({
 // le bon nom sans appel réseau. Le contenu affiché à l'écran, lui, vient
 // toujours de la table `restaurants` en base (voir lib/restaurant.js).
 const RESTAURANT_NAMES = { riec: "Casa Di Nathano", quimperle: "Casa Di Luigi" };
+const APP_MODE = process.env.NEXT_PUBLIC_APP_MODE;
 const restaurantName =
-  process.env.NEXT_PUBLIC_APP_MODE === "direction"
+  APP_MODE === "direction"
     ? "Casa Di Nathano — Direction"
+    : APP_MODE === "communication"
+    ? "Casa communication"
     : RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
 
 export const metadata = {
   title: restaurantName,
-  description: `Borne de commande et espace équipe — ${restaurantName}`,
+  description: APP_MODE === "communication" ? "Posts réseaux sociaux et visuels — Casa" : `Borne de commande et espace équipe — ${restaurantName}`,
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
