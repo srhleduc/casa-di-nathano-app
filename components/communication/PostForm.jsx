@@ -1,68 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { EDITABLE_STATUSES, PLATFORM_LABELS, savePost, toLocalInput, useCommunicationAssets } from "@/lib/communication";
+import { PLATFORMS, POST_STATUSES, savePost } from "@/lib/communication";
 import AssetLibrary from "./AssetLibrary";
 
 const FIELD = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
-const IG_CAPTION_MAX = 2200;
 
-export default function PostForm({ initial, accounts, restaurants, onClose, onSaved }) {
+export default function PostForm({ initial, restaurants, onClose, onSaved }) {
   const [post, setPost] = useState(
-    initial
-      ? { ...initial, scheduledAtLocal: toLocalInput(initial.scheduledAt) }
-      : { title: "", caption: "", scheduledAtLocal: "", status: "idea", assetIds: [], accountIds: [] }
+    initial || { title: "", caption: "", platforms: ["instagram"], restaurantId: "", scheduledFor: "", status: "idea", assetIds: [] }
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [pickingAssets, setPickingAssets] = useState(false);
-  const { rows: assets } = useCommunicationAssets();
 
   const set = (patch) => setPost((p) => ({ ...p, ...patch }));
   const toggleIn = (key, id) =>
     set({ [key]: post[key].includes(id) ? post[key].filter((x) => x !== id) : [...post[key], id] });
-  const restaurantName = (id) => restaurants.find((r) => r.id === id)?.name || "Enseigne non définie";
-  const usable = accounts.filter((a) => a.status === "ok");
-
-  // Les statuts posés par le système (en cours / publié / échec) restent affichés tels quels.
-  const statusOptions = EDITABLE_STATUSES.some((s) => s.id === post.status)
-    ? EDITABLE_STATUSES
-    : [...EDITABLE_STATUSES, { id: post.status, label: post.status === "failed" ? "⚠️ Échec" : post.status }];
-
-  function validate() {
-    if (!post.title.trim()) return "Donne un titre au post.";
-    const chosen = usable.filter((a) => post.accountIds.includes(a.id));
-    const picked = post.assetIds.map((id) => assets.find((a) => a.id === id)).filter(Boolean);
-    const videos = picked.filter((a) => a.mediaType === "video").length;
-    const images = picked.length - videos;
-    if (post.status === "scheduled") {
-      if (!post.scheduledAtLocal) return "Choisis la date et l'heure de publication.";
-      if (new Date(post.scheduledAtLocal).getTime() < Date.now() - 60_000) return "La date de publication est déjà passée.";
-      if (chosen.length === 0) return "Choisis au moins un compte sur lequel publier.";
-    }
-    if (chosen.some((a) => a.platform === "instagram")) {
-      if (picked.length === 0) return "Instagram exige au moins une photo ou une vidéo.";
-      if (videos > 1 || (videos === 1 && images > 0)) return "Instagram : une seule vidéo, sans photo — ou jusqu'à 10 photos.";
-      if (images > 10) return "Instagram : 10 photos maximum.";
-      if (post.caption.length > IG_CAPTION_MAX) return `Instagram : texte limité à ${IG_CAPTION_MAX} caractères.`;
-    }
-    if (chosen.some((a) => a.platform === "facebook") && videos > 0 && images > 0) {
-      return "Facebook : impossible de mélanger photos et vidéo.";
-    }
-    return null;
-  }
 
   async function submit(e) {
     e.preventDefault();
-    const problem = validate();
-    if (problem) {
-      setError(problem);
+    if (!post.title.trim()) {
+      setError("Donne un titre au post.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await savePost(post, accounts);
+      await savePost(post);
       onSaved();
     } catch (err) {
       console.error(err);
@@ -85,44 +50,32 @@ export default function PostForm({ initial, accounts, restaurants, onClose, onSa
 
         <input value={post.title} onChange={(e) => set({ title: e.target.value })} placeholder="Titre (ex. Pizza Mont d'Or)"
           className="rounded-xl px-4 py-3 outline-none" style={FIELD} />
-        <div>
-          <textarea value={post.caption} onChange={(e) => set({ caption: e.target.value })} placeholder="Texte du post (légende, hashtags…)"
-            rows={6} className="w-full rounded-xl px-4 py-3 outline-none" style={FIELD} />
-          <div className="text-right text-[11px] text-[#8a7561]">{post.caption.length} / {IG_CAPTION_MAX}</div>
+        <textarea value={post.caption} onChange={(e) => set({ caption: e.target.value })} placeholder="Texte du post (légende, hashtags…)"
+          rows={6} className="rounded-xl px-4 py-3 outline-none" style={FIELD} />
+
+        <div className="flex flex-wrap gap-2">
+          {PLATFORMS.map((p) => (
+            <button key={p.id} type="button" onClick={() => toggleIn("platforms", p.id)}
+              className={`tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 ${post.platforms.includes(p.id) ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+              {p.label}
+            </button>
+          ))}
         </div>
 
-        <div>
-          <div className="text-xs text-[#a88f78] mb-2">Publier sur</div>
-          {usable.length === 0 ? (
-            <p className="text-sm text-[#8a7561]">Aucun compte connecté : va dans l'onglet « Comptes ».</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {usable.map((a) => (
-                <button key={a.id} type="button" onClick={() => toggleIn("accountIds", a.id)}
-                  className={`tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 ${post.accountIds.includes(a.id) ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
-                  {restaurantName(a.restaurantId)} · {PLATFORM_LABELS[a.platform]}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="grid grid-cols-2 gap-3">
+          <select value={post.restaurantId || ""} onChange={(e) => set({ restaurantId: e.target.value })} className="rounded-xl px-3 py-3 outline-none" style={FIELD}>
+            <option value="">Les deux enseignes</option>
+            {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          <select value={post.status} onChange={(e) => set({ status: e.target.value })} className="rounded-xl px-3 py-3 outline-none" style={FIELD}>
+            {POST_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-[#a88f78]">
-            Date et heure de publication
-            <input type="datetime-local" value={post.scheduledAtLocal} onChange={(e) => set({ scheduledAtLocal: e.target.value })}
-              className="rounded-xl px-3 py-3 outline-none text-base" style={FIELD} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-[#a88f78]">
-            Statut
-            <select value={post.status} onChange={(e) => set({ status: e.target.value })} className="rounded-xl px-3 py-3 outline-none text-base" style={FIELD}>
-              {statusOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </label>
-        </div>
-        <p className="text-[11px] text-[#8a7561] -mt-2">
-          Passe le statut sur « Planifié » pour que le post parte tout seul à l'heure choisie (vérification toutes les 5 minutes).
-        </p>
+        <label className="flex flex-col gap-1 text-xs text-[#a88f78]">
+          Date de publication prévue
+          <input type="date" value={post.scheduledFor || ""} onChange={(e) => set({ scheduledFor: e.target.value })}
+            className="rounded-xl px-4 py-3 outline-none text-base" style={FIELD} />
+        </label>
 
         <div>
           <button type="button" onClick={() => setPickingAssets((v) => !v)}

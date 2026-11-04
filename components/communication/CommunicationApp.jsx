@@ -3,50 +3,20 @@
 // Espace « Casa communication » — déploiement dédié (NEXT_PUBLIC_APP_MODE=communication).
 // Même connexion personnelle que l'espace Direction (comptes `managers`).
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { signOutManager, useManagerSession } from "@/lib/managerAuth";
-import { completeMetaConnect, useSocialAccounts } from "@/lib/communication";
 import DirectionLogin from "../direction/DirectionLogin";
 import PostsBoard from "./PostsBoard";
 import AssetLibrary from "./AssetLibrary";
-import AccountsPanel from "./AccountsPanel";
 
 const TABS = [
   { id: "posts", label: "📝 Posts" },
   { id: "assets", label: "🖼️ Visuels" },
-  { id: "accounts", label: "🔗 Comptes" },
 ];
 
 export default function CommunicationApp() {
   const { session, loading } = useManagerSession();
   const [tab, setTab] = useState("posts");
-  const [notice, setNotice] = useState(null);
-  const { rows: accounts, reload: reloadAccounts } = useSocialAccounts();
-  const handledReturn = useRef(false);
-
-  // Retour de la page de connexion Facebook : /?meta_code=…&meta_state=… (ou ?meta_error=…)
-  useEffect(() => {
-    if (!session || handledReturn.current) return;
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("meta_code");
-    const error = params.get("meta_error");
-    if (!code && !error) return;
-    handledReturn.current = true;
-    const state = params.get("meta_state");
-    window.history.replaceState(null, "", window.location.pathname);
-    setTab("accounts");
-    if (error) {
-      setNotice({ kind: "error", text: error });
-      return;
-    }
-    setNotice({ kind: "info", text: "Connexion en cours…" });
-    completeMetaConnect(code, state)
-      .then((res) => {
-        setNotice({ kind: "info", text: `✓ ${res.accounts.length} compte(s) connecté(s). Indique maintenant l'enseigne de chacun.` });
-        reloadAccounts();
-      })
-      .catch((err) => setNotice({ kind: "error", text: err.message || String(err) }));
-  }, [session, reloadAccounts]);
 
   if (loading) {
     return (
@@ -73,9 +43,8 @@ export default function CommunicationApp() {
           </button>
         ))}
       </div>
-      {tab === "posts" && <PostsBoard accounts={accounts} />}
+      {tab === "posts" && <PostsBoard />}
       {tab === "assets" && <AssetLibrary />}
-      {tab === "accounts" && <AccountsPanel accounts={accounts} reload={reloadAccounts} notice={notice} />}
     </div>
   );
 }
