@@ -117,12 +117,12 @@ export default function OrderScreen({
   const [formulaOrdering, setFormulaOrdering] = useState(null);
   const menuById = useMemo(() => new Map(fullMenu.map((m) => [m.id, m])), [fullMenu]);
   // Produit proposable dans une formule : mêmes règles que le menu normal
-  // (rupture, stock, sur place / à emporter, équipe), et pas de produit à
-  // sous-catégories obligatoires (parfums…) — non gérées dans la formule.
+  // (rupture, stock, options obligatoires encore disponibles, sur place / à
+  // emporter, équipe).
   function isFormulaItemOrderable(m) {
     return (
       !(ruptures || []).includes(m.id) &&
-      optionGroupsForItem(m).length === 0 &&
+      !requiredOptionsUnavailable(m) &&
       !dessertAvailability(m.name).out &&
       !isPizzaOut(m.cat) &&
       isStructurallyAvailable(m) &&
@@ -383,11 +383,14 @@ export default function OrderScreen({
       {formulaOrdering && (
         <FormulaModal
           formula={formulaOrdering}
+          menu={fullMenu}
           menuById={menuById}
           isOrderable={isFormulaItemOrderable}
+          ruptures={ruptures}
+          staffMode={staffMode}
           onClose={() => setFormulaOrdering(null)}
           onConfirm={(picks) => {
-            formulaCartLines(formulaOrdering, picks, eur).forEach(({ item, note }) => addItem(item, note));
+            formulaCartLines(formulaOrdering, picks, eur).forEach(({ item, note, extra }) => addItem(item, note, extra));
             setFormulaOrdering(null);
           }}
         />

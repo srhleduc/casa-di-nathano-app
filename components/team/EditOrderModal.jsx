@@ -105,14 +105,17 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
     );
     return true;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers, itemNote } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
     if (blockedByServiceConflict(item)) return;
+    const mods = extra?.modifiers || [];
+    const itemNote = extra?.itemNote || null;
     setItems((prev) => {
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
-      const existing = prev.find((i) => !i.served && !i.itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      const existing = prev.find((i) => !i.served && !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, mods));
       if (existing) return prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [] }];
+      return [...prev, { ...item, qty: 1, note: note || null, itemNote, modifiers: mods }];
     });
   }
   function addCustomizedPizza(pizzaItem, removedItems, addedItems, itemNote) {

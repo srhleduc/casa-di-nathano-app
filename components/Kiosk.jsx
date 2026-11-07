@@ -82,13 +82,15 @@ export default function Kiosk() {
     );
     return true;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
+    const mods = extra?.modifiers || [];
     if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, mods));
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
+        : [...prev, { ...item, qty: 1, note: note || null, modifiers: mods }];
       return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }

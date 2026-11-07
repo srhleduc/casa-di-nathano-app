@@ -158,17 +158,20 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     );
     return true;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers, itemNote } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
     if (blockedByServiceConflict(item)) return;
+    const mods = extra?.modifiers || [];
+    const itemNote = extra?.itemNote || null;
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     setCart((prev) => {
-      const sig = cartSignature(item.id, note, null) + "|" + (phase || "");
+      const sig = cartSignature(item.id, note, mods) + "|" + (phase || "");
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
-      const existing = prev.find((i) => !i.itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
+      const existing = prev.find((i) => !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [], phase }];
+        : [...prev, { ...item, qty: 1, note: note || null, itemNote, modifiers: mods, phase }];
       return withAutoFocaccia(next, item, phase, menuItems);
     });
   }
