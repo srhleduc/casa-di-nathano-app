@@ -21,6 +21,7 @@ import DessertStockAdmin from "./team/DessertStockAdmin";
 import PizzaStockAdmin from "./team/PizzaStockAdmin";
 import TimingStatsAdmin from "./team/TimingStatsAdmin";
 import MenuAdmin from "./team/MenuAdmin";
+import FormulasAdmin from "./direction/FormulasAdmin";
 import MaintenanceAdmin from "./team/MaintenanceAdmin";
 import RoomLayoutEditor from "./team/RoomLayoutEditor";
 import TableCombinationsAdmin from "./team/TableCombinationsAdmin";
@@ -353,6 +354,9 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
             <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱ Temps de prépa</button>
             <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
+            {readOnly && (
+              <button onClick={() => setTab("formulas")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "formulas" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Formules</button>
+            )}
             <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
           </div>
           {tab === "services" && <ServiceTypesAdmin />}
@@ -361,6 +365,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "patons" && <PizzaStockAdmin />}
           {tab === "timing" && <TimingStatsAdmin />}
           {tab === "newproduct" && <MenuAdmin canEdit={readOnly} />}
+          {tab === "formulas" && readOnly && <FormulasAdmin />}
           {tab === "maintenance" && <MaintenanceAdmin />}
         </>
       )}
