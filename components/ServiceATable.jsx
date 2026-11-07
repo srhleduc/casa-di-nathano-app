@@ -27,7 +27,6 @@ import {
   findOpenDineInOrderForTables,
   countOvenItems,
 } from "@/lib/business";
-import { FORMULE_PRICE, eur } from "@/lib/menu";
 import {
   useOrders,
   useSlots,
@@ -58,7 +57,6 @@ function nowWall() {
 import OrderScreen from "./OrderScreen";
 import PizzaCustomizeModal from "./PizzaCustomizeModal";
 import FlavorModal from "./FlavorModal";
-import PanuzzoModal from "./PanuzzoModal";
 import CheckoutScreen from "./CheckoutScreen";
 import StatusScreen from "./StatusScreen";
 import ServiceConflictBanner from "./ServiceConflictBanner";
@@ -86,7 +84,6 @@ export default function ServiceATable() {
   const [tableId, setTableId] = useState(null); // table choisie (id du registre `tables`)
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
-  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [submitted, setSubmitted] = useState(false); // évite un double envoi
   const [completing, setCompleting] = useState(false); // a rejoint une commande déjà ouverte
   const [serviceConflict, setServiceConflict] = useState(null);
@@ -148,13 +145,15 @@ export default function ServiceATable() {
     );
     return true;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
+    const mods = extra?.modifiers || [];
     if (blockedByServiceConflict(item)) return;
     setCart((prev) => {
-      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      const existing = prev.find((i) => cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, mods));
       const next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, modifiers: [] }];
+        : [...prev, { ...item, qty: 1, note: note || null, modifiers: mods }];
       return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }
@@ -174,12 +173,6 @@ export default function ServiceATable() {
       return [...prev, { ...pizzaItem, qty: 1, note: null, modifiers }];
     });
     setCustomizing(null);
-  }
-  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
-    addItem({ ...sandwich, price: FORMULE_PRICE }, "Formule");
-    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
-    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
-    setPanuzzoOrdering(null);
   }
   function changeQty(id, note, modifiers, delta) {
     const sig = cartSignature(id, note, modifiers);
@@ -294,7 +287,6 @@ export default function ServiceATable() {
     setSubmitted(false);
     setCustomizing(null);
     setFlavoring(null);
-    setPanuzzoOrdering(null);
     setActiveCat("pizza");
     setScreen("welcome");
   }
@@ -333,7 +325,6 @@ export default function ServiceATable() {
           addItem={addItem}
           onPizzaTap={setCustomizing}
           onGlaceTap={setFlavoring}
-          onPanuzzoTap={setPanuzzoOrdering}
           changeQty={changeQty}
           total={total}
           itemCount={itemCount}
@@ -372,23 +363,6 @@ export default function ServiceATable() {
             addItem(flavoring, note);
             setFlavoring(null);
           }}
-        />
-      )}
-
-      {panuzzoOrdering && (
-        <PanuzzoModal
-          item={panuzzoOrdering}
-          menu={menuItems}
-          dessertStock={dessertStock}
-          orders={orders}
-          ruptures={ruptures}
-          serviceType={DINE_IN}
-          onClose={() => setPanuzzoOrdering(null)}
-          onAddSolo={(item) => {
-            addItem(item);
-            setPanuzzoOrdering(null);
-          }}
-          onAddFormule={addFormule}
         />
       )}
 

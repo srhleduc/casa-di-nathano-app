@@ -63,15 +63,18 @@ export default function ScheduledOrderFlow({ onDone }) {
     }
     return false;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers, itemNote } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
     if (blockedByServiceConflict(item)) return;
+    const mods = extra?.modifiers || [];
+    const itemNote = extra?.itemNote || null;
     setCart((prev) => {
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
-      const existing = prev.find((i) => !i.itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, null));
+      const existing = prev.find((i) => !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) === cartSignature(item.id, note, mods));
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [] }];
+        : [...prev, { ...item, qty: 1, note: note || null, itemNote, modifiers: mods }];
       return withAutoFocaccia(next, item, undefined, menuItems);
     });
   }

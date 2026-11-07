@@ -2409,3 +2409,32 @@ create trigger team_config_audit_trg
   for each row execute function log_team_config_change();
 
 notify pgrst, 'reload schema';
+
+-- =====================================================================
+-- Formules (pizza + dessert + soda, etc.) — voir supabase/migrations_manual/formulas.sql
+-- pour le détail des colonnes. Édité depuis Direction → Formules.
+-- =====================================================================
+create table if not exists formulas (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  price numeric(10, 2) not null default 0,
+  dine_in boolean not null default true,
+  takeaway boolean not null default true,
+  restaurant_ids text[] not null default '{}',
+  service_slots text[] not null default '{}',
+  slots jsonb not null default '[]'::jsonb,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table formulas enable row level security;
+drop policy if exists "formulas_select" on formulas;
+drop policy if exists "formulas_write" on formulas;
+create policy "formulas_select" on formulas for select to authenticated using (true);
+create policy "formulas_write" on formulas for all to authenticated using (is_manager()) with check (is_manager());
+
+alter publication supabase_realtime add table formulas;
+
+notify pgrst, 'reload schema';

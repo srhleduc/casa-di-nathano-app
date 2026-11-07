@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { cartSignature, withAutoFocaccia, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, allUpcomingSlotsForStaff, lineUnitPrice, kitchenPendingQty, tableDisplayLabel, tableDisplayName, findOpenDineInOrderForTables, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, TAKEAWAY_SLOT_MARGIN_MINUTES, countOvenItems } from "@/lib/business";
-import { FORMULE_PRICE, eur } from "@/lib/menu";
 import { useOrders, useSlots, useRuptures, useDessertStock, usePizzaStock, useMenu, useTestMode, useServiceTypeSettings, useTables, useCategoryOrder, useReservations, useReservationTableAssignments, useReservationSettings, insertOrder, appendItemsToOrder, updateOrder, updateReservation, createWalkInReservationForTables, fetchOpenDineInOrderForTables } from "@/lib/data";
 import { assignmentsByReservation, matchReservationForOrder, seatedReservationForTables } from "@/lib/reservation/order-link";
 import { useRestaurant } from "@/lib/restaurant";
@@ -19,7 +18,6 @@ import AperoAskScreen from "../AperoAskScreen";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
-import PanuzzoModal from "../PanuzzoModal";
 import CheckoutScreen from "../CheckoutScreen";
 import SlotScreen from "../SlotScreen";
 import StatusScreen from "../StatusScreen";
@@ -128,7 +126,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
-  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [paidUpfront, setPaidUpfront] = useState(false); // client règle dès la prise de commande
 
@@ -161,17 +158,20 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     );
     return true;
   }
-  function addItem(item, note) {
+  // `extra` (facultatif, formules) : { modifiers, itemNote } d'une pizza personnalisée.
+  function addItem(item, note, extra) {
     if (blockedByServiceConflict(item)) return;
+    const mods = extra?.modifiers || [];
+    const itemNote = extra?.itemNote || null;
     const phase = aperoMode ? "apero" : aperoUsed ? "main" : undefined;
     setCart((prev) => {
-      const sig = cartSignature(item.id, note, null) + "|" + (phase || "");
+      const sig = cartSignature(item.id, note, mods) + "|" + (phase || "");
       // Une ligne déjà notée (note libre par produit) ne fusionne jamais un
       // nouvel ajout identique — sa note ne doit pas déteindre sur d'autres.
-      const existing = prev.find((i) => !i.itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
+      const existing = prev.find((i) => !i.itemNote && !itemNote && cartSignature(i.id, i.note, i.modifiers) + "|" + (i.phase || "") === sig);
       let next = existing
         ? prev.map((i) => (i === existing ? { ...i, qty: i.qty + 1 } : i))
-        : [...prev, { ...item, qty: 1, note: note || null, itemNote: null, modifiers: [], phase }];
+        : [...prev, { ...item, qty: 1, note: note || null, itemNote, modifiers: mods, phase }];
       return withAutoFocaccia(next, item, phase, menuItems);
     });
   }
@@ -192,12 +192,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
       return [...prev, { ...pizzaItem, qty: 1, note: null, itemNote: itemNote || null, modifiers, phase }];
     });
     setCustomizing(null);
-  }
-  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
-    addItem({ ...sandwich, price: FORMULE_PRICE }, "Formule");
-    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
-    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
-    setPanuzzoOrdering(null);
   }
   function changeQty(id, note, modifiers, delta, itemNote) {
     const sig = cartSignature(id, note, modifiers) + "|" + (itemNote || "");
@@ -223,7 +217,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     setPaidUpfront(false);
     setAperoMode(false);
     setAperoUsed(false);
-    setPanuzzoOrdering(null);
     setConfirmedNumber(null);
     setScreen("service");
   }
@@ -442,7 +435,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           addItem={addItem}
           onPizzaTap={setCustomizing}
           onGlaceTap={setFlavoring}
-          onPanuzzoTap={setPanuzzoOrdering}
           changeQty={changeQty}
           total={total}
           itemCount={itemCount}
@@ -525,23 +517,6 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
             addItem(flavoring, note);
             setFlavoring(null);
           }}
-        />
-      )}
-      {panuzzoOrdering && (
-        <PanuzzoModal
-          item={panuzzoOrdering}
-          menu={menuItems}
-          dessertStock={dessertStock}
-          orders={orders}
-          ruptures={ruptures}
-          serviceType={serviceType}
-          staffMode
-          onClose={() => setPanuzzoOrdering(null)}
-          onAddSolo={(item) => {
-            addItem(item);
-            setPanuzzoOrdering(null);
-          }}
-          onAddFormule={addFormule}
         />
       )}
     </div>

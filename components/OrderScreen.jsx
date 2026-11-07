@@ -1,9 +1,15 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { CATEGORIES, orderedCategories, optionRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
-import { useOptionGroups } from "@/lib/data";
+import { useOptionGroups, useAvailableFormulas } from "@/lib/data";
+import { isFormulaOrderable, formulaCartLines } from "@/lib/formulas";
 import ProductCard from "./ProductCard";
+import FormulaModal from "./FormulaModal";
+
+// Onglet virtuel en tête de liste : les formules (Direction → Formules).
+const FORMULAS_CATEGORY = { key: "formules", label: "Formules", emoji: "🍽️" };
 
 export default function OrderScreen({
   activeCat,
@@ -12,7 +18,6 @@ export default function OrderScreen({
   addItem,
   onPizzaTap,
   onGlaceTap,
-  onPanuzzoTap,
   changeQty,
   total,
   itemCount,
@@ -69,9 +74,6 @@ export default function OrderScreen({
     fullMenu.some((m) => m.cat === c.key && isStructurallyAvailable(m))
   );
 
-  // Si la catégorie active vient d'être masquée (ses produits passés en « sur
-  // place uniquement »), on retombe sur la première catégorie encore visible.
-  const currentCat = visibleCategories.some((c) => c.key === activeCat) ? activeCat : visibleCategories[0]?.key;
 
   // Dessert épuisé dans son format normal : `fallback` indique qu'une
   // commande sur place peut tout de même être dépannée avec le format à
@@ -106,6 +108,33 @@ export default function OrderScreen({
       return avail.length === 0;
     });
   }
+
+  // Formules (Direction → Formules) proposées maintenant, ici (restaurant, sur
+  // place / à emporter, jour + service midi/soir). Un onglet « Formules » en
+  // tête de liste quand au moins une est commandable (chaque composant a au
+  // moins un produit disponible). Pas en mode apéro (boissons/planches seules).
+  const availableFormulas = useAvailableFormulas({ isTakeaway });
+  const [formulaOrdering, setFormulaOrdering] = useState(null);
+  const menuById = useMemo(() => new Map(fullMenu.map((m) => [m.id, m])), [fullMenu]);
+  // Produit proposable dans une formule : mêmes règles que le menu normal
+  // (rupture, stock, options obligatoires encore disponibles, sur place / à
+  // emporter, équipe).
+  function isFormulaItemOrderable(m) {
+    return (
+      !(ruptures || []).includes(m.id) &&
+      !requiredOptionsUnavailable(m) &&
+      !dessertAvailability(m.name).out &&
+      !isPizzaOut(m.cat) &&
+      isStructurallyAvailable(m) &&
+      !(m.cat === "panuzzo" && !isPanuzzoTime)
+    );
+  }
+  const orderableFormulas = aperoMode ? [] : availableFormulas.filter((f) => isFormulaOrderable(f, menuById, isFormulaItemOrderable));
+  const categoriesWithFormulas = orderableFormulas.length > 0 ? [FORMULAS_CATEGORY, ...visibleCategories] : visibleCategories;
+
+  // Si la catégorie active vient d'être masquée (ses produits passés en « sur
+  // place uniquement »), on retombe sur la première catégorie encore visible.
+  const currentCat = categoriesWithFormulas.some((c) => c.key === activeCat) ? activeCat : categoriesWithFormulas[0]?.key;
 
   const availableItems = fullMenu.filter(
     (m) =>
@@ -170,7 +199,7 @@ export default function OrderScreen({
 
       {clientView ? (
         <div className="flex gap-2 px-5 py-3 overflow-x-auto" style={{ touchAction: "pan-x" }}>
-          {visibleCategories.map((c) => {
+          {categoriesWithFormulas.map((c) => {
             const on = currentCat === c.key;
             return (
               <button
@@ -191,7 +220,7 @@ export default function OrderScreen({
         </div>
       ) : (
         <div className="flex gap-3 px-6 py-4 overflow-x-auto" style={{ touchAction: "pan-x" }}>
-          {visibleCategories.map((c) => (
+          {categoriesWithFormulas.map((c) => (
             <button
               key={c.key}
               onClick={() => setActiveCat(c.key)}
@@ -207,6 +236,25 @@ export default function OrderScreen({
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-40">
+        {currentCat === "formules" && (
+          <div className={clientView ? "grid grid-cols-1 gap-[14px] pt-1" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+            {orderableFormulas.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFormulaOrdering(f)}
+                className="tap-scale text-left rounded-2xl p-5 border-2"
+                style={clientView ? { background: "#1c1410", borderColor: "#d9a94c" } : { background: "#2c1c14", borderColor: "#C0392B" }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="display-font text-xl font-bold">🍽️ {f.name}</span>
+                  <span className="display-font italic text-[#E8B23D] text-2xl shrink-0">{eur(f.price)}</span>
+                </div>
+                {f.description && <div className="text-[#a88f78] text-sm mt-1">{f.description}</div>}
+                <div className="text-[#a88f78] text-xs mt-2">{f.slots.map((sl) => sl.label).join(" + ")}</div>
+              </button>
+            ))}
+          </div>
+        )}
         {currentCat === "pizza" && pizzaStockOut && (
           <div className="rounded-2xl px-5 py-4 mb-4 text-center" style={{ background: "#2c1c14", border: "1px solid #C0392B" }}>
             <div className="font-bold">🍕 Pizzas épuisées pour ce soir</div>
@@ -218,6 +266,7 @@ export default function OrderScreen({
             <div className="text-[#a88f78] text-sm">{dessertStockNote}</div>
           </div>
         )}
+        {currentCat !== "formules" && (
         <div className={clientView ? "grid grid-cols-2 gap-[14px] pt-1" : "grid grid-cols-2 md:grid-cols-3 gap-4"}>
           {items.map((item) => {
             const inCart = cart.filter((i) => i.id === item.id).reduce((s, i) => s + i.qty, 0);
@@ -225,7 +274,6 @@ export default function OrderScreen({
             const isFallback = item.cat === "dessert" && dessertAvailability(item.name).fallback;
             function handleTap() {
               if (item.cat === "pizza" && item.price > 0) onPizzaTap(item);
-              else if (item.cat === "panuzzo" && onPanuzzoTap) onPanuzzoTap(item);
               else if (needsFlavor) onGlaceTap(item);
               else if (isFallback) addItem(item, DESSERT_TAKEAWAY_FALLBACK_NOTE);
               else addItem(item);
@@ -306,6 +354,7 @@ export default function OrderScreen({
             );
           })}
         </div>
+        )}
       </div>
 
       {itemCount > 0 && (
@@ -329,6 +378,22 @@ export default function OrderScreen({
             Voir mon panier →
           </button>
         </div>
+      )}
+
+      {formulaOrdering && (
+        <FormulaModal
+          formula={formulaOrdering}
+          menu={fullMenu}
+          menuById={menuById}
+          isOrderable={isFormulaItemOrderable}
+          ruptures={ruptures}
+          staffMode={staffMode}
+          onClose={() => setFormulaOrdering(null)}
+          onConfirm={(picks) => {
+            formulaCartLines(formulaOrdering, picks, eur).forEach(({ item, note, extra }) => addItem(item, note, extra));
+            setFormulaOrdering(null);
+          }}
+        />
       )}
     </div>
   );
