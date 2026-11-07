@@ -7,7 +7,6 @@ import { tableDisplayName, tableDisplayLabel, findOpenDineInOrderForTables, cart
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
-import PanuzzoModal from "../PanuzzoModal";
 import ServiceConflictBanner from "../ServiceConflictBanner";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
@@ -48,7 +47,6 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [slotManuallyChanged, setSlotManuallyChanged] = useState(false);
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
-  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [saving, setSaving] = useState(false);
   const [serviceConflict, setServiceConflict] = useState(null);
 
@@ -133,12 +131,6 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
       return [...prev, { ...pizzaItem, qty: 1, note: null, itemNote: itemNote || null, modifiers }];
     });
     setCustomizing(null);
-  }
-  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
-    addItem({ ...sandwich, price: 14.5 }, "Formule");
-    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
-    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
-    setPanuzzoOrdering(null);
   }
   function changeQty(id, note, modifiers, delta, itemNote) {
     const sig = cartSignature(id, note, modifiers) + "|" + (itemNote || "");
@@ -255,7 +247,6 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
           addItem={addItem}
           onPizzaTap={setCustomizing}
           onGlaceTap={setFlavoring}
-          onPanuzzoTap={setPanuzzoOrdering}
           changeQty={changeQty}
           total={total}
           itemCount={items.reduce((s, i) => s + i.qty, 0)}
@@ -291,23 +282,6 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
               addItem(flavoring, note);
               setFlavoring(null);
             }}
-          />
-        )}
-        {panuzzoOrdering && (
-          <PanuzzoModal
-            item={panuzzoOrdering}
-            menu={menu}
-            dessertStock={dessertStock}
-            orders={orders}
-            ruptures={ruptures}
-            serviceType={order.serviceType}
-            staffMode
-            onClose={() => setPanuzzoOrdering(null)}
-            onAddSolo={(item) => {
-              addItem(item);
-              setPanuzzoOrdering(null);
-            }}
-            onAddFormule={addFormule}
           />
         )}
       </div>

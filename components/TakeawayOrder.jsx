@@ -24,7 +24,7 @@ import {
   TAKEAWAY_SERVICE_TYPE,
   TAKEAWAY_SLOT_MARGIN_MINUTES,
 } from "@/lib/business";
-import { FORMULE_PRICE, eur, DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
+import { DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
 import {
   useOrders,
@@ -47,7 +47,6 @@ import WelcomeScreen from "./WelcomeScreen";
 import OrderScreen from "./OrderScreen";
 import PizzaCustomizeModal from "./PizzaCustomizeModal";
 import FlavorModal from "./FlavorModal";
-import PanuzzoModal from "./PanuzzoModal";
 import CheckoutScreen from "./CheckoutScreen";
 import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
@@ -144,7 +143,6 @@ export default function TakeawayOrder() {
   const [tableName, setTableName] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
-  const [panuzzoOrdering, setPanuzzoOrdering] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showDessertUpsell, setShowDessertUpsell] = useState(false);
@@ -235,12 +233,6 @@ export default function TakeawayOrder() {
     });
     setCustomizing(null);
   }
-  function addFormule(sandwich, drinkItem, drinkSupplement, dessertItem, dessertSupplement) {
-    addItem({ ...sandwich, price: FORMULE_PRICE }, "Formule");
-    addItem({ ...drinkItem, price: drinkSupplement }, drinkSupplement > 0 ? `Formule +${eur(drinkSupplement)}` : "Formule (incluse)");
-    addItem({ ...dessertItem, price: dessertSupplement }, dessertSupplement > 0 ? `Formule +${eur(dessertSupplement)}` : "Formule (inclus)");
-    setPanuzzoOrdering(null);
-  }
   function changeQty(id, note, modifiers, delta) {
     const sig = cartSignature(id, note, modifiers);
     setCart((prev) => prev.map((i) => (cartSignature(i.id, i.note, i.modifiers) === sig ? { ...i, qty: i.qty + delta } : i)).filter((i) => i.qty > 0));
@@ -251,7 +243,6 @@ export default function TakeawayOrder() {
     setActiveCat("pizza");
     setSlotChoice(null);
     setSelectedOption(null);
-    setPanuzzoOrdering(null);
     setConfirmedNumber(null);
     setOrderError(null);
     setShowDessertUpsell(false);
@@ -440,7 +431,6 @@ export default function TakeawayOrder() {
               {availabilityBanner}
             </>
           }
-          onPanuzzoTap={setPanuzzoOrdering}
           onFinishApero={() => {}}
           dessertStockNote="🍰 Nos desserts sont proposés dans la limite des stocks disponibles. En cas de rupture, on vous prévient au retrait de la commande."
         />
@@ -481,23 +471,6 @@ export default function TakeawayOrder() {
             // reste affiché après l'ajout — c'est son propre bouton
             // "Continuer →" qui fait avancer vers le choix de créneau.
           }}
-        />
-      )}
-
-      {panuzzoOrdering && (
-        <PanuzzoModal
-          item={panuzzoOrdering}
-          menu={menuItems}
-          dessertStock={dessertStock}
-          orders={orders}
-          ruptures={ruptures}
-          serviceType={serviceType}
-          onClose={() => setPanuzzoOrdering(null)}
-          onAddSolo={(item) => {
-            addItem(item);
-            setPanuzzoOrdering(null);
-          }}
-          onAddFormule={addFormule}
         />
       )}
 
