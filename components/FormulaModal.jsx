@@ -15,6 +15,41 @@ import { slotChoices, needsPizzaCustomization } from "@/lib/formulas";
 import PizzaCustomizeModal from "./PizzaCustomizeModal";
 import FlavorModal from "./FlavorModal";
 
+// Carte de choix avec packshot (comme dans le menu), photo carrée en haut ;
+// un fond neutre garde la grille alignée quand le produit n'a pas de photo.
+function ChoiceCard({ choice, onPick }) {
+  const { item, supplement } = choice;
+  return (
+    <button
+      onClick={() => onPick(choice)}
+      className="tap-scale text-left rounded-2xl overflow-hidden flex flex-col border"
+      style={{ background: "#221812", borderColor: "#3a2a1f" }}
+    >
+      <div className="relative w-full" style={{ aspectRatio: "4 / 3" }}>
+        {item.photoUrl ? (
+          <img src={item.photoUrl} alt={item.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{ background: "radial-gradient(circle at 50% 38%, #3a2416 0%, #1a120d 78%)" }}
+          />
+        )}
+        {supplement > 0 && (
+          <span
+            className="absolute top-2 right-2 rounded-full px-2 py-0.5 font-bold"
+            style={{ fontSize: 11, background: "rgba(21,14,10,0.78)", border: "1px solid #E8B23D", color: "#E8B23D" }}
+          >
+            +{eur(supplement)}
+          </span>
+        )}
+      </div>
+      <span className="px-3 py-2.5 font-bold leading-snug" style={{ color: "#f5ede3", fontSize: 14 }}>
+        {item.name}
+      </span>
+    </button>
+  );
+}
+
 export default function FormulaModal({ formula, menu, menuById, isOrderable, ruptures, staffMode, onClose, onConfirm }) {
   const slots = formula.slots || [];
   const { forItem: optionGroupsForItem } = useOptionGroups();
@@ -88,11 +123,9 @@ export default function FormulaModal({ formula, menu, menuById, isOrderable, rup
             {included.length > 0 && (
               <>
                 {withSupplement.length > 0 && <div className="mb-2 text-xs text-[#a88f78] uppercase font-bold">Inclus</div>}
-                <div className="flex flex-wrap gap-2 mb-5">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
                   {included.map((c) => (
-                    <button key={c.item.id} onClick={() => choose(c)} className="chip tap-scale" style={{ color: "#c9b8a4" }}>
-                      {c.item.name}
-                    </button>
+                    <ChoiceCard key={c.item.id} choice={c} onPick={choose} />
                   ))}
                 </div>
               </>
@@ -100,11 +133,9 @@ export default function FormulaModal({ formula, menu, menuById, isOrderable, rup
             {withSupplement.length > 0 && (
               <>
                 <div className="mb-2 text-xs text-[#a88f78] uppercase font-bold">Avec supplément</div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {withSupplement.map((c) => (
-                    <button key={c.item.id} onClick={() => choose(c)} className="chip tap-scale" style={{ color: "#c9b8a4" }}>
-                      {c.item.name} <span className="text-[#E8B23D]">(+{eur(c.supplement)})</span>
-                    </button>
+                    <ChoiceCard key={c.item.id} choice={c} onPick={choose} />
                   ))}
                 </div>
               </>
