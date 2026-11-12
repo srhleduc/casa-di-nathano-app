@@ -5,7 +5,7 @@
 // l'espace équipe n'existe tout simplement pas dans l'arbre de composants
 // rendu ici, quelle que soit la manipulation d'URL tentée par un client.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   cartSignature,
   lineUnitPrice,
@@ -26,6 +26,7 @@ import {
 } from "@/lib/business";
 import { DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
+import { campaignsToShow } from "@/lib/campaigns";
 import {
   useOrders,
   useSlots,
@@ -39,6 +40,7 @@ import {
   useOptionGroups,
   useTakeawayHours,
   useServiceExceptions,
+  useCampaigns,
   submitTakeawayOrderWithCommitment,
 } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
@@ -52,6 +54,7 @@ import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
 import StatusScreen from "./StatusScreen";
 import DessertUpsellModal from "./DessertUpsellModal";
+import CampaignModal from "./CampaignModal";
 import ServiceConflictBanner from "./ServiceConflictBanner";
 
 // Un rejet métier (créneau complet ou disparu — voir check_slot_capacity
@@ -153,6 +156,9 @@ export default function TakeawayOrder() {
   const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
   const [cgvOpen, setCgvOpen] = useState(false);
   const [serviceConflict, setServiceConflict] = useState(null);
+  const [activeCampaign, setActiveCampaign] = useState(null); // campagne affichée avant la commande (voir continueFromCheckout)
+  const [seenCampaignIds, setSeenCampaignIds] = useState([]); // une campagne n'est proposée qu'une fois par commande
+  const [resumeCheckout, setResumeCheckout] = useState(false); // relance du parcours une fois le panier mis à jour
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -167,6 +173,7 @@ export default function TakeawayOrder() {
   const { forItem: optionGroupsForItem } = useOptionGroups();
   const { takeawayHours, loading: hoursLoading } = useTakeawayHours();
   const { serviceExceptions } = useServiceExceptions();
+  const { campaigns } = useCampaigns();
 
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const hoursToday = takeawayHours.find((h) => h.weekday === new Date().getDay());
@@ -248,6 +255,9 @@ export default function TakeawayOrder() {
     setConfirmedNumber(null);
     setOrderError(null);
     setShowDessertUpsell(false);
+    setActiveCampaign(null);
+    setSeenCampaignIds([]);
+    setResumeCheckout(false);
     setCheckPizzaCount(0);
     setPhone("");
     setCommitmentAccepted(false);
@@ -323,10 +333,27 @@ export default function TakeawayOrder() {
     });
   }
 
-  // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier —
-  // propose un dessert une seule fois si le panier n'en contient encore
-  // aucun et qu'il y a effectivement quelque chose à proposer aujourd'hui.
-  function handleCheckoutConfirm() {
+  const menuById = useMemo(() => new Map(menuItems.map((m) => [m.id, m])), [menuItems]);
+
+  // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier.
+  // Étapes, chacune proposée au plus une fois :
+  //   1. les campagnes ouvertes (ex. vente de panettone) — voir lib/campaigns.js ;
+  //   2. un dessert, si le panier n'en contient encore aucun et qu'il y a
+  //      effectivement quelque chose à proposer aujourd'hui ;
+  //   3. le choix du créneau.
+  function continueFromCheckout() {
+    const nextCampaign = campaignsToShow(campaigns, {
+      restaurantId: restaurant.id,
+      cart,
+      menuById,
+      ruptures,
+      seenIds: seenCampaignIds,
+      isBlocked: (item) => Boolean(conflictingCartItem(cart, item)),
+    })[0];
+    if (nextCampaign) {
+      setActiveCampaign(nextCampaign);
+      return;
+    }
     const hasDessert = cart.some((i) => i.cat === "dessert");
     if (!hasDessert && dessertUpsellItems.length > 0) {
       setShowDessertUpsell(true);
@@ -334,6 +361,25 @@ export default function TakeawayOrder() {
       goToSlot();
     }
   }
+
+  // Réponse du client à une campagne : on l'ajoute au panier (« je réserve »)
+  // ou non, puis on reprend le parcours. La reprise passe par un effet pour
+  // repartir d'un panier à jour — goToSlot/submitOrder lisent `cart` et `total`
+  // de leur rendu, qui ne contiendrait pas encore le produit tout juste ajouté.
+  function answerCampaign(qty) {
+    const campaign = activeCampaign;
+    const item = qty > 0 && campaign?.menuItemId ? menuById.get(campaign.menuItemId) : null;
+    if (item) for (let i = 0; i < qty; i++) addItem(item);
+    if (campaign) setSeenCampaignIds((ids) => [...ids, campaign.id]);
+    setActiveCampaign(null);
+    setResumeCheckout(true);
+  }
+  useEffect(() => {
+    if (!resumeCheckout) return;
+    setResumeCheckout(false);
+    continueFromCheckout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeCheckout]);
 
   function goToSlot() {
     if (pizzaCount === 0) {
@@ -447,6 +493,15 @@ export default function TakeawayOrder() {
         />
       )}
 
+      {activeCampaign && (
+        <CampaignModal
+          campaign={activeCampaign}
+          item={activeCampaign.menuItemId ? menuById.get(activeCampaign.menuItemId) : null}
+          onReserve={answerCampaign}
+          onSkip={() => answerCampaign(0)}
+        />
+      )}
+
       {showDessertUpsell && (
         <DessertUpsellModal
           items={dessertUpsellItems}
@@ -488,7 +543,7 @@ export default function TakeawayOrder() {
           tableName={tableName}
           setTableName={setTableName}
           onBack={() => setScreen("order")}
-          onConfirm={handleCheckoutConfirm}
+          onConfirm={continueFromCheckout}
           requireCommitment
           phone={phone}
           setPhone={setPhone}
