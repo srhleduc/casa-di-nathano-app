@@ -33,6 +33,7 @@ import NotificationSoundAdmin from "./NotificationSoundAdmin";
 import ServicesDirectionAdmin from "./ServicesDirectionAdmin";
 import FormulasAdmin from "./FormulasAdmin";
 import CampaignsAdmin from "./CampaignsAdmin";
+import CategoriesAdmin from "./CategoriesAdmin";
 import TeamAccessLogAdmin from "./TeamAccessLogAdmin";
 import TeamActivityLogAdmin from "./TeamActivityLogAdmin";
 
@@ -187,6 +188,9 @@ export default function DirectionDashboard() {
         <button onClick={() => setTab("catorder")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "catorder" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           📂 Ordre des catégories
         </button>
+        <button onClick={() => setTab("categories")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "categories" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          🏷️ Catégories
+        </button>
         <button onClick={() => setTab("formulas")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "formulas" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🍽️ Formules
         </button>
@@ -272,6 +276,7 @@ export default function DirectionDashboard() {
       {tab === "messages" && <LoyaltyMessagesAdmin />}
       {tab === "autonomy" && <SourceStatsAdmin />}
       {tab === "catorder" && <MenuCategoryOrderAdmin />}
+      {tab === "categories" && <CategoriesAdmin />}
       {tab === "formulas" && <FormulasAdmin />}
       {tab === "campaigns" && <CampaignsAdmin />}
       {tab === "payroll" && <PayrollExportAdmin />}

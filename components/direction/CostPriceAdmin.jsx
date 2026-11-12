@@ -11,8 +11,9 @@ import {
   removePizzaIngredient,
   useMenu,
   insertMenuItem,
+  useMenuCategories,
 } from "@/lib/data";
-import { eur, CATEGORIES, newMenuItemId } from "@/lib/menu";
+import { eur, newMenuItemId } from "@/lib/menu";
 
 // TVA — les prix du menu sont TTC (affichage légal), les coûts ingrédients
 // saisis sont supposés HT (comme sur une facture fournisseur) : il faut donc
@@ -71,6 +72,7 @@ export default function CostPriceAdmin() {
   const { ingredients } = useIngredients();
   const { pizzaIngredients } = usePizzaIngredients();
   const { menuItems } = useMenu();
+  const { allCategories } = useMenuCategories();
   const [tab, setTab] = useState("ingredients"); // "ingredients" | "recipes"
   const [recipeCat, setRecipeCat] = useState("pizza");
   const products = menuItems.filter((m) => m.cat === recipeCat).sort((a, b) => a.name.localeCompare(b.name));
@@ -89,7 +91,7 @@ export default function CostPriceAdmin() {
       {tab === "recipes" && (
         <div>
           <div className="flex gap-2 mb-5 overflow-x-auto">
-            {CATEGORIES.map((c) => (
+            {allCategories.map((c) => (
               <button
                 key={c.key}
                 onClick={() => setRecipeCat(c.key)}

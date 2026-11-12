@@ -12,13 +12,12 @@
 // components/FormulaModal.jsx). Logique de disponibilité : lib/formulas.js.
 
 import { useMemo, useState } from "react";
-import { CATEGORIES, ADMIN_ONLY_CATEGORIES, eur } from "@/lib/menu";
-import { useMenu, useFormulas, insertFormula, updateFormula, deleteFormula } from "@/lib/data";
+import { ADMIN_ONLY_CATEGORIES, eur } from "@/lib/menu";
+import { useMenu, useFormulas, insertFormula, updateFormula, deleteFormula, useMenuCategories } from "@/lib/data";
 import { useRestaurantsList } from "@/lib/restaurant";
 import { WEEK_DAYS, SERVICE_GROUPS, ALL_SERVICE_SLOTS, serviceSlotKey, summarizeServiceSlots } from "@/lib/formulas";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
-const PICKER_CATEGORIES = [...CATEGORIES, ...ADMIN_ONLY_CATEGORIES];
 const SLOT_PRESETS = ["Pizza", "Dessert", "Boisson", "Autre"];
 
 const newSlotId = () => `s-${Math.random().toString(36).slice(2, 8)}`;
@@ -67,6 +66,8 @@ function chipStyle(on) {
 // ------------------------------------------------------------ composants --
 
 function SlotEditor({ slot, index, count, menu, menuById, onChange, onRemove, onMove }) {
+  const { allCategories } = useMenuCategories();
+  const PICKER_CATEGORIES = [...allCategories, ...ADMIN_ONLY_CATEGORIES];
   const [cat, setCat] = useState("pizza");
   const selected = new Map(slot.items.map((e) => [e.itemId, e]));
   const catItems = menu.filter((m) => m.cat === cat).sort((a, b) => a.name.localeCompare(b.name));
