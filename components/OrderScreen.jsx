@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CATEGORIES, orderedCategories, optionRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
+import { orderedCategories, optionRuptureKey, eur, DESSERT_STOCK_GROUPS, DESSERT_TAKEAWAY_FALLBACK_NOTE, PANUZZO_CUTOFF_HOUR } from "@/lib/menu";
 import { remainingForDessertGroup, remainingPizzaStock, isTakeawayLike, dessertStockGroupFor, dessertHasSeparateFormats } from "@/lib/business";
-import { useOptionGroups, useAvailableFormulas } from "@/lib/data";
+import { useOptionGroups, useAvailableFormulas, useMenuCategories } from "@/lib/data";
 import { isFormulaOrderable, formulaCartLines } from "@/lib/formulas";
 import ProductCard from "./ProductCard";
 import FormulaModal from "./FormulaModal";
@@ -38,7 +38,7 @@ export default function OrderScreen({
   dessertStockNote,
   clientView,
   // Ordre des catégories choisi en Direction pour ce contexte (client / équipe).
-  // Absent ou vide → ordre naturel de CATEGORIES.
+  // Absent ou vide → ordre naturel des catégories actives (Direction → Catégories).
   categoryOrder,
 }) {
   const fullMenu = menu || [];
@@ -46,7 +46,9 @@ export default function OrderScreen({
   const APERO_CATS = ["boisson", "antipasti", "biere", "vin", "cocktail"];
   // Panuzzo/formule vraiment que le midi — masqué passé l'heure de coupure.
   const isPanuzzoTime = new Date().getHours() < PANUZZO_CUTOFF_HOUR;
-  const ordered = categoryOrder && categoryOrder.length ? orderedCategories(categoryOrder) : CATEGORIES;
+  // Catégories ACTIVES seulement : une catégorie désactivée en Direction disparaît de tous les écrans de commande.
+  const { categories: activeCategories } = useMenuCategories();
+  const ordered = categoryOrder && categoryOrder.length ? orderedCategories(categoryOrder, activeCategories) : activeCategories;
   const baseCategories = isPanuzzoTime ? ordered : ordered.filter((c) => c.key !== "panuzzo");
 
   const isTakeaway = isTakeawayLike(serviceType);

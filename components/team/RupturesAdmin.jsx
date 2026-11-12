@@ -1,13 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRuptures, addRupture, removeRupture, useMenu, useOptionGroups } from "@/lib/data";
-import { CATEGORIES, ADMIN_ONLY_CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
-
-// Suppléments inclus ici (voir ADMIN_ONLY_CATEGORIES, lib/menu.js) : pas un
-// onglet de commande côté client, mais on doit pouvoir en mettre en rupture
-// comme n'importe quel produit.
-const RUPTURES_CATEGORIES = [...CATEGORIES, ...ADMIN_ONLY_CATEGORIES];
+import { useRuptures, addRupture, removeRupture, useMenu, useOptionGroups, useMenuCategories } from "@/lib/data";
+import { ADMIN_ONLY_CATEGORIES, optionRuptureKey, parseOptionRuptureKey } from "@/lib/menu";
 
 const CHIP_OUT = {
   background: "#C0392B",
@@ -22,6 +17,12 @@ export default function RupturesAdmin() {
   const { ruptures } = useRuptures();
   const { menuItems } = useMenu();
   const { groups: optionGroups, forItem } = useOptionGroups();
+  // Suppléments inclus ici (voir ADMIN_ONLY_CATEGORIES, lib/menu.js) : pas un
+  // onglet de commande côté client, mais on doit pouvoir en mettre en rupture
+  // comme n'importe quel produit. Catégories actives seulement (une catégorie
+  // désactivée n'est plus commandable, donc inutile ici).
+  const { categories } = useMenuCategories();
+  const RUPTURES_CATEGORIES = [...categories, ...ADMIN_ONLY_CATEGORIES];
   const [cat, setCat] = useState("pizza");
   const [openOptionItem, setOpenOptionItem] = useState(null); // id du produit à sous-catégories déplié
   const items = menuItems.filter((m) => m.cat === cat);

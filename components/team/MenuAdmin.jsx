@@ -15,12 +15,9 @@ import {
   linkOptionGroup,
   updateOptionGroupLink,
   unlinkOptionGroup,
+  useMenuCategories,
 } from "@/lib/data";
-import { CATEGORIES, ADMIN_ONLY_CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
-
-// Suppléments inclus ici (voir ADMIN_ONLY_CATEGORIES) : gérables depuis cet
-// écran, jamais proposés comme onglet de commande côté client.
-const MENU_ADMIN_CATEGORIES = [...CATEGORIES, ...ADMIN_ONLY_CATEGORIES];
+import { ADMIN_ONLY_CATEGORIES, eur, newMenuItemId } from "@/lib/menu";
 
 function ingredientNamesFromMenu(menuItems) {
   return menuItems
@@ -225,6 +222,10 @@ function OptionGroupsEditor({ menuItemId, inputStyle }) {
 
 export default function MenuAdmin({ canEdit = false }) {
   const { menuItems } = useMenu();
+  // Toutes les catégories (même désactivées, pour gérer leurs produits) + suppléments
+  // (voir ADMIN_ONLY_CATEGORIES) : gérables depuis cet écran, jamais un onglet de commande client.
+  const { allCategories } = useMenuCategories();
+  const MENU_ADMIN_CATEGORIES = [...allCategories, ...ADMIN_ONLY_CATEGORIES];
   const [browseCat, setBrowseCat] = useState("pizza");
   const [editingId, setEditingId] = useState(null); // null = mode création
   const [form, setForm] = useState(EMPTY_FORM);

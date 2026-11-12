@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORIES, orderedCategories } from "@/lib/menu";
-import { useCategoryOrder, setCategoryOrder } from "@/lib/data";
+import { orderedCategories } from "@/lib/menu";
+import { useCategoryOrder, setCategoryOrder, useMenuCategories } from "@/lib/data";
 
-const LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.key, `${c.emoji} ${c.label}`]));
-
-function Column({ title, hint, keys, onMove }) {
+function Column({ title, hint, keys, labels, onMove }) {
   return (
     <div className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-5 flex-1 min-w-[260px]">
       <div className="display-font text-lg font-bold mb-1">{title}</div>
@@ -16,7 +14,7 @@ function Column({ title, hint, keys, onMove }) {
           <div key={k} className="flex items-center justify-between rounded-xl border border-[#3a2b1f] bg-[#1a120b] px-4 py-3">
             <span className="font-bold">
               <span className="text-[#8a7561] mr-2">{i + 1}.</span>
-              {LABEL[k] || k}
+              {labels[k] || k}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -45,13 +43,16 @@ function Column({ title, hint, keys, onMove }) {
 
 export default function MenuCategoryOrderAdmin() {
   const { categoryOrder } = useCategoryOrder();
+  // Catégories actives seulement : une catégorie désactivée n'a pas d'onglet à ranger.
+  const { categories } = useMenuCategories();
+  const labels = Object.fromEntries(categories.map((c) => [c.key, `${c.emoji} ${c.label}`]));
   const [local, setLocal] = useState(null); // { client:[keys], staff:[keys] } pendant l'aller-retour serveur
 
   // Toujours la liste complète des catégories, dans l'ordre enregistré (les
   // catégories jamais rangées apparaissent à la fin, ordre naturel).
   const order = local || {
-    client: orderedCategories(categoryOrder.client).map((c) => c.key),
-    staff: orderedCategories(categoryOrder.staff).map((c) => c.key),
+    client: orderedCategories(categoryOrder.client, categories).map((c) => c.key),
+    staff: orderedCategories(categoryOrder.staff, categories).map((c) => c.key),
   };
 
   // Dès que le serveur confirme notre écriture (realtime), on repart de la
@@ -82,12 +83,14 @@ export default function MenuCategoryOrderAdmin() {
           title="👤 Vue client"
           hint="Borne · lien /commande · lien /sat"
           keys={order.client}
+          labels={labels}
           onMove={(i, d) => move("client", i, d)}
         />
         <Column
           title="🧑‍🍳 Vue équipe"
           hint="Prise de commande · édition · commande programmée"
           keys={order.staff}
+          labels={labels}
           onMove={(i, d) => move("staff", i, d)}
         />
       </div>
