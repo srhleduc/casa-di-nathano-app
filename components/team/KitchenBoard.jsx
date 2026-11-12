@@ -9,6 +9,7 @@ import DeadlineBadge from "../DeadlineBadge";
 import ElapsedBadge from "../ElapsedBadge";
 import LiveClock from "../LiveClock";
 import OrderCardHeader from "../OrderCardHeader";
+import { FullOrderToggleButton, FullOrderPanel } from "../FullOrderPanel";
 import OrderNote from "../OrderNote";
 import EditOrderModal from "./EditOrderModal";
 
@@ -20,6 +21,7 @@ export default function KitchenBoard() {
   const { pizzaStock } = usePizzaStock();
   const { slots } = useSlots();
   const [editingOrder, setEditingOrder] = useState(null);
+  const [fullOpen, setFullOpen] = useState({}); // cartes « Attente apéro » dont la commande complète est dépliée
   const active = orders.filter((o) => o.status !== "servie" && isOrderActiveToday(o));
   const APERO_KITCHEN_CATS = ["pizza", "supplement", "sans"];
   // Trois cas pour une table en attente d'apéro : encore de la focaccia/pizza
@@ -148,8 +150,10 @@ export default function KitchenBoard() {
                       >
                         ✕
                       </button>
+                      <FullOrderToggleButton open={!!fullOpen[o.id]} onToggle={() => setFullOpen((m) => ({ ...m, [o.id]: !m[o.id] }))} />
                     </div>
                   </div>
+                  {fullOpen[o.id] && <FullOrderPanel order={o} />}
                   <div className="display-font text-xl font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4] mb-3">
                     {pendingItems.map((it, idx) => (

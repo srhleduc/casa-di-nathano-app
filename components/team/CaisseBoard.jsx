@@ -80,7 +80,7 @@ export default function CaisseBoard({ readOnly = false }) {
   function renderActiveCard(o) {
     return (
       <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-        <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} />
+        <OrderCardHeader order={o} onEdit={() => setEditingOrder(o)} onDelete={() => quickCancel(o)} expandable={false} />
         <div className="display-font text-lg font-bold mb-2">{o.name}</div>
         <GroupedItemList items={o.items} className="mb-3" showSource />
         <div className="display-font font-bold text-[#E8B23D] text-lg mb-2">{eur(o.total)}</div>
@@ -171,7 +171,7 @@ export default function CaisseBoard({ readOnly = false }) {
           <div className="flex flex-wrap gap-3">
             {cancellable.map((o) => (
               <div key={o.id} className="w-72 shrink-0 rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-                <OrderCardHeader order={o} />
+                <OrderCardHeader order={o} expandable={false} />
                 <div className="display-font text-lg font-bold mb-1">{o.name}</div>
                 <div className="text-xs text-[#a88f78] mb-2">{isOrderPaid(o) ? "💰 Déjà encaissée" : "⏳ En attente de règlement"}</div>
                 <GroupedItemList items={o.items} className="mb-3" showSource />

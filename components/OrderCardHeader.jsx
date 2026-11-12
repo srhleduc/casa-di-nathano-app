@@ -1,9 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { serviceTypeBadgeStyle, formatSlotAllocations, isOrderPaid } from "@/lib/business";
+import { FullOrderToggleButton, FullOrderPanel } from "./FullOrderPanel";
 
-export default function OrderCardHeader({ order, onEdit, onDelete, showTime = true }) {
+// `expandable` : flèche fluo qui déroule la commande complète. À désactiver
+// (false) sur les écrans qui affichent déjà toute la commande (Caisse, programmées).
+export default function OrderCardHeader({ order, onEdit, onDelete, showTime = true, expandable = true }) {
+  const [open, setOpen] = useState(false);
   return (
+    <>
     <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
       <div className="flex items-center gap-2">
         {order.takeawayNumber != null && (
@@ -69,7 +75,10 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
             ✕
           </button>
         )}
+        {expandable && <FullOrderToggleButton open={open} onToggle={() => setOpen((v) => !v)} />}
       </div>
     </div>
+    {expandable && open && <FullOrderPanel order={order} />}
+    </>
   );
 }

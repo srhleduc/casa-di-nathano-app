@@ -40,7 +40,7 @@ export default function ScheduledOrdersList({ onNew }) {
               .sort((a, b) => (a.scheduledTime || "").localeCompare(b.scheduledTime || ""))
               .map((o) => (
                 <div key={o.id} className="rounded-xl border border-[#3a2b1f] bg-[#211712] p-4">
-                  <OrderCardHeader order={o} onDelete={() => cancelOrder(o)} />
+                  <OrderCardHeader order={o} onDelete={() => cancelOrder(o)} expandable={false} />
                   <div className="display-font text-lg font-bold mb-2">{o.name}</div>
                   <ul className="text-sm text-[#c9b8a4]">
                     {o.items.map((it, idx) => (
