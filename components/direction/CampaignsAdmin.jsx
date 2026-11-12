@@ -5,9 +5,9 @@
 // (ex. vente de panettone pour Noël).
 //
 // Une campagne = un titre + un texte (+ une photo) + deux boutons : « Je
-// réserve le mien avec ma commande » (ajoute le produit lié au panier) et
-// « Passer à la commande ». On choisit le produit du menu à réserver (ou aucun
-// pour une simple annonce), les restaurants et la période. Appliqué aussitôt
+// réserve le mien avec ma commande » (ajoute au panier les produits liés que le
+// client choisit, avec leur quantité) et « Passer à la commande ». On choisit les
+// produits du menu à réserver (un ou plusieurs, ou aucun pour une simple annonce), les restaurants et la période. Appliqué aussitôt
 // sur le click & collect (voir components/CampaignModal.jsx). Logique
 // d'affichage : lib/campaigns.js.
 
@@ -27,7 +27,7 @@ const EMPTY_DRAFT = {
   title: "",
   description: "",
   imageUrl: "",
-  menuItemId: "",
+  menuItemIds: [],
   reserveLabel: DEFAULT_RESERVE_LABEL,
   skipLabel: DEFAULT_SKIP_LABEL,
   restaurantIds: [],
@@ -43,7 +43,7 @@ function toDraft(c) {
     title: c.title,
     description: c.description || "",
     imageUrl: c.imageUrl || "",
-    menuItemId: c.menuItemId || "",
+    menuItemIds: [...c.menuItemIds],
     reserveLabel: c.reserveLabel,
     skipLabel: c.skipLabel,
     restaurantIds: [...c.restaurantIds],
@@ -67,9 +67,12 @@ function CampaignEditor({ initial, menu, restaurants, onClose }) {
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
   const sortedMenu = useMemo(() => [...menu].sort((a, b) => a.name.localeCompare(b.name)), [menu]);
-  const linkedItem = sortedMenu.find((m) => m.id === draft.menuItemId) || null;
+  const menuById = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
+  const linkedItems = draft.menuItemIds.map((id) => menuById.get(id)).filter(Boolean);
+  const hasProducts = draft.menuItemIds.length > 0;
+  const addableItems = sortedMenu.filter((m) => !draft.menuItemIds.includes(m.id));
   const allRestaurants = draft.restaurantIds.length === 0;
-  const previewImage = draft.imageUrl || linkedItem?.photoUrl || null;
+  const previewImage = draft.imageUrl || (linkedItems.length === 1 ? linkedItems[0].photoUrl : null) || null;
 
   function toggleRestaurant(id) {
     set({ restaurantIds: draft.restaurantIds.includes(id) ? draft.restaurantIds.filter((x) => x !== id) : [...draft.restaurantIds, id] });
@@ -92,8 +95,8 @@ function CampaignEditor({ initial, menu, restaurants, onClose }) {
 
   function validate() {
     if (!draft.title.trim()) return "Écris le titre affiché au client.";
-    if (draft.menuItemId && !linkedItem) return "Le produit choisi n'existe plus au menu — choisis-en un autre ou « Aucun ».";
-    if (draft.menuItemId && !draft.reserveLabel.trim()) return "Écris le texte du bouton de réservation.";
+    if (linkedItems.length < draft.menuItemIds.length) return "Un des produits choisis n'existe plus au menu — retire-le de la liste.";
+    if (hasProducts && !draft.reserveLabel.trim()) return "Écris le texte du bouton de réservation.";
     if (!draft.skipLabel.trim()) return "Écris le texte du bouton pour continuer.";
     if (draft.startDate && draft.endDate && draft.endDate < draft.startDate) return "La date de fin est avant la date de début.";
     return "";
@@ -112,7 +115,7 @@ function CampaignEditor({ initial, menu, restaurants, onClose }) {
       title: draft.title.trim(),
       description: draft.description.trim(),
       imageUrl: draft.imageUrl || null,
-      menuItemId: draft.menuItemId || null,
+      menuItemIds: draft.menuItemIds,
       reserveLabel: draft.reserveLabel.trim() || DEFAULT_RESERVE_LABEL,
       skipLabel: draft.skipLabel.trim() || DEFAULT_SKIP_LABEL,
       restaurantIds: draft.restaurantIds,
@@ -153,18 +156,42 @@ function CampaignEditor({ initial, menu, restaurants, onClose }) {
         />
       </label>
 
-      <div className={section}>Produit à réserver</div>
-      <select value={draft.menuItemId} onChange={(e) => set({ menuItemId: e.target.value })} className="w-full rounded-lg px-3 py-2 mb-2" style={inputStyle}>
-        <option value="">Aucun — simple annonce (un seul bouton)</option>
-        {sortedMenu.map((m) => (
+      <div className={section}>Produits à réserver</div>
+      {linkedItems.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {linkedItems.map((m) => (
+            <span key={m.id} className="inline-flex items-center gap-2 rounded-full border-2 border-[#C0392B] bg-[#2c1c14] pl-4 pr-2 py-1 text-sm font-bold">
+              {m.name} · {eur(m.price)}
+              <button
+                onClick={() => set({ menuItemIds: draft.menuItemIds.filter((id) => id !== m.id) })}
+                aria-label={`Retirer ${m.name}`}
+                className="tap-scale w-7 h-7 rounded-full bg-[#3a2b1f] font-bold"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {draft.menuItemIds.length > linkedItems.length && (
+        <p className="text-xs text-[#e8806f] mb-3">Certains produits choisis n'existent plus au menu — enregistre après les avoir retirés.</p>
+      )}
+      <select
+        value=""
+        onChange={(e) => e.target.value && set({ menuItemIds: [...draft.menuItemIds, e.target.value] })}
+        className="w-full rounded-lg px-3 py-2 mb-2"
+        style={inputStyle}
+      >
+        <option value="">{hasProducts ? "+ Ajouter un autre produit…" : "+ Ajouter un produit… (sinon : simple annonce, un seul bouton)"}</option>
+        {addableItems.map((m) => (
           <option key={m.id} value={m.id}>
             {m.name} — {eur(m.price)}
           </option>
         ))}
       </select>
       <p className="text-xs text-[#8a7561] mb-5">
-        Le produit doit exister au menu (Équipe → Menu) avec son prix. Tu peux le cocher « uniquement équipe » pour qu'il n'apparaisse
-        que dans cette campagne. La campagne n'est pas proposée si le produit est en rupture ou déjà dans le panier.
+        Les produits doivent exister au menu (Équipe → Menu) avec leur prix — un produit par parfum / format. Le client choisit la quantité de
+        chacun. Un produit en rupture ou déjà dans le panier n'est pas proposé ; s'il n'en reste aucun, la campagne n'est pas affichée.
       </p>
 
       <div className={section}>Photo (facultatif)</div>
@@ -182,18 +209,18 @@ function CampaignEditor({ initial, menu, restaurants, onClose }) {
             Retirer
           </button>
         )}
-        {!draft.imageUrl && linkedItem?.photoUrl && <span className="text-xs text-[#8a7561]">Sans photo, celle du produit est utilisée.</span>}
+        {!draft.imageUrl && linkedItems.length === 1 && linkedItems[0].photoUrl && <span className="text-xs text-[#8a7561]">Sans photo, celle du produit est utilisée.</span>}
       </div>
 
       <div className="flex flex-wrap gap-3 mb-5">
-        {draft.menuItemId && (
+        {hasProducts && (
           <label className="flex-1 min-w-[220px]">
             <div className={section}>Bouton « je réserve »</div>
             <input value={draft.reserveLabel} onChange={(e) => set({ reserveLabel: e.target.value })} className="w-full rounded-lg px-3 py-2" style={inputStyle} />
           </label>
         )}
         <label className="flex-1 min-w-[220px]">
-          <div className={section}>{draft.menuItemId ? "Bouton « passer »" : "Bouton pour continuer"}</div>
+          <div className={section}>{hasProducts ? "Bouton « passer »" : "Bouton pour continuer"}</div>
           <input value={draft.skipLabel} onChange={(e) => set({ skipLabel: e.target.value })} className="w-full rounded-lg px-3 py-2" style={inputStyle} />
         </label>
       </div>
@@ -304,7 +331,8 @@ export default function CampaignsAdmin() {
 
       <div className="flex flex-col gap-3">
         {campaigns.map((c, i) => {
-          const item = c.menuItemId ? menuById.get(c.menuItemId) : null;
+          const linked = c.menuItemIds.map((id) => menuById.get(id)).filter(Boolean);
+          const missing = c.menuItemIds.length - linked.length;
           const liveNow = isCampaignActive(c);
           return (
             <div key={c.id} className={`rounded-2xl border border-[#3a2b1f] bg-[#211712] p-5 ${c.active ? "" : "opacity-60"}`}>
@@ -330,7 +358,10 @@ export default function CampaignsAdmin() {
                 </div>
                 <div>{c.restaurantIds.length === 0 ? "Tous les restaurants" : c.restaurantIds.map(restaurantName).join(", ")}</div>
                 <div className="text-[#a88f78]">
-                  {c.menuItemId ? (item ? `🛒 Réservation de : ${item.name} (${eur(item.price)})` : "⚠️ Produit lié introuvable au menu — la campagne n'est pas affichée") : "📣 Annonce seule"}
+                  {c.menuItemIds.length === 0
+                    ? "📣 Annonce seule"
+                    : `🛒 Réservation de : ${linked.map((m) => `${m.name} (${eur(m.price)})`).join(", ") || "—"}`}
+                  {missing > 0 && <div className="text-[#e8806f]">⚠️ {missing} produit{missing > 1 ? "s" : ""} introuvable{missing > 1 ? "s" : ""} au menu</div>}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
