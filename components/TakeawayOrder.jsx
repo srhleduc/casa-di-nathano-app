@@ -26,7 +26,7 @@ import {
 } from "@/lib/business";
 import { DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
 import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
-import { campaignsToShow } from "@/lib/campaigns";
+import { campaignsToShow, campaignItems } from "@/lib/campaigns";
 import {
   useOrders,
   useSlots,
@@ -341,15 +341,9 @@ export default function TakeawayOrder() {
   //   2. un dessert, si le panier n'en contient encore aucun et qu'il y a
   //      effectivement quelque chose à proposer aujourd'hui ;
   //   3. le choix du créneau.
+  const campaignContext = { cart, menuById, ruptures, isBlocked: (item) => Boolean(conflictingCartItem(cart, item)) };
   function continueFromCheckout() {
-    const nextCampaign = campaignsToShow(campaigns, {
-      restaurantId: restaurant.id,
-      cart,
-      menuById,
-      ruptures,
-      seenIds: seenCampaignIds,
-      isBlocked: (item) => Boolean(conflictingCartItem(cart, item)),
-    })[0];
+    const nextCampaign = campaignsToShow(campaigns, { restaurantId: restaurant.id, seenIds: seenCampaignIds, ...campaignContext })[0];
     if (nextCampaign) {
       setActiveCampaign(nextCampaign);
       return;
@@ -362,14 +356,16 @@ export default function TakeawayOrder() {
     }
   }
 
-  // Réponse du client à une campagne : on l'ajoute au panier (« je réserve »)
-  // ou non, puis on reprend le parcours. La reprise passe par un effet pour
+  // Réponse du client à une campagne : on ajoute au panier les produits choisis
+  // (« je réserve » : `selection` = [{ id, qty }]) ou rien, puis on reprend le parcours. La reprise passe par un effet pour
   // repartir d'un panier à jour — goToSlot/submitOrder lisent `cart` et `total`
   // de leur rendu, qui ne contiendrait pas encore le produit tout juste ajouté.
-  function answerCampaign(qty) {
+  function answerCampaign(selection = []) {
     const campaign = activeCampaign;
-    const item = qty > 0 && campaign?.menuItemId ? menuById.get(campaign.menuItemId) : null;
-    if (item) for (let i = 0; i < qty; i++) addItem(item);
+    for (const { id, qty } of selection) {
+      const item = menuById.get(id);
+      if (item) for (let i = 0; i < qty; i++) addItem(item);
+    }
     if (campaign) setSeenCampaignIds((ids) => [...ids, campaign.id]);
     setActiveCampaign(null);
     setResumeCheckout(true);
@@ -496,9 +492,9 @@ export default function TakeawayOrder() {
       {activeCampaign && (
         <CampaignModal
           campaign={activeCampaign}
-          item={activeCampaign.menuItemId ? menuById.get(activeCampaign.menuItemId) : null}
+          items={campaignItems(activeCampaign, campaignContext)}
           onReserve={answerCampaign}
-          onSkip={() => answerCampaign(0)}
+          onSkip={() => answerCampaign([])}
         />
       )}
 
