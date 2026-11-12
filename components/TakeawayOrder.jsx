@@ -156,9 +156,9 @@ export default function TakeawayOrder() {
   const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
   const [cgvOpen, setCgvOpen] = useState(false);
   const [serviceConflict, setServiceConflict] = useState(null);
-  const [activeCampaign, setActiveCampaign] = useState(null); // campagne affichée avant la commande (voir continueFromCheckout)
+  const [activeCampaign, setActiveCampaign] = useState(null); // campagne affichée au début de la commande (voir continueFromWelcome)
   const [seenCampaignIds, setSeenCampaignIds] = useState([]); // une campagne n'est proposée qu'une fois par commande
-  const [resumeCheckout, setResumeCheckout] = useState(false); // relance du parcours une fois le panier mis à jour
+  const [resumeCampaigns, setResumeCampaigns] = useState(false); // campagne suivante / menu, une fois la réponse prise en compte
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -257,7 +257,7 @@ export default function TakeawayOrder() {
     setShowDessertUpsell(false);
     setActiveCampaign(null);
     setSeenCampaignIds([]);
-    setResumeCheckout(false);
+    setResumeCampaigns(false);
     setCheckPizzaCount(0);
     setPhone("");
     setCommitmentAccepted(false);
@@ -335,19 +335,10 @@ export default function TakeawayOrder() {
 
   const menuById = useMemo(() => new Map(menuItems.map((m) => [m.id, m])), [menuItems]);
 
-  // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier.
-  // Étapes, chacune proposée au plus une fois :
-  //   1. les campagnes ouvertes (ex. vente de panettone) — voir lib/campaigns.js ;
-  //   2. un dessert, si le panier n'en contient encore aucun et qu'il y a
-  //      effectivement quelque chose à proposer aujourd'hui ;
-  //   3. le choix du créneau.
-  const campaignContext = { cart, menuById, ruptures, isBlocked: (item) => Boolean(conflictingCartItem(cart, item)) };
-  function continueFromCheckout() {
-    const nextCampaign = campaignsToShow(campaigns, { restaurantId: restaurant.id, seenIds: seenCampaignIds, ...campaignContext })[0];
-    if (nextCampaign) {
-      setActiveCampaign(nextCampaign);
-      return;
-    }
+  // Point d'entrée du bouton "Choisir mon créneau →" côté écran panier —
+  // propose un dessert une seule fois si le panier n'en contient encore
+  // aucun et qu'il y a effectivement quelque chose à proposer aujourd'hui.
+  function handleCheckoutConfirm() {
     const hasDessert = cart.some((i) => i.cat === "dessert");
     if (!hasDessert && dessertUpsellItems.length > 0) {
       setShowDessertUpsell(true);
@@ -356,10 +347,24 @@ export default function TakeawayOrder() {
     }
   }
 
+  // Début de commande (bouton de l'écran d'accueil) : on propose d'abord les
+  // campagnes ouvertes (ex. vente de panettone — voir lib/campaigns.js), une à
+  // la fois et chacune une seule fois par commande, puis on ouvre le menu.
+  const campaignContext = { cart, menuById, ruptures, isBlocked: (item) => Boolean(conflictingCartItem(cart, item)) };
+  function continueFromWelcome() {
+    const nextCampaign = campaignsToShow(campaigns, { restaurantId: restaurant.id, seenIds: seenCampaignIds, ...campaignContext })[0];
+    if (nextCampaign) {
+      setActiveCampaign(nextCampaign);
+      return;
+    }
+    setScreen("order");
+  }
+
   // Réponse du client à une campagne : on ajoute au panier les produits choisis
-  // (« je réserve » : `selection` = [{ id, qty }]) ou rien, puis on reprend le parcours. La reprise passe par un effet pour
-  // repartir d'un panier à jour — goToSlot/submitOrder lisent `cart` et `total`
-  // de leur rendu, qui ne contiendrait pas encore le produit tout juste ajouté.
+  // (« je réserve » : `selection` = [{ id, qty }]) ou rien, puis on passe à la
+  // campagne suivante ou au menu. La reprise passe par un effet pour repartir
+  // d'un panier et d'une liste de campagnes vues à jour (sinon la campagne
+  // suivante serait choisie d'après l'état d'avant la réponse).
   function answerCampaign(selection = []) {
     const campaign = activeCampaign;
     for (const { id, qty } of selection) {
@@ -368,14 +373,14 @@ export default function TakeawayOrder() {
     }
     if (campaign) setSeenCampaignIds((ids) => [...ids, campaign.id]);
     setActiveCampaign(null);
-    setResumeCheckout(true);
+    setResumeCampaigns(true);
   }
   useEffect(() => {
-    if (!resumeCheckout) return;
-    setResumeCheckout(false);
-    continueFromCheckout();
+    if (!resumeCampaigns) return;
+    setResumeCampaigns(false);
+    continueFromWelcome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeCheckout]);
+  }, [resumeCampaigns]);
 
   function goToSlot() {
     if (pizzaCount === 0) {
@@ -442,7 +447,7 @@ export default function TakeawayOrder() {
   return (
     <div className="kiosk-root">
       {screen === "welcome" && (
-        <WelcomeScreen onStart={() => setScreen("order")} restaurantName={restaurant.name} hoursNote={hoursNoteToday} />
+        <WelcomeScreen onStart={continueFromWelcome} restaurantName={restaurant.name} hoursNote={hoursNoteToday} />
       )}
 
       {screen === "order" && (
@@ -539,7 +544,7 @@ export default function TakeawayOrder() {
           tableName={tableName}
           setTableName={setTableName}
           onBack={() => setScreen("order")}
-          onConfirm={continueFromCheckout}
+          onConfirm={handleCheckoutConfirm}
           requireCommitment
           phone={phone}
           setPhone={setPhone}
