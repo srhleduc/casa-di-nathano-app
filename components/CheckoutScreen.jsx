@@ -206,6 +206,17 @@ export default function CheckoutScreen({
         </div>
       )}
 
+      {setLoyaltyCustomer && !isTakeawayLike(serviceType) && (
+        <div className="mb-8">
+          <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">⭐ Compte fidélité (facultatif)</div>
+          <div className="flex gap-2 items-center">
+            <LoyaltyLookupButton onSelect={(c) => setLoyaltyCustomer(c)} />
+            {!loyaltyCustomer && <span className="text-sm text-[#8a7561]">Rechercher le compte du client</span>}
+          </div>
+          <LoyaltyLinkedChip customer={loyaltyCustomer} onClear={() => setLoyaltyCustomer(null)} />
+        </div>
+      )}
+
       {requireCommitment && (
         <div className="mb-8">
           <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Numéro de téléphone</div>

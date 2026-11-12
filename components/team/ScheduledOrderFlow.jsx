@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, slotServiceGroup, countOvenItems, isTakeawayLike } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, slotServiceGroup, countOvenItems } from "@/lib/business";
 import { useRuptures, useMenu, useTestMode, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -109,7 +109,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       items: cart.map(({ id, name, price, cat, qty, note, itemNote, modifiers }) => ({ id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, modifiers })),
       serviceType,
       name: tableName || "Commande programmée",
-      loyaltyCustomerId: isTakeawayLike(serviceType) ? loyaltyCustomer?.id || null : null,
+      loyaltyCustomerId: loyaltyCustomer?.id || null,
       note: note.trim() || null,
       slotAllocations: [],
       pizzaCount,

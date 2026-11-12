@@ -262,6 +262,9 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
         reopenKitchen: kitchenPendingQty(items) > 0,
         extraTableIds: selectedTableIds,
       }).catch((err) => console.error("Échec de l'ajout à la commande ouverte", err));
+      if (loyaltyCustomer?.id) {
+        updateOrder(existing.id, { loyaltyCustomerId: loyaltyCustomer.id }).catch((e) => console.error(e));
+      }
       if (matchedResId && !existing.reservationId) {
         updateOrder(existing.id, { reservationId: matchedResId }).catch((e) => console.error(e));
       }
@@ -293,7 +296,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
       tableIds: isDineIn ? [...selectedTableIds].sort() : [],
       tableLabel: isDineIn ? otherTableLabel.trim() || null : null,
       reservationId: matchedResId || null,
-      loyaltyCustomerId: !isDineIn ? loyaltyCustomer?.id || null : null,
+      loyaltyCustomerId: loyaltyCustomer?.id || null,
       note: note.trim() || null,
       slotAllocations: finalPlan || [],
       slotForced: !!forced,

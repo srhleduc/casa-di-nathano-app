@@ -457,6 +457,27 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                 )}
               </>
             )}
+            {!isTakeawayLike(serviceType) && (
+              <>
+                <div className="text-xs text-[#a88f78] uppercase font-bold mb-2 mt-4">⭐ Compte fidélité</div>
+                <div className="flex gap-2 items-center">
+                  <LoyaltyLookupButton
+                    onSelect={(c) => {
+                      setLoyaltyCustomer(c);
+                      setLoyaltyDirty(true);
+                    }}
+                  />
+                  {!loyaltyCustomer && <span className="text-sm text-[#8a7561]">Rechercher le compte du client</span>}
+                </div>
+                <LoyaltyLinkedChip
+                  customer={loyaltyCustomer}
+                  onClear={() => {
+                    setLoyaltyCustomer(null);
+                    setLoyaltyDirty(true);
+                  }}
+                />
+              </>
+            )}
             <div className="text-xs uppercase font-bold mb-2 mt-4" style={{ color: "#ff5fa8" }}>
               📝 Note pour l'équipe
             </div>
