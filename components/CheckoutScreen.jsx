@@ -3,6 +3,7 @@
 import { eur, noteIcon } from "@/lib/menu";
 import { lineUnitPrice, tableDisplayName, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
 import { CGV_NO_SHOW_CLAUSE } from "@/lib/cgv";
+import { LoyaltyLookupButton, LoyaltyLinkedChip } from "./team/LoyaltyAccountPicker";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -37,6 +38,10 @@ export default function CheckoutScreen({
   // borne client et le click & collect (props non fournies).
   paidUpfront,
   setPaidUpfront,
+  // Compte fidélité rattaché à la commande (flux équipe uniquement) — loupe à
+  // côté du nom du client (à emporter). Absent côté client : pas de loupe.
+  loyaltyCustomer,
+  setLoyaltyCustomer,
   // Engagement client (click & collect uniquement) — absent sur la borne/équipe.
   requireCommitment,
   phone,
@@ -177,13 +182,27 @@ export default function CheckoutScreen({
           <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">
             {!isTakeawayLike(serviceType) ? "Numéro de table" : "Ton nom (pour t'appeler)"}
           </div>
-          <input
-            value={tableName}
-            onChange={(e) => setTableName(e.target.value)}
-            placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
-            className="w-full rounded-xl px-4 py-4 text-lg outline-none"
-            style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
-          />
+          <div className="flex gap-2">
+            <input
+              value={tableName}
+              onChange={(e) => setTableName(e.target.value)}
+              placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
+              className="flex-1 min-w-0 rounded-xl px-4 py-4 text-lg outline-none"
+              style={{ background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" }}
+            />
+            {setLoyaltyCustomer && isTakeawayLike(serviceType) && (
+              <LoyaltyLookupButton
+                initialTerm={tableName}
+                onSelect={(c) => {
+                  setLoyaltyCustomer(c);
+                  if (!(tableName || "").trim() && c.nom) setTableName(c.nom);
+                }}
+              />
+            )}
+          </div>
+          {setLoyaltyCustomer && isTakeawayLike(serviceType) && (
+            <LoyaltyLinkedChip customer={loyaltyCustomer} onClear={() => setLoyaltyCustomer(null)} />
+          )}
         </div>
       )}
 

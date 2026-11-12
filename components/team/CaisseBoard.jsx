@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useOrders, useMenu, useRuptures, useDessertStock, usePizzaStock, useSlots,
   updateOrder, markOrderServed, restoreOrder, deleteOrders, useTakeawayLinkStatus, setTakeawayLinkSuspended,
-  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone, fetchReservationPhoneForOrder,
+  awardLoyaltyPointsFromCaisse, fetchLoyaltyCustomerByPhone, fetchLoyaltyCustomerById, searchLoyaltyCustomers, createLoyaltyCustomer, useOrderLoyaltyLinks, fetchOrderCommitmentPhone, fetchReservationPhoneForOrder,
 } from "@/lib/data";
 import { isOrderActiveToday, isOrderPaid, sortOrdersByTime, sortPickupQueue, sortByTableName, isTakeawayLike, canonicalLoyaltyPhone } from "@/lib/business";
 import { eur } from "@/lib/menu";
@@ -325,6 +325,16 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
     setOpen(true);
     setMsg(null);
     try {
+      // Compte déjà choisi à la prise de commande (loupe) : pré-sélectionné,
+      // un tap sur « Associer & créditer » suffit.
+      if (order.loyaltyCustomerId) {
+        const linked = await fetchLoyaltyCustomerById(order.loyaltyCustomerId);
+        if (linked) {
+          setMatch(linked);
+          setStep("found");
+          return;
+        }
+      }
       const ccPhone =
         (await fetchOrderCommitmentPhone(order.id)) ||
         (await fetchReservationPhoneForOrder(order.id));
@@ -371,7 +381,7 @@ function OrderLoyaltyControl({ order, link, readOnly }) {
   if (!open) {
     return (
       <button onClick={openPanel} className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2 border-[#3a2b1f]">
-        ⭐ Fidélité ➕
+        ⭐ Fidélité ➕{order.loyaltyCustomerId ? " · compte choisi" : ""}
       </button>
     );
   }

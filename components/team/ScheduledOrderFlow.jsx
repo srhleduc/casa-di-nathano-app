@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, slotServiceGroup, countOvenItems } from "@/lib/business";
+import { cartSignature, withAutoFocaccia, lineUnitPrice, todayStr, formatFrenchDate, MIDI_SLOT_LABELS, SOIR_SLOT_LABELS, slotServiceGroup, countOvenItems, isTakeawayLike } from "@/lib/business";
 import { useRuptures, useMenu, useTestMode, useCategoryOrder, insertOrder } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -38,6 +38,7 @@ export default function ScheduledOrderFlow({ onDone }) {
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState("🍽️ Sur place");
   const [tableName, setTableName] = useState("");
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState(null); // compte fidélité rattaché via la loupe
   const [note, setNote] = useState("");
   const [customizing, setCustomizing] = useState(null);
   const [flavoring, setFlavoring] = useState(null);
@@ -108,6 +109,7 @@ export default function ScheduledOrderFlow({ onDone }) {
       items: cart.map(({ id, name, price, cat, qty, note, itemNote, modifiers }) => ({ id, name, price, cat, qty, note, itemNote: (itemNote || "").trim() || null, modifiers })),
       serviceType,
       name: tableName || "Commande programmée",
+      loyaltyCustomerId: isTakeawayLike(serviceType) ? loyaltyCustomer?.id || null : null,
       note: note.trim() || null,
       slotAllocations: [],
       pizzaCount,
@@ -227,6 +229,8 @@ export default function ScheduledOrderFlow({ onDone }) {
           setItemNote={updateItemNote}
           paidUpfront={paidUpfront}
           setPaidUpfront={setPaidUpfront}
+          loyaltyCustomer={loyaltyCustomer}
+          setLoyaltyCustomer={setLoyaltyCustomer}
           onBack={() => setScreen("order")}
           onConfirm={submitOrder}
         />

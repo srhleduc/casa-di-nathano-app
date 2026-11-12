@@ -128,6 +128,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
   const [flavoring, setFlavoring] = useState(null);
   const [slotChoice, setSlotChoice] = useState(null);
   const [paidUpfront, setPaidUpfront] = useState(false); // client règle dès la prise de commande
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState(null); // compte fidélité rattaché via la loupe (à emporter)
 
   const [selectedOption, setSelectedOption] = useState(null);
   const [confirmedNumber, setConfirmedNumber] = useState(null);
@@ -215,6 +216,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
     setSlotChoice(null);
     setSelectedOption(null);
     setPaidUpfront(false);
+    setLoyaltyCustomer(null);
     setAperoMode(false);
     setAperoUsed(false);
     setConfirmedNumber(null);
@@ -291,6 +293,7 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
       tableIds: isDineIn ? [...selectedTableIds].sort() : [],
       tableLabel: isDineIn ? otherTableLabel.trim() || null : null,
       reservationId: matchedResId || null,
+      loyaltyCustomerId: !isDineIn ? loyaltyCustomer?.id || null : null,
       note: note.trim() || null,
       slotAllocations: finalPlan || [],
       slotForced: !!forced,
@@ -483,6 +486,8 @@ export default function StaffOrderFlow({ initialTableIds = null, onConsumed = nu
           setItemNote={updateItemNote}
           paidUpfront={paidUpfront}
           setPaidUpfront={setPaidUpfront}
+          loyaltyCustomer={loyaltyCustomer}
+          setLoyaltyCustomer={setLoyaltyCustomer}
           onBack={() => setScreen("order")}
           onConfirm={goToSlot}
         />

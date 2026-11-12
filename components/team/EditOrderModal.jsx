@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useTables } from "@/lib/data";
+import { fetchLoyaltyCustomerById, updateOrder, assignTakeawayNumber, useServiceTypeSettings, useCategoryOrder, useTables } from "@/lib/data";
 import { eur, noteIcon } from "@/lib/menu";
 import { tableDisplayName, tableDisplayLabel, findOpenDineInOrderForTables, cartSignature,lineUnitPrice, remainingForSlot, parseMinutes, formatSlotAllocations, computeSlotOptions, restrictSlotsForCart, conflictingCartItem, earliestSlotPlan, backwardFillPlanWithScheduled, kitchenPendingQty, TAKEAWAY_SERVICE_TYPE, IMMEDIATE_TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isOrderPaid, countOvenItems } from "@/lib/business";
 import OrderScreen from "../OrderScreen";
 import PizzaCustomizeModal from "../PizzaCustomizeModal";
 import FlavorModal from "../FlavorModal";
 import ServiceConflictBanner from "../ServiceConflictBanner";
+
+import { LoyaltyLookupButton, LoyaltyLinkedChip } from "./LoyaltyAccountPicker";
 
 const inputStyle = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
 
@@ -25,6 +27,22 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
   const [items, setItems] = useState(order.items);
   const [serviceType, setServiceType] = useState(order.serviceType);
   const [name, setName] = useState(order.name);
+  // Compte fidélité rattaché (loupe à côté du nom). `loyaltyDirty` : n'écrit la
+  // colonne que si l'équipe a changé quelque chose.
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState(null);
+  const [loyaltyDirty, setLoyaltyDirty] = useState(false);
+  useEffect(() => {
+    if (!order.loyaltyCustomerId) return;
+    let cancelled = false;
+    fetchLoyaltyCustomerById(order.loyaltyCustomerId)
+      .then((c) => {
+        if (!cancelled) setLoyaltyCustomer((cur) => cur || c);
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      cancelled = true;
+    };
+  }, [order.loyaltyCustomerId]);
   const { tables } = useTables();
   // Sur place : tables cochées + texte libre (hors registre), comme à la prise
   // de commande (StaffOrderFlow). Une ancienne commande sans table rattachée
@@ -202,6 +220,7 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
       // Sur place avec vignettes : le nom affiché et le rattachement aux tables
       // suivent les tables cochées (+ texte libre), comme à la prise de commande.
       // À emporter : plus aucune table rattachée.
+      if (loyaltyDirty) patch.loyaltyCustomerId = loyaltyCustomer?.id || null;
       if (useTableChips) {
         patch.tableIds = sortedTableIds;
         patch.tableLabel = otherTableLabel.trim() || null;
@@ -407,13 +426,36 @@ export default function EditOrderModal({ order, menu, orders, slots, ruptures, d
                 />
               </>
             ) : (
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
-                className="w-full rounded-xl px-4 py-3 outline-none"
-                style={inputStyle}
-              />
+              <>
+                <div className="flex gap-2">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={!isTakeawayLike(serviceType) ? "Ex. 12" : "Ex. Julie"}
+                    className="flex-1 min-w-0 rounded-xl px-4 py-3 outline-none"
+                    style={inputStyle}
+                  />
+                  {isTakeawayLike(serviceType) && (
+                    <LoyaltyLookupButton
+                      initialTerm={name === "Commande équipe" ? "" : name}
+                      onSelect={(c) => {
+                        setLoyaltyCustomer(c);
+                        setLoyaltyDirty(true);
+                        if (!(name || "").trim() || name === "Commande équipe") setName(c.nom || name);
+                      }}
+                    />
+                  )}
+                </div>
+                {isTakeawayLike(serviceType) && (
+                  <LoyaltyLinkedChip
+                    customer={loyaltyCustomer}
+                    onClear={() => {
+                      setLoyaltyCustomer(null);
+                      setLoyaltyDirty(true);
+                    }}
+                  />
+                )}
+              </>
             )}
             <div className="text-xs uppercase font-bold mb-2 mt-4" style={{ color: "#ff5fa8" }}>
               📝 Note pour l'équipe
