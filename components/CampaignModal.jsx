@@ -1,9 +1,9 @@
 "use client";
 
-// Écran « campagne » proposé au client du click & collect juste avant qu'il
-// passe sa commande (voir TakeawayOrder.continueFromCheckout), ex. vente de
-// panettone pour Noël. Deux choix : réserver un ou plusieurs des produits liés
-// avec la commande (quantité au choix pour chacun) ou passer directement.
+// Écran « campagne » proposé au client du click & collect au début de sa
+// commande, juste après l'écran d'accueil et avant le menu (voir
+// TakeawayOrder.continueFromWelcome), ex. vente de panettone pour Noël. Deux choix : réserver un ou plusieurs des produits liés
+// avec la commande (quantité au choix pour chacun) ou passer à la commande.
 // Sans produit lié, c'est une simple annonce avec un seul bouton. Logique
 // d'affichage : lib/campaigns.js.
 

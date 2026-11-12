@@ -1,8 +1,8 @@
 "use client";
 
 // Espace Direction → Campagnes : créer / modifier / supprimer les campagnes
-// affichées au client du click & collect juste avant qu'il passe sa commande
-// (ex. vente de panettone pour Noël).
+// affichées au client du click & collect au début de sa commande, juste après
+// l'écran d'accueil et avant le menu (ex. vente de panettone pour Noël).
 //
 // Une campagne = un titre + un texte (+ une photo) + deux boutons : « Je
 // réserve le mien avec ma commande » (ajoute au panier les produits liés que le
@@ -313,8 +313,8 @@ export default function CampaignsAdmin() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6">
       <p className="text-[#a88f78] text-sm mb-6 max-w-3xl">
-        Les campagnes (ex. <b>vente de panettone pour Noël</b>) s'affichent au client du click &amp; collect juste avant qu'il passe sa
-        commande : il peut <b>réserver le produit avec sa commande</b> ou <b>passer directement</b>. Chaque campagne n'est proposée
+        Les campagnes (ex. <b>vente de panettone pour Noël</b>) s'affichent au client du click &amp; collect au tout début de sa
+        commande, avant le menu : il peut <b>réserver le produit avec sa commande</b> ou <b>passer directement</b>. Chaque campagne n'est proposée
         qu'une fois par commande. Appliqué aussitôt, sans redéploiement.
       </p>
 
