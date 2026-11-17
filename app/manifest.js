@@ -6,7 +6,9 @@ const RESTAURANT_NAMES = { riec: "Casa Di Nathano", quimperle: "Casa Di Luigi" }
 const restaurantName =
   process.env.NEXT_PUBLIC_APP_MODE === "direction"
     ? "Direction"
-    : RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
+    : process.env.NEXT_PUBLIC_APP_MODE === "livreur"
+      ? "Livraison"
+      : RESTAURANT_NAMES[process.env.NEXT_PUBLIC_RESTAURANT_ID] || "Casa Di Nathano";
 
 export default function manifest() {
   return {

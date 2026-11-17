@@ -31,6 +31,7 @@ import MenuCategoryOrderAdmin from "./MenuCategoryOrderAdmin";
 import PayrollExportAdmin from "./PayrollExportAdmin";
 import NotificationSoundAdmin from "./NotificationSoundAdmin";
 import DeliveryAdmin from "./DeliveryAdmin";
+import DriversAdmin from "./DriversAdmin";
 import ServicesDirectionAdmin from "./ServicesDirectionAdmin";
 import FormulasAdmin from "./FormulasAdmin";
 import CampaignsAdmin from "./CampaignsAdmin";
@@ -210,6 +211,9 @@ export default function DirectionDashboard() {
         <button onClick={() => setTab("delivery")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "delivery" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🛵 Livraison
         </button>
+        <button onClick={() => setTab("drivers")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "drivers" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
+          🧑‍✈️ Livreurs
+        </button>
         <button onClick={() => setTab("services")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "services" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>
           🗓️ Services
         </button>
@@ -289,6 +293,7 @@ export default function DirectionDashboard() {
       {tab === "payroll" && <PayrollExportAdmin />}
       {tab === "sound" && <NotificationSoundAdmin />}
       {tab === "delivery" && <DeliveryAdmin />}
+      {tab === "drivers" && <DriversAdmin />}
       {tab === "services" && <ServicesDirectionAdmin />}
       {tab === "teamaccess" && <TeamAccessLogAdmin />}
       {tab === "teamactivity" && <TeamActivityLogAdmin />}
