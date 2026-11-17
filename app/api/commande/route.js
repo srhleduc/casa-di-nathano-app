@@ -52,6 +52,7 @@ export async function POST(request) {
     commitmentAccepted,
     cgvSnapshot,
     cgvVersion,
+    delivery,
   } = body || {};
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -78,7 +79,12 @@ export async function POST(request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data, error } = await supabase.rpc("create_takeaway_order", {
+  // Livraison : même parcours, mais via create_delivery_order, qui revalide
+  // côté base l'éligibilité de l'adresse, le minimum de commande et les frais
+  // (le client ne fixe jamais le prix de la livraison). Un rejet métier
+  // (hors zone, minimum non atteint) revient en 400 avec le message à afficher.
+  let rpcName = "create_takeaway_order";
+  let rpcArgs = {
     p_items: items,
     p_service_type: serviceType,
     p_name: name || "Commande en ligne",
@@ -90,10 +96,41 @@ export async function POST(request) {
     p_cgv_version: cgvVersion || null,
     p_ip_address: ip,
     p_user_agent: userAgent,
-  });
+  };
+  if (delivery) {
+    if (typeof delivery.address !== "string" || delivery.address.trim().length < 3) {
+      return NextResponse.json({ error: "Adresse de livraison requise" }, { status: 400 });
+    }
+    rpcName = "create_delivery_order";
+    rpcArgs = {
+      p_items: items,
+      p_service_type: serviceType,
+      p_name: name || "Commande en ligne",
+      p_slot_allocations: slotAllocations || [],
+      p_pizza_count: pizzaCount || 0,
+      p_subtotal: total || 0,
+      p_customer_phone: phone.trim(),
+      p_delivery_address: delivery.address,
+      p_delivery_postal_code: delivery.postalCode || null,
+      p_delivery_city: delivery.city || null,
+      p_delivery_lat: Number.isFinite(delivery.lat) ? delivery.lat : null,
+      p_delivery_lng: Number.isFinite(delivery.lng) ? delivery.lng : null,
+      p_delivery_instructions: delivery.instructions || null,
+      p_cgv_text_snapshot: cgvSnapshot,
+      p_cgv_version: cgvVersion || null,
+      p_ip_address: ip,
+      p_user_agent: userAgent,
+    };
+  }
+
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs);
 
   if (error) {
-    return NextResponse.json({ error: error.message || "Échec de l'enregistrement" }, { status: 500 });
+    const businessRejection = delivery && /hors de notre zone|Minimum de commande|indisponible|Adresse/i.test(error.message || "");
+    return NextResponse.json(
+      { error: error.message || "Échec de l'enregistrement" },
+      { status: businessRejection ? 400 : 500 }
+    );
   }
 
   const row = Array.isArray(data) ? data[0] : data;
@@ -124,5 +161,6 @@ export async function POST(request) {
   return NextResponse.json({
     orderId: row?.order_id ?? null,
     takeawayNumber: row?.takeaway_number ?? null,
+    ...(delivery ? { deliveryFee: Number(row?.delivery_fee ?? 0), total: Number(row?.total ?? 0) } : {}),
   });
 }

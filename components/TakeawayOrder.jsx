@@ -24,8 +24,8 @@ import {
   TAKEAWAY_SERVICE_TYPE,
   TAKEAWAY_SLOT_MARGIN_MINUTES,
 } from "@/lib/business";
-import { DESSERT_STOCK_GROUPS, optionRuptureKey } from "@/lib/menu";
-import { CGV_TEXT, CGV_VERSION } from "@/lib/cgv";
+import { DESSERT_STOCK_GROUPS, optionRuptureKey, eur } from "@/lib/menu";
+import { CGV_TEXT, CGV_VERSION, CGV_DELIVERY_TEXT, CGV_DELIVERY_VERSION } from "@/lib/cgv";
 import { campaignsToShow, campaignItems } from "@/lib/campaigns";
 import {
   useOrders,
@@ -42,6 +42,9 @@ import {
   useServiceExceptions,
   useCampaigns,
   submitTakeawayOrderWithCommitment,
+  submitDeliveryOrderWithCommitment,
+  useDeliverySettings,
+  quoteDelivery,
 } from "@/lib/data";
 import { useRestaurant } from "@/lib/restaurant";
 
@@ -52,6 +55,7 @@ import FlavorModal from "./FlavorModal";
 import CheckoutScreen from "./CheckoutScreen";
 import CgvModal from "./CgvModal";
 import SlotScreen from "./SlotScreen";
+import DeliveryAddressScreen from "./DeliveryAddressScreen";
 import StatusScreen from "./StatusScreen";
 import DessertUpsellModal from "./DessertUpsellModal";
 import CampaignModal from "./CampaignModal";
@@ -65,11 +69,20 @@ import ServiceConflictBanner from "./ServiceConflictBanner";
 function isSlotRejection(err) {
   return /créneau/i.test(err?.message || "");
 }
+// Livraison : adresse hors zone, minimum non atteint… — même logique, inutile
+// de rejouer une requête que le serveur a refusée pour une raison métier.
+function isDeliveryRejection(err) {
+  return /hors de notre zone|Minimum de commande|Livraison indisponible|Adresse/i.test(err?.message || "");
+}
 async function submitWithRetry(payload, attempt = 1) {
   try {
+    if (payload.delivery) {
+      const { takeawayNumber, total } = await submitDeliveryOrderWithCommitment(payload);
+      return { takeawayNumber, total };
+    }
     return { takeawayNumber: await submitTakeawayOrderWithCommitment(payload) };
   } catch (err) {
-    if (!isSlotRejection(err) && attempt < 3) {
+    if (!isSlotRejection(err) && !isDeliveryRejection(err) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
       return submitWithRetry(payload, attempt + 1);
     }
@@ -139,7 +152,7 @@ function ClosedTodayScreen({ restaurantName, phone, takeawayHours }) {
 }
 
 export default function TakeawayOrder() {
-  const [screen, setScreen] = useState("welcome"); // welcome | order | checkout | slot | done
+  const [screen, setScreen] = useState("welcome"); // welcome | delivery-address | order | checkout | slot | done
   const [activeCat, setActiveCat] = useState("pizza");
   const [cart, setCart] = useState([]);
   const [serviceType, setServiceType] = useState(TAKEAWAY_SERVICE_TYPE); // ne change jamais ici, un seul choix possible
@@ -159,6 +172,10 @@ export default function TakeawayOrder() {
   const [activeCampaign, setActiveCampaign] = useState(null); // campagne affichée au début de la commande (voir continueFromWelcome)
   const [seenCampaignIds, setSeenCampaignIds] = useState([]); // une campagne n'est proposée qu'une fois par commande
   const [resumeCampaigns, setResumeCampaigns] = useState(false); // campagne suivante / menu, une fois la réponse prise en compte
+  const [orderMode, setOrderMode] = useState("pickup"); // pickup | delivery
+  const [deliveryInfo, setDeliveryInfo] = useState(null); // { address, instructions, quote } choisis à l'écran adresse
+  const [liveQuote, setLiveQuote] = useState(null); // devis recalculé avec le total du panier (frais offerts dès X €, minimum)
+  const [confirmedTotal, setConfirmedTotal] = useState(null); // total final renvoyé par le serveur (livraison)
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -174,6 +191,8 @@ export default function TakeawayOrder() {
   const { takeawayHours, loading: hoursLoading } = useTakeawayHours();
   const { serviceExceptions } = useServiceExceptions();
   const { campaigns } = useCampaigns();
+  const { deliverySettings } = useDeliverySettings();
+  const isDelivery = orderMode === "delivery" && Boolean(deliveryInfo);
 
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const hoursToday = takeawayHours.find((h) => h.weekday === new Date().getDay());
@@ -201,6 +220,26 @@ export default function TakeawayOrder() {
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
+
+  // Livraison : à l'écran panier, on redemande le devis avec le vrai total
+  // (livraison offerte à partir d'un montant, minimum de commande). Le serveur
+  // recalcule de toute façon à la commande ; ceci sert à afficher le bon prix.
+  useEffect(() => {
+    if (!isDelivery || screen !== "checkout") return;
+    let cancelled = false;
+    const { address } = deliveryInfo;
+    quoteDelivery({ lat: address.lat, lng: address.lng, postalCode: address.postcode, subtotal: total })
+      .then((q) => {
+        if (!cancelled) setLiveQuote(q);
+      })
+      .catch((err) => {
+        console.error("Devis de livraison impossible", err);
+        if (!cancelled) setLiveQuote(deliveryInfo.quote);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDelivery, screen, total, deliveryInfo]);
   const pizzaCount = useMemo(() => countOvenItems(cart), [cart]);
 
   // Un produit "service midi/soir uniquement" ne peut pas rejoindre un panier
@@ -262,6 +301,10 @@ export default function TakeawayOrder() {
     setPhone("");
     setCommitmentAccepted(false);
     setCgvOpen(false);
+    setOrderMode("pickup");
+    setDeliveryInfo(null);
+    setLiveQuote(null);
+    setConfirmedTotal(null);
     setScreen("welcome");
   }
 
@@ -316,20 +359,32 @@ export default function TakeawayOrder() {
     };
     setOrderError(null);
     setScreen("done");
+    const delivery = isDelivery
+      ? {
+          address: deliveryInfo.address.label,
+          postalCode: deliveryInfo.address.postcode,
+          city: deliveryInfo.address.city,
+          lat: deliveryInfo.address.lat,
+          lng: deliveryInfo.address.lng,
+          instructions: deliveryInfo.instructions || null,
+        }
+      : null;
     submitWithRetry({
       order: newOrder,
       commitment: {
         phone: normalizePhoneFr(phone),
         accepted: commitmentAccepted,
-        cgvSnapshot: CGV_TEXT,
-        cgvVersion: CGV_VERSION,
+        cgvSnapshot: delivery ? CGV_DELIVERY_TEXT : CGV_TEXT,
+        cgvVersion: delivery ? CGV_DELIVERY_VERSION : CGV_VERSION,
       },
-    }).then(({ takeawayNumber, error }) => {
+      ...(delivery ? { delivery } : {}),
+    }).then(({ takeawayNumber, total: serverTotal, error }) => {
       if (error) {
         setOrderError(error);
         return;
       }
       setConfirmedNumber(takeawayNumber);
+      if (serverTotal != null) setConfirmedTotal(serverTotal);
     });
   }
 
@@ -414,7 +469,31 @@ export default function TakeawayOrder() {
     setSelectedOption(null);
   }
 
+  // Écran d'accueil → « Me faire livrer » : on commence par l'adresse, pour
+  // refuser tout de suite une adresse hors zone avant que le client compose
+  // son panier.
+  function startDelivery() {
+    setOrderMode("delivery");
+    setScreen("delivery-address");
+  }
+  function startPickup() {
+    setOrderMode("pickup");
+    setDeliveryInfo(null);
+    setLiveQuote(null);
+    continueFromWelcome();
+  }
+  function confirmDeliveryAddress(info) {
+    setDeliveryInfo(info);
+    setLiveQuote(info.quote);
+    continueFromWelcome();
+  }
+
   function doneMessage() {
+    if (isDelivery) {
+      const eta = deliverySettings?.estimatedMinutes ? ` (environ ${deliverySettings.estimatedMinutes} min après la préparation)` : "";
+      const totalTxt = confirmedTotal != null ? ` Total à régler au livreur : ${eur(confirmedTotal)}.` : "";
+      return `Merci ${tableName ? tableName + " " : ""}— ta commande sera livrée à l'adresse indiquée${eta}.${totalTxt}`;
+    }
     return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.`;
   }
 
@@ -447,7 +526,21 @@ export default function TakeawayOrder() {
   return (
     <div className="kiosk-root">
       {screen === "welcome" && (
-        <WelcomeScreen onStart={continueFromWelcome} restaurantName={restaurant.name} hoursNote={hoursNoteToday} />
+        <WelcomeScreen
+          onStart={startPickup}
+          onStartDelivery={deliverySettings ? startDelivery : undefined}
+          restaurantName={restaurant.name}
+          hoursNote={hoursNoteToday}
+        />
+      )}
+
+      {screen === "delivery-address" && (
+        <DeliveryAddressScreen
+          restaurantName={restaurant.name}
+          initial={deliveryInfo}
+          onBack={() => setScreen("welcome")}
+          onConfirm={confirmDeliveryAddress}
+        />
       )}
 
       {screen === "order" && (
@@ -551,10 +644,11 @@ export default function TakeawayOrder() {
           commitmentAccepted={commitmentAccepted}
           setCommitmentAccepted={setCommitmentAccepted}
           onOpenCgv={() => setCgvOpen(true)}
+          delivery={isDelivery ? { addressLabel: deliveryInfo.address.label, quote: liveQuote || deliveryInfo.quote } : undefined}
         />
       )}
 
-      {cgvOpen && <CgvModal onClose={() => setCgvOpen(false)} />}
+      {cgvOpen && <CgvModal onClose={() => setCgvOpen(false)} delivery={isDelivery} />}
 
       {screen === "slot" && (
         <SlotScreen
@@ -565,6 +659,7 @@ export default function TakeawayOrder() {
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
           onConfirm={handleSlotConfirm}
+          note={isDelivery && deliverySettings?.estimatedMinutes ? `🛵 Livraison environ ${deliverySettings.estimatedMinutes} min après ce créneau.` : undefined}
         />
       )}
 

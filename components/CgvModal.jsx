@@ -4,9 +4,9 @@
 // click & collect (garde le panier intact, pas de navigation). Le texte vient
 // de lib/cgv.js et c'est ce même texte qui est snapshoté à l'acceptation.
 
-import { CGV_TEXT, CGV_NO_SHOW_CLAUSE } from "@/lib/cgv";
+import { CGV_TEXT, CGV_NO_SHOW_CLAUSE, CGV_DELIVERY_TEXT, CGV_DELIVERY_NO_SHOW_CLAUSE } from "@/lib/cgv";
 
-export default function CgvModal({ onClose }) {
+export default function CgvModal({ onClose, delivery }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
       <div
@@ -25,9 +25,9 @@ export default function CgvModal({ onClose }) {
             className="rounded-xl px-4 py-3 mb-5 text-sm font-bold"
             style={{ background: "#2c1c14", border: "1px solid #C0392B", color: "#f5ebdd" }}
           >
-            ⚠️ {CGV_NO_SHOW_CLAUSE}
+            ⚠️ {delivery ? CGV_DELIVERY_NO_SHOW_CLAUSE : CGV_NO_SHOW_CLAUSE}
           </div>
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[#c9b8a4]">{CGV_TEXT}</pre>
+          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[#c9b8a4]">{delivery ? CGV_DELIVERY_TEXT : CGV_TEXT}</pre>
         </div>
 
         <div className="px-6 py-4 border-t border-[#3a2b1f]">

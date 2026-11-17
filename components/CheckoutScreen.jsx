@@ -2,7 +2,7 @@
 
 import { eur, noteIcon } from "@/lib/menu";
 import { lineUnitPrice, tableDisplayName, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
-import { CGV_NO_SHOW_CLAUSE } from "@/lib/cgv";
+import { CGV_NO_SHOW_CLAUSE, CGV_DELIVERY_NO_SHOW_CLAUSE } from "@/lib/cgv";
 import { LoyaltyLookupButton, LoyaltyLinkedChip } from "./team/LoyaltyAccountPicker";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
@@ -49,12 +49,21 @@ export default function CheckoutScreen({
   commitmentAccepted,
   setCommitmentAccepted,
   onOpenCgv,
+  // Livraison (click & collect uniquement) : { addressLabel, quote } — le devis
+  // est recalculé par TakeawayOrder avec le total du panier. Absent = retrait.
+  delivery,
 }) {
   const options = serviceTypeOptions || DEFAULT_OPTIONS;
   const nameOk = !requireCommitment || (tableName || "").trim().length > 0;
   const phoneOk = !requireCommitment || isValidPhoneFr(phone);
   const commitmentOk = !requireCommitment || commitmentAccepted === true;
-  const canConfirm = cart.length > 0 && nameOk && phoneOk && commitmentOk;
+  const deliveryFee = delivery?.quote?.deliverable ? delivery.quote.fee : 0;
+  const deliveryMinOrder = delivery?.quote?.minOrder || 0;
+  const deliveryBelowMin = Boolean(delivery) && total < deliveryMinOrder;
+  const deliveryOk = !delivery || (delivery.quote?.deliverable === true && !deliveryBelowMin);
+  const grandTotal = total + deliveryFee;
+  const noShowClause = delivery ? CGV_DELIVERY_NO_SHOW_CLAUSE : CGV_NO_SHOW_CLAUSE;
+  const canConfirm = cart.length > 0 && nameOk && phoneOk && commitmentOk && deliveryOk;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
@@ -245,7 +254,9 @@ export default function CheckoutScreen({
               className="mt-1 w-5 h-5 shrink-0 accent-[#C0392B]"
             />
             <span className="text-sm text-[#c9b8a4] leading-relaxed">
-              En validant votre commande, vous vous engagez à venir la récupérer sur le créneau choisi. Toute commande non retirée reste due.
+              {delivery
+                ? "En validant votre commande, vous vous engagez à être présent et joignable à l'adresse indiquée au moment de la livraison. Toute commande non réceptionnée reste due."
+                : "En validant votre commande, vous vous engagez à venir la récupérer sur le créneau choisi. Toute commande non retirée reste due."}
             </span>
           </label>
 
@@ -253,7 +264,7 @@ export default function CheckoutScreen({
             <button type="button" onClick={onOpenCgv} className="underline underline-offset-2 font-semibold text-[#E8B23D] tap-scale">
               Conditions générales de vente
             </button>
-            <span className="text-[#8a7561]"> — {CGV_NO_SHOW_CLAUSE}</span>
+            <span className="text-[#8a7561]"> — {noShowClause}</span>
           </p>
         </div>
       )}
@@ -290,9 +301,28 @@ export default function CheckoutScreen({
         </div>
       )}
 
+      {delivery && (
+        <div className="rounded-xl px-4 py-3 mb-4 text-sm leading-relaxed" style={{ background: "#211712", border: "1px solid #3a2b1f" }}>
+          <div className="text-xs font-bold uppercase tracking-wide text-[#a88f78] mb-1">🛵 Livraison à</div>
+          <div className="text-[#f5ebdd] mb-2">{delivery.addressLabel}</div>
+          <div className="flex items-center justify-between text-[#c9b8a4]">
+            <span>Articles</span>
+            <span>{eur(total)}</span>
+          </div>
+          <div className="flex items-center justify-between text-[#c9b8a4]">
+            <span>Frais de livraison</span>
+            <span>{deliveryFee > 0 ? eur(deliveryFee) : "offerts"}</span>
+          </div>
+        </div>
+      )}
+      {deliveryBelowMin && (
+        <p className="text-sm mb-4" style={{ color: "#e88a8a" }}>
+          Minimum de commande pour la livraison : {eur(deliveryMinOrder)} (il vous manque {eur(deliveryMinOrder - total)}).
+        </p>
+      )}
       <div className="flex items-center justify-between mb-4">
         <span className="text-xl font-bold">Total</span>
-        <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(total)}</span>
+        <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(grandTotal)}</span>
       </div>
       <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>
         {pizzaCount > 0 && serviceType === TAKEAWAY_SERVICE_TYPE ? "Choisir mon créneau →" : "Valider ma commande →"}
@@ -302,7 +332,9 @@ export default function CheckoutScreen({
           Renseignez votre nom, un numéro de téléphone valide et cochez l'engagement pour valider.
         </p>
       )}
-      <p className="text-center text-[#8a7561] text-sm mt-4">Le règlement se fait en caisse, après validation.</p>
+      <p className="text-center text-[#8a7561] text-sm mt-4">
+        {delivery ? "Le règlement se fait auprès du livreur, à la livraison." : "Le règlement se fait en caisse, après validation."}
+      </p>
     </div>
   );
 }

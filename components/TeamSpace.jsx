@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder } from "@/lib/data";
+import { useOrders, useSlots, useTestMode, setTestModeEnabled, deleteAllTestOrders, updateOrder, useDeliverySettings } from "@/lib/data";
 import { computeScheduledOrderSlotAllocations, recomputeScheduledOrderSlotAllocations, recomputeImmediateOrderSlotAllocations, hasUnseenSatAddition } from "@/lib/business";
 import { playAutonomousOrderChime, preloadCustomSound } from "@/lib/sound";
 import { useRestaurant, useRestaurantFilter } from "@/lib/restaurant";
@@ -13,6 +13,7 @@ import DessertCafeBoard from "./team/DessertCafeBoard";
 import StaffOrderFlow from "./team/StaffOrderFlow";
 import ServiceBoard from "./team/ServiceBoard";
 import CaisseBoard from "./team/CaisseBoard";
+import DeliveryBoard from "./team/DeliveryBoard";
 import ScheduledOrdersList from "./team/ScheduledOrdersList";
 import ScheduledOrderFlow from "./team/ScheduledOrderFlow";
 import SlotsAdmin from "./team/SlotsAdmin";
@@ -53,6 +54,13 @@ export default function TeamSpace({ onExit }) {
   // board réservations (« Prise de commande » sur une table sans commande).
   const [orderPrefillTableIds, setOrderPrefillTableIds] = useState(null);
   const { orders } = useOrders();
+  // Onglet « Livraisons » : visible dès que la livraison est activée pour ce
+  // restaurant, ou s'il reste une livraison du jour à l'écran (même si on vient
+  // de la désactiver).
+  const { deliverySettings } = useDeliverySettings();
+  const deliveriesInProgress = orders.filter((o) => o.deliveryStatus && o.deliveryStatus !== "annulee" && o.deliveryStatus !== "livree").length;
+  const showDeliveryTab = Boolean(deliverySettings) || orders.some((o) => o.deliveryStatus);
+  const deliveryTabLabel = `🛵 Livraisons${deliveriesInProgress > 0 ? ` (${deliveriesInProgress})` : ""}`;
   const { slots } = useSlots();
   const { testMode } = useTestMode();
   const restaurantFilter = useRestaurantFilter();
@@ -260,6 +268,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("dessert-cafe")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "dessert-cafe" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍰 Dessert/Café</button>
             <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
+            {showDeliveryTab && <button onClick={() => setTab("livraisons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "livraisons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{deliveryTabLabel}</button>}
             <button onClick={() => setTab("staff-order")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "staff-order" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📞 Prise de commande</button>
             <button onClick={() => setTab("resaboard")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "resaboard" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📋 Réservations</button>
           </div>
@@ -269,6 +278,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "dessert-cafe" && <DessertCafeBoard />}
           {tab === "service" && <ServiceBoard />}
           {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
+          {tab === "livraisons" && <DeliveryBoard readOnly={readOnly} />}
           {tab === "staff-order" && (
             <StaffOrderFlow
               initialTableIds={orderPrefillTableIds}
@@ -294,6 +304,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("service")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "service" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍽️ Service</button>
             <button onClick={() => { setTab("scheduled"); setSchedulingNew(false); }} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "scheduled" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📅 Programmées</button>
             <button onClick={() => setTab("caisse")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "caisse" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>💰 Caisse</button>
+            {showDeliveryTab && <button onClick={() => setTab("livraisons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "livraisons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{deliveryTabLabel}</button>}
           </div>
           {tab === "staff-order" && (
             <StaffOrderFlow
@@ -306,6 +317,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "scheduled" && !schedulingNew && <ScheduledOrdersList onNew={() => setSchedulingNew(true)} />}
           {tab === "scheduled" && schedulingNew && <ScheduledOrderFlow onDone={() => setSchedulingNew(false)} />}
           {tab === "caisse" && <CaisseBoard readOnly={readOnly} />}
+          {tab === "livraisons" && <DeliveryBoard readOnly={readOnly} />}
         </>
       )}
 

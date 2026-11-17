@@ -1,6 +1,6 @@
 "use client";
 
-export default function WelcomeScreen({ onStart, onTeam, restaurantName, hoursNote }) {
+export default function WelcomeScreen({ onStart, onStartDelivery, onTeam, restaurantName, hoursNote }) {
   return (
     <div className="relative flex-1 flex flex-col items-center justify-center px-8 text-center">
       <div className="oven-glow" />
@@ -19,9 +19,20 @@ export default function WelcomeScreen({ onStart, onTeam, restaurantName, hoursNo
           className="tap-scale rounded-full px-16 py-7 text-2xl font-bold display-font italic"
           style={{ background: "#C0392B", color: "#fff5ea", boxShadow: "0 12px 30px rgba(192,57,43,0.35)" }}
         >
-          Commencer ma commande
+          {onStartDelivery ? "Je viens la chercher" : "Commencer ma commande"}
         </button>
-        <p className="text-[#8a7561] text-sm mt-8 tracking-wide uppercase">Paiement en caisse après validation</p>
+        {onStartDelivery && (
+          <button
+            onClick={onStartDelivery}
+            className="tap-scale rounded-full px-16 py-6 text-2xl font-bold display-font italic mt-4"
+            style={{ background: "transparent", color: "#E8B23D", border: "2px solid #E8B23D" }}
+          >
+            🛵 Me faire livrer
+          </button>
+        )}
+        <p className="text-[#8a7561] text-sm mt-8 tracking-wide uppercase">
+          {onStartDelivery ? "Paiement en caisse, ou au livreur" : "Paiement en caisse après validation"}
+        </p>
       </div>
       {onTeam && (
         <button onClick={onTeam} className="absolute bottom-6 right-6 text-[#5a4a3a] text-xs tap-scale">
