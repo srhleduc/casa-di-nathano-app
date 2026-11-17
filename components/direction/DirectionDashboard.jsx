@@ -35,6 +35,7 @@ import FormulasAdmin from "./FormulasAdmin";
 import CampaignsAdmin from "./CampaignsAdmin";
 import CategoriesAdmin from "./CategoriesAdmin";
 import TeamAccessLogAdmin from "./TeamAccessLogAdmin";
+import PendingDevicesBanner from "./PendingDevicesBanner";
 import TeamActivityLogAdmin from "./TeamActivityLogAdmin";
 
 function NotificationsToggle() {
@@ -165,6 +166,8 @@ export default function DirectionDashboard() {
           </button>
         </div>
       </div>
+
+      <PendingDevicesBanner />
 
       <div className="flex gap-3 px-6 py-4 overflow-x-auto">
         <button onClick={() => setTab("overview")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "overview" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>

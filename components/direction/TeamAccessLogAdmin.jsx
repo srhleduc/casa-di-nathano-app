@@ -25,7 +25,7 @@ import {
 } from "@/lib/data";
 import { useRestaurantsList } from "@/lib/restaurant";
 
-function deviceLabel(ua) {
+export function deviceLabel(ua) {
   if (!ua) return "Inconnu";
   const os = /iPhone/.test(ua)
     ? "iPhone"
