@@ -14,7 +14,7 @@ import { deriveSlotDisplayOptions } from "@/lib/business";
 // déjà pleins théoriquement (en rouge), sélectionnables avec double
 // confirmation. Sans ce prop (borne client, lien à emporter), le comportement
 // est strictement celui d'avant.
-export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, setSelectedOption, allSlotsConfigured, staffForceOptions, onBack, onConfirm }) {
+export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, setSelectedOption, allSlotsConfigured, staffForceOptions, onBack, onConfirm, note }) {
   const [showAll, setShowAll] = useState(false);
   const [confirmingForce, setConfirmingForce] = useState(false);
   const mode = slotChoice?.mode;
@@ -77,6 +77,7 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
       <p className="text-[#a88f78] mb-8">
         {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""} dans ta commande — on t'affiche uniquement les horaires où le four a la place.
       </p>
+      {note && <p className="text-[#E8B23D] font-semibold mb-6 -mt-4">{note}</p>}
 
       {!allSlotsConfigured && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">

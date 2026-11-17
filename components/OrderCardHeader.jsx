@@ -20,6 +20,11 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
         <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(order.serviceType)}>
           {order.serviceType}
         </span>
+        {order.deliveryStatus && (
+          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#1c3a52", color: "#9fd0f5" }} title={order.deliveryAddress || "Livraison"}>
+            🛵 Livraison
+          </span>
+        )}
         {isOrderPaid(order) && order.status !== "servie" && (
           <span
             className="text-xs font-bold rounded-full px-3 py-1"
