@@ -1,7 +1,8 @@
 -- App livreur : comptes livreurs (email + mot de passe), limités aux livraisons
 -- des restaurants. À exécuter une fois dans Supabase → SQL Editor.
 --
--- Ajouter un livreur :
+-- Les livreurs se créent ensuite depuis Direction → Livreurs (clé SUPABASE_SERVICE_ROLE_KEY
+-- requise sur le projet Vercel de la Direction). Méthode manuelle, sans l app :
 --   1. Supabase → Authentication → Users → "Add user" (email + mot de passe,
 --      cocher "Auto Confirm User").
 --   2. Puis exécuter (en remplaçant l'email et le prénom) :
