@@ -228,7 +228,7 @@ export default function TakeawayOrder() {
     if (!isDelivery || screen !== "checkout") return;
     let cancelled = false;
     const { address } = deliveryInfo;
-    quoteDelivery({ lat: address.lat, lng: address.lng, postalCode: address.postcode, subtotal: total })
+    quoteDelivery({ lat: address.lat, lng: address.lng, postalCode: address.postcode, subtotal: total, cityCode: address.citycode })
       .then((q) => {
         if (!cancelled) setLiveQuote(q);
       })
@@ -364,6 +364,7 @@ export default function TakeawayOrder() {
           address: deliveryInfo.address.label,
           postalCode: deliveryInfo.address.postcode,
           city: deliveryInfo.address.city,
+          cityCode: deliveryInfo.address.citycode,
           lat: deliveryInfo.address.lat,
           lng: deliveryInfo.address.lng,
           instructions: deliveryInfo.instructions || null,

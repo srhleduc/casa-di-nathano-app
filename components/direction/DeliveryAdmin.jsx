@@ -45,7 +45,31 @@ function toForm(config) {
     lng: s.lng,
     zones: config.zones.map((z) => ({ id: z.id, label: z.label, postalCode: z.postalCode, fee: toStr(z.fee), minOrder: toStr(z.minOrder), active: z.active })),
     tiers: config.tiers.map((t) => ({ id: t.id, upToKm: toStr(t.upToKm), fee: toStr(t.fee) })),
+    cities: config.cities.map((c) => ({ code: c.code, label: c.label, postalCodes: c.postalCodes, distanceKm: null, mode: c.mode, radiusKm: toStr(c.radiusKm) })),
+    citiesAvailable: config.citiesAvailable,
   };
+}
+
+// Fusionne la liste de communes proposée par le service (dans le rayon) avec
+// les réglages déjà enregistrés : une commune déjà réglée garde son réglage,
+// une nouvelle est proposée en « toute la ville ». Une commune enregistrée mais
+// devenue hors rayon reste affichée (signalée), pour ne pas perdre son réglage.
+function mergeCities(existing, fetched) {
+  const byCode = new Map(existing.map((c) => [c.code, c]));
+  const fetchedCodes = new Set(fetched.map((f) => f.code));
+  const merged = fetched.map((f) => {
+    const old = byCode.get(f.code);
+    return {
+      code: f.code,
+      label: f.nom,
+      postalCodes: (f.codesPostaux || []).join(", "),
+      distanceKm: f.distanceKm,
+      mode: old?.mode || "all",
+      radiusKm: old?.radiusKm ?? "",
+    };
+  });
+  existing.filter((c) => !fetchedCodes.has(c.code)).forEach((c) => merged.push({ ...c, outOfRange: true }));
+  return merged.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
 }
 
 // Valide le formulaire et le convertit en valeurs numériques ; renvoie
@@ -112,7 +136,22 @@ function fromForm(f) {
   if (f.enabled && f.feeMode !== "zone" && (f.lat == null || f.lng == null)) {
     errors.push("Renseignez l'adresse du restaurant (point de départ des distances) pour activer ce mode.");
   }
-  return errors.length ? { errors: [...new Set(errors)] } : { config: { settings, zones, tiers } };
+  const cities = f.cities.map((c) => ({
+    code: c.code,
+    label: c.label,
+    postalCodes: c.postalCodes,
+    mode: c.mode,
+    radiusKm: c.mode === "radius" ? toNum(c.radiusKm) : null,
+  }));
+  if (f.feeMode === "distance") {
+    cities.forEach((c) => {
+      if (c.mode === "radius" && !(c.radiusKm > 0)) errors.push(`${c.label} : saisissez un rayon en km pour la limiter.`);
+    });
+    if (f.enabled && cities.length > 0 && cities.every((c) => c.mode === "off")) errors.push("Toutes les villes sont désactivées : activez-en au moins une.");
+  }
+  return errors.length
+    ? { errors: [...new Set(errors)] }
+    : { config: { settings, zones, tiers, cities, citiesAvailable: f.citiesAvailable } };
 }
 
 function Field({ label, hint, children }) {
@@ -213,6 +252,132 @@ function RestaurantLocation({ lat, lng, onPick }) {
           "Aucune position enregistrée. Elle est nécessaire pour les modes « tarif unique » et « selon la distance »."
         )}
       </p>
+    </div>
+  );
+}
+
+const CITY_MODES = [
+  { key: "all", label: "Toute la ville" },
+  { key: "radius", label: "Rayon limité" },
+  { key: "off", label: "Désactivée" },
+];
+
+// « Villes desservies » (mode selon la distance) : les communes situées dans le
+// rayon maximum, avec un réglage par ville.
+function CitiesSection({ form, set, hasPosition }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const citiesRef = useRef(form.cities);
+  citiesRef.current = form.cities;
+
+  const radius = toNum(form.maxRadiusKm);
+  const canLoad = hasPosition && radius > 0 && form.citiesAvailable;
+
+  useEffect(() => {
+    if (!canLoad) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/communes?lat=${form.lat}&lng=${form.lng}&radius=${radius}`);
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) throw new Error(json.error || "indisponible");
+        set({ cities: mergeCities(citiesRef.current, json.communes || []) });
+      } catch (err) {
+        if (!cancelled) setError("Impossible de charger la liste des communes pour le moment. Réessayez dans un instant.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canLoad, form.lat, form.lng, radius, reloadKey]);
+
+  const setCity = (code, patch) => set({ cities: form.cities.map((c) => (c.code === code ? { ...c, ...patch } : c)) });
+  const setAll = (mode) => set({ cities: form.cities.map((c) => ({ ...c, mode, radiusKm: mode === "radius" ? c.radiusKm || form.maxRadiusKm : c.radiusKm })) });
+
+  if (!form.citiesAvailable) {
+    return (
+      <p className="text-sm" style={{ color: "#E8B23D" }}>
+        La liste des villes nécessite le script delivery_cities.sql (à exécuter dans Supabase). En attendant, seule la distance maximale s&apos;applique.
+      </p>
+    );
+  }
+  if (!hasPosition) {
+    return <p className="text-sm text-[#8a7561]">Renseignez l&apos;adresse du restaurant ci-dessus pour voir les villes desservies.</p>;
+  }
+
+  return (
+    <div>
+      <h4 className="font-bold mb-1">🏘️ Villes desservies</h4>
+      <p className="text-xs text-[#8a7561] mb-3">
+        Communes dans un rayon de {form.maxRadiusKm || "?"} km autour du restaurant. Pour chacune : toute la ville, un rayon limité (pour les grandes communes),
+        ou désactivée. « Toute la ville » livre même au-delà du rayon maximum.
+      </p>
+      {loading && <p className="text-sm text-[#8a7561] mb-2">Chargement des communes…</p>}
+      {error && (
+        <p className="text-sm mb-2" style={{ color: "#e88a8a" }}>
+          {error}{" "}
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="underline font-semibold">
+            Réessayer
+          </button>
+        </p>
+      )}
+      {form.cities.length > 0 && (
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <button type="button" onClick={() => setAll("all")} className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f]">
+            Tout activer
+          </button>
+          <button type="button" onClick={() => setAll("off")} className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2 border-[#3a2b1f]">
+            Tout désactiver
+          </button>
+        </div>
+      )}
+      <div className="flex flex-col gap-2">
+        {form.cities.map((c) => (
+          <div key={c.code} className="rounded-xl p-3" style={{ background: "#211712", border: "1px solid #3a2b1f", opacity: c.mode === "off" ? 0.6 : 1 }}>
+            <div className="flex items-baseline justify-between gap-2 mb-2">
+              <div>
+                <span className="font-bold">{c.label}</span>
+                {c.postalCodes && <span className="text-xs text-[#8a7561]"> · {c.postalCodes}</span>}
+              </div>
+              <span className="text-xs text-[#a88f78] shrink-0">{c.distanceKm != null ? `à ${String(c.distanceKm).replace(".", ",")} km` : "hors rayon"}</span>
+            </div>
+            <div className="flex gap-2 flex-wrap items-center">
+              {CITY_MODES.map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setCity(c.code, { mode: m.key, radiusKm: m.key === "radius" && !c.radiusKm ? form.maxRadiusKm : c.radiusKm })}
+                  className="tap-scale rounded-full px-4 py-2 text-sm font-bold border-2"
+                  style={
+                    c.mode === m.key
+                      ? m.key === "off"
+                        ? { borderColor: "#7a3a3a", background: "#2c1818" }
+                        : { borderColor: "#C0392B", background: "#2c1c14" }
+                      : { borderColor: "#3a2b1f" }
+                  }
+                >
+                  {m.label}
+                </button>
+              ))}
+              {c.mode === "radius" && (
+                <span className="inline-flex items-center gap-2">
+                  <span className="text-sm text-[#a88f78]">jusqu&apos;à</span>
+                  <NumInput value={c.radiusKm} onChange={(v) => setCity(c.code, { radiusKm: v })} suffix="km" width="w-16" />
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        {!loading && !error && form.cities.length === 0 && <p className="text-sm text-[#8a7561]">Aucune commune trouvée dans ce rayon.</p>}
+      </div>
     </div>
   );
 }
@@ -402,6 +567,8 @@ function RestaurantDelivery({ restaurant }) {
                 </Field>
               </div>
             )}
+
+            <CitiesSection form={form} set={set} hasPosition={form.lat != null && form.lng != null} />
           </div>
         )}
       </section>

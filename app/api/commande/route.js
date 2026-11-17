@@ -120,6 +120,7 @@ export async function POST(request) {
       p_cgv_version: cgvVersion || null,
       p_ip_address: ip,
       p_user_agent: userAgent,
+      p_delivery_citycode: delivery.cityCode || null,
     };
   }
 

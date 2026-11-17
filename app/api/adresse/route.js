@@ -42,7 +42,7 @@ export async function GET(request) {
       .map((f) => {
         const p = f.properties || {};
         const [lng, lat] = f.geometry?.coordinates || [];
-        return { label: p.label, street: p.name, postcode: p.postcode, city: p.city, type: p.type, lat, lng };
+        return { label: p.label, street: p.name, postcode: p.postcode, city: p.city, citycode: p.citycode || null, type: p.type, lat, lng };
       })
       // On écarte les résultats trop vagues (une commune ou un lieu-dit seul) :
       // il faut au moins une rue pour livrer.

@@ -59,7 +59,7 @@ export default function DeliveryAddressScreen({ restaurantName, initial, onBack,
     setQuoteError(null);
     setQuoting(true);
     try {
-      setQuote(await quoteDelivery({ lat: r.lat, lng: r.lng, postalCode: r.postcode, subtotal: 0 }));
+      setQuote(await quoteDelivery({ lat: r.lat, lng: r.lng, postalCode: r.postcode, subtotal: 0, cityCode: r.citycode }));
     } catch (err) {
       console.error("Devis de livraison impossible", err);
       setQuoteError("Impossible de vérifier cette adresse pour le moment. Réessayez, ou appelez le restaurant.");
