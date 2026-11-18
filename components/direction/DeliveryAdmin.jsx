@@ -363,7 +363,8 @@ function CitiesSection({ form, set, hasPosition }) {
         </div>
       )}
       <div className="flex flex-col gap-2">
-        {form.cities.map((c) => (
+        {/* Communes désactivées regroupées en bas ; l'ordre par distance est conservé dans chaque groupe. */}
+        {[...form.cities.filter((c) => c.mode !== "off"), ...form.cities.filter((c) => c.mode === "off")].map((c) => (
           <div key={c.code} className="rounded-xl p-3" style={{ background: "#211712", border: "1px solid #3a2b1f", opacity: c.mode === "off" ? 0.6 : 1 }}>
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <div>
