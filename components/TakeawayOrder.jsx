@@ -77,10 +77,11 @@ function isDeliveryRejection(err) {
 async function submitWithRetry(payload, attempt = 1) {
   try {
     if (payload.delivery) {
-      const { takeawayNumber, total } = await submitDeliveryOrderWithCommitment(payload);
-      return { takeawayNumber, total };
+      const { takeawayNumber, total, emailSent } = await submitDeliveryOrderWithCommitment(payload);
+      return { takeawayNumber, total, emailSent };
     }
-    return { takeawayNumber: await submitTakeawayOrderWithCommitment(payload) };
+    const { takeawayNumber, emailSent } = await submitTakeawayOrderWithCommitment(payload);
+    return { takeawayNumber, emailSent };
   } catch (err) {
     if (!isSlotRejection(err) && !isDeliveryRejection(err) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
@@ -165,6 +166,8 @@ export default function TakeawayOrder() {
   const [confirmedNumber, setConfirmedNumber] = useState(null);
   const [orderError, setOrderError] = useState(null);
   const [checkPizzaCount, setCheckPizzaCount] = useState(0); // vérif rapide de dispo avant de commander (miroir du flux serveuses)
+  const [email, setEmail] = useState(""); // facultatif — suivi de commande par email
+  const [emailSent, setEmailSent] = useState(false);
   const [phone, setPhone] = useState(""); // engagement client — numéro brut, aucun rapprochement profil
   const [commitmentAccepted, setCommitmentAccepted] = useState(false); // case CGV, jamais pré-cochée
   const [cgvOpen, setCgvOpen] = useState(false);
@@ -299,6 +302,8 @@ export default function TakeawayOrder() {
     setResumeCampaigns(false);
     setCheckPizzaCount(0);
     setPhone("");
+    setEmail("");
+    setEmailSent(false);
     setCommitmentAccepted(false);
     setCgvOpen(false);
     setOrderMode("pickup");
@@ -374,17 +379,19 @@ export default function TakeawayOrder() {
       order: newOrder,
       commitment: {
         phone: normalizePhoneFr(phone),
+        email: email.trim(),
         accepted: commitmentAccepted,
         cgvSnapshot: delivery ? CGV_DELIVERY_TEXT : CGV_TEXT,
         cgvVersion: delivery ? CGV_DELIVERY_VERSION : CGV_VERSION,
       },
       ...(delivery ? { delivery } : {}),
-    }).then(({ takeawayNumber, total: serverTotal, error }) => {
+    }).then(({ takeawayNumber, total: serverTotal, emailSent: sent, error }) => {
       if (error) {
         setOrderError(error);
         return;
       }
       setConfirmedNumber(takeawayNumber);
+      setEmailSent(Boolean(sent));
       if (serverTotal != null) setConfirmedTotal(serverTotal);
     });
   }
@@ -493,9 +500,9 @@ export default function TakeawayOrder() {
     if (isDelivery) {
       const eta = deliverySettings?.estimatedMinutes ? ` (environ ${deliverySettings.estimatedMinutes} min après la préparation)` : "";
       const totalTxt = confirmedTotal != null ? ` Total à régler au livreur : ${eur(confirmedTotal)}.` : "";
-      return `Merci ${tableName ? tableName + " " : ""}— ta commande sera livrée à l'adresse indiquée${eta}.${totalTxt}`;
+      return `Merci ${tableName ? tableName + " " : ""}— ta commande sera livrée à l'adresse indiquée${eta}.${totalTxt}${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
     }
-    return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.`;
+    return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
   }
 
   if (suspendedLoading) {
@@ -643,6 +650,8 @@ export default function TakeawayOrder() {
           requireCommitment
           phone={phone}
           setPhone={setPhone}
+          email={email}
+          setEmail={process.env.NEXT_PUBLIC_EMAIL_SUIVI === "1" ? setEmail : undefined}
           commitmentAccepted={commitmentAccepted}
           setCommitmentAccepted={setCommitmentAccepted}
           onOpenCgv={() => setCgvOpen(true)}
