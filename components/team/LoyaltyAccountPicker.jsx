@@ -11,7 +11,7 @@ const INPUT_STYLE = { background: "#211712", border: "1px solid #3a2b1f", color:
 // prénom ou téléphone ; `onSelect(client)` reçoit le compte choisi. Aucun point
 // n'est crédité ici : le compte est seulement rattaché à la commande, la Caisse
 // le pré-sélectionne ensuite.
-export function LoyaltyLookupButton({ initialTerm = "", onSelect, disabled = false }) {
+export function LoyaltyLookupButton({ initialTerm = "", onSelect, disabled = false, hint }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -29,6 +29,7 @@ export function LoyaltyLookupButton({ initialTerm = "", onSelect, disabled = fal
       {open && (
         <LoyaltySearchModal
           initialTerm={initialTerm}
+          hint={hint}
           onClose={() => setOpen(false)}
           onSelect={(c) => {
             setOpen(false);
@@ -59,7 +60,7 @@ export function LoyaltyLinkedChip({ customer, onClear }) {
   );
 }
 
-function LoyaltySearchModal({ initialTerm, onClose, onSelect }) {
+function LoyaltySearchModal({ initialTerm, hint, onClose, onSelect }) {
   const [term, setTerm] = useState(initialTerm);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -147,7 +148,7 @@ function LoyaltySearchModal({ initialTerm, onClose, onSelect }) {
             ))}
           </div>
           <p className="text-xs text-[#8a7561]">
-            Les points seront crédités en Caisse, une fois la commande réglée. Pour créer un nouveau compte, passe par la Caisse ou l'écran Fidélité.
+            {hint ?? "Les points seront crédités en Caisse, une fois la commande réglée. Pour créer un nouveau compte, passe par la Caisse ou l'écran Fidélité."}
           </p>
         </div>
       </div>
