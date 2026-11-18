@@ -530,6 +530,7 @@ export default function TakeawayOrder() {
         <WelcomeScreen
           onStart={startPickup}
           onStartDelivery={deliverySettings ? startDelivery : undefined}
+          testDelivery={Boolean(deliverySettings?.testOnly)}
           restaurantName={restaurant.name}
           hoursNote={hoursNoteToday}
         />
