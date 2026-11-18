@@ -7,13 +7,14 @@
 import { sectorLabel } from "@/lib/deliveryWaves";
 import { routeLink } from "@/lib/navApps";
 
-export default function WaveHeader({ group, readyOrders = [], navApp = "google", platform = "other" }) {
-  const route = routeLink(navApp, readyOrders, { platform });
+// `keepOrder` : `readyOrders` est déjà dans l'ordre de la tournée calculée.
+export default function WaveHeader({ group, readyOrders = [], navApp = "google", platform = "other", keepOrder = false }) {
+  const route = routeLink(navApp, readyOrders, { platform, keepOrder });
   const n = group.orders.length;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div className="font-bold" style={{ color: "#E8B23D" }}>
-        {group.time ? `🕒 Départ ${group.time}` : "Sans départ"}
+        {group.time ? `🕒 Départ ${group.time}` : "Livraisons en cours"}
         {group.time && group.sector ? ` · ${sectorLabel(group.sector)}` : ""}
         <span className="text-[#a88f78] font-normal"> · {n} commande{n > 1 ? "s" : ""}</span>
       </div>

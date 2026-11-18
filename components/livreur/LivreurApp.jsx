@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { signInManager, signOutManager, useManagerSession } from "@/lib/managerAuth";
-import { useDriverDeliveries, setDriverDeliveryStatus } from "@/lib/data";
+import { useDriverDeliveries, setDriverDeliveryStatus, fetchDriverOrigins } from "@/lib/data";
 import { useRestaurantsList } from "@/lib/restaurant";
 import { isOrderPaid, isOrderActiveToday } from "@/lib/business";
 import { eur } from "@/lib/menu";
@@ -16,7 +16,9 @@ import GroupedItemList from "../GroupedItemList";
 import WaveHeader from "../WaveHeader";
 import NavAppPicker, { useNavApp } from "../NavAppPicker";
 import { navUrl } from "@/lib/navApps";
-import { groupByWave } from "@/lib/deliveryWaves";
+import { groupByTournee } from "@/lib/deliveryWaves";
+import { buildDeliveryMessage, smsUrl } from "@/lib/tournee";
+import { useTourneePlan } from "./useTourneePlan";
 
 const KITCHEN_PENDING = ["attente", "preparation", "prete"];
 
@@ -59,12 +61,15 @@ function Login() {
   );
 }
 
-function Card({ order, restaurantName, navApp, platform, children }) {
+function Card({ order, restaurantName, navApp, platform, stopInfo, smsHref, children }) {
   const paid = isOrderPaid(order);
   return (
     <div className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-4 mb-4">
       <div className="flex items-center justify-between gap-2 mb-1">
-        <div className="display-font text-xl font-bold">{order.name}</div>
+        <div className="display-font text-xl font-bold">
+          {stopInfo && <span className="mr-2 rounded-full px-2 py-0.5 text-sm" style={{ background: "#E8B23D", color: "#1a120b" }}>{stopInfo.position}</span>}
+          {order.name}
+        </div>
         <div className="text-xs font-bold rounded-full px-2 py-1" style={{ background: "#3a2b1f", color: "#E8B23D" }}>
           {restaurantName} · {order.deliveryWave ? `départ ${order.deliveryWave}` : timeOf(order)}
         </div>
@@ -78,7 +83,15 @@ function Card({ order, restaurantName, navApp, platform, children }) {
           {order.deliveryPhone && (
             <a href={telUrl(order.deliveryPhone)} className="tap-scale flex-1 text-center rounded-lg py-3 text-sm font-bold" style={{ background: "#2b5a82", color: "#fff" }}>📞 Appeler</a>
           )}
+          {order.deliveryPhone && smsHref && (
+            <a href={smsHref} className="tap-scale flex-1 text-center rounded-lg py-3 text-sm font-bold" style={{ background: "#2b5a82", color: "#fff" }}>💬 Message</a>
+          )}
         </div>
+        {stopInfo && (
+          <div className="text-xs mt-2" style={{ color: "#cfe6fa" }}>
+            ⏱️ ~{stopInfo.minutes} min depuis le départ{stopInfo.estimated ? " (estimation)" : ""}
+          </div>
+        )}
       </div>
       <GroupedItemList items={order.items} className="mb-3" />
       {order.note && <div className="text-sm text-[#a88f78] mb-3">📝 {order.note}</div>}
@@ -103,12 +116,45 @@ function Section({ title, count, children }) {
   );
 }
 
+// Une tournée (restaurant + départ) : cartes triées dans l'ordre de passage le
+// plus rapide, avec position, temps estimé et message prêt à envoyer.
+// `withPlan` : faux pour les commandes encore en cuisine (pas encore parties).
+function TourneeGroup({ group, origin, withPlan, showHeader, navApp, platform, nameOf, renderActions }) {
+  const { plan } = useTourneePlan(withPlan ? origin : null, group.orders);
+  const byId = new Map(group.orders.map((o) => [o.id, o]));
+  const planned = plan ? plan.order.map((id) => byId.get(id)).filter(Boolean) : [];
+  const unplanned = group.orders.filter((o) => !plan || !plan.arrivals[o.id]);
+  const ordered = [...planned, ...unplanned];
+  const estimated = plan?.source === "estimation";
+
+  return (
+    <div className="mb-4">
+      {showHeader && (
+        <WaveHeader group={group} readyOrders={ordered} navApp={navApp} platform={platform} keepOrder={!!plan} />
+      )}
+      {ordered.map((o) => {
+        const a = plan?.arrivals[o.id];
+        const stopInfo = a ? { position: a.position, minutes: a.minutes, estimated } : null;
+        const body = buildDeliveryMessage({ restaurantName: nameOf(o.restaurantId), pizzaCount: o.pizzaCount, minutes: a?.minutes, position: a?.position });
+        // Sans plan (adresse non localisée), on ouvre quand même le SMS, sans texte.
+        const smsHref = withPlan ? smsUrl(o.deliveryPhone, a ? body : "", { platform }) : null;
+        return (
+          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform} stopInfo={stopInfo} smsHref={smsHref}>
+            {renderActions(o)}
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function Board({ onSignOut }) {
   const { orders, loading } = useDriverDeliveries();
   const restaurants = useRestaurantsList();
   const { app: navApp, setApp: setNavApp, platform } = useNavApp();
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
+  const [origins, setOrigins] = useState({});
   const nameOf = (id) => restaurants.find((r) => r.id === id)?.name || "";
 
   const deliveries = orders.filter((o) => o.deliveryStatus && o.deliveryStatus !== "annulee" && isOrderActiveToday(o));
@@ -116,6 +162,16 @@ function Board({ onSignOut }) {
   const ready = deliveries.filter((o) => o.deliveryStatus === "a_livrer" && !KITCHEN_PENDING.includes(o.status));
   const enRoute = deliveries.filter((o) => o.deliveryStatus === "en_route");
   const done = deliveries.filter((o) => o.deliveryStatus === "livree");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDriverOrigins()
+      .then((o) => !cancelled && setOrigins(o || {}))
+      .catch((err) => console.error("Point de départ introuvable :", err?.message || err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function set(o, status) {
     setBusyId(o.id);
@@ -147,30 +203,26 @@ function Board({ onSignOut }) {
       {!loading && deliveries.length === 0 && <p className="text-[#8a7561]">Aucune livraison pour l&apos;instant.</p>}
 
       <Section title="🟢 Prêtes à livrer" count={ready.length}>
-        {groupByWave(ready).map((group) => (
-          <div key={group.time || "none"} className="mb-4">
-            {(group.time || ready.some((o) => o.deliveryWave)) && <WaveHeader group={group} readyOrders={group.orders} navApp={navApp} platform={platform} />}
-            {group.orders.map((o) => (
-              <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
-                {btn("🛵 Je pars livrer", "#C0392B", "#fff5ea", () => set(o, "en_route"), o)}
-              </Card>
-            ))}
-          </div>
+        {groupByTournee(ready).map((group) => (
+          <TourneeGroup key={group.key} group={group} origin={origins[group.restaurantId]} withPlan showHeader={!!group.time || ready.some((o) => o.deliveryWave)} navApp={navApp} platform={platform} nameOf={nameOf}
+            renderActions={(o) => btn("🛵 Je pars livrer", "#C0392B", "#fff5ea", () => set(o, "en_route"), o)} />
         ))}
       </Section>
       <Section title="🛵 En route" count={enRoute.length}>
-        {enRoute.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
-            {btn("✅ Livrée", "#204a3a", "#a8e8c8", () => set(o, "livree"), o)}
-            <button onClick={() => set(o, "a_livrer")} className="tap-scale w-full mt-2 text-sm font-semibold text-[#a88f78]">↩ Remettre dans « Prêtes »</button>
-          </Card>
+        {groupByTournee(enRoute).map((group) => (
+          <TourneeGroup key={group.key} group={group} origin={origins[group.restaurantId]} withPlan showHeader={false} navApp={navApp} platform={platform} nameOf={nameOf}
+            renderActions={(o) => (
+              <>
+                {btn("✅ Livrée", "#204a3a", "#a8e8c8", () => set(o, "livree"), o)}
+                <button onClick={() => set(o, "a_livrer")} className="tap-scale w-full mt-2 text-sm font-semibold text-[#a88f78]">↩ Remettre dans « Prêtes »</button>
+              </>
+            )} />
         ))}
       </Section>
       <Section title="🔴 En préparation" count={pending.length}>
-        {pending.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
-            <div className="text-center text-sm text-[#a88f78]">En cuisine — elle passera dans « Prêtes » à la sortie.</div>
-          </Card>
+        {groupByTournee(pending).map((group) => (
+          <TourneeGroup key={group.key} group={group} origin={null} withPlan={false} showHeader={false} navApp={navApp} platform={platform} nameOf={nameOf}
+            renderActions={() => <div className="text-center text-sm text-[#a88f78]">En cuisine — elle passera dans « Prêtes » à la sortie.</div>} />
         ))}
       </Section>
       <Section title="✅ Livrées aujourd'hui" count={done.length}>
