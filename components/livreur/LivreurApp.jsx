@@ -17,7 +17,7 @@ import WaveHeader from "../WaveHeader";
 import NavAppPicker, { useNavApp } from "../NavAppPicker";
 import { navUrl } from "@/lib/navApps";
 import { groupByTournee } from "@/lib/deliveryWaves";
-import { buildDeliveryMessage, smsUrl } from "@/lib/tournee";
+import { buildDeliveryMessage, buildPreparationMessage, smsUrl } from "@/lib/tournee";
 import { useTourneePlan } from "./useTourneePlan";
 
 const KITCHEN_PENDING = ["attente", "preparation", "prete"];
@@ -137,7 +137,9 @@ function TourneeGroup({ group, origin, withPlan, showHeader, navApp, platform, n
         const stopInfo = a ? { position: a.position, minutes: a.minutes, estimated } : null;
         const body = buildDeliveryMessage({ restaurantName: nameOf(o.restaurantId), pizzaCount: o.pizzaCount, minutes: a?.minutes, position: a?.position });
         // Sans plan (adresse non localisée), on ouvre quand même le SMS, sans texte.
-        const smsHref = withPlan ? smsUrl(o.deliveryPhone, a ? body : "", { platform }) : null;
+        const smsHref = withPlan
+          ? smsUrl(o.deliveryPhone, a ? body : "", { platform })
+          : smsUrl(o.deliveryPhone, buildPreparationMessage({ restaurantName: nameOf(o.restaurantId), departTime: o.deliveryWave }), { platform });
         return (
           <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform} stopInfo={stopInfo} smsHref={smsHref}>
             {renderActions(o)}
