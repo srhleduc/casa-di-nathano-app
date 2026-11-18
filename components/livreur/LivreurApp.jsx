@@ -14,13 +14,12 @@ import { isOrderPaid, isOrderActiveToday } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import GroupedItemList from "../GroupedItemList";
 import WaveHeader from "../WaveHeader";
+import NavAppPicker, { useNavApp } from "../NavAppPicker";
+import { navUrl } from "@/lib/navApps";
 import { groupByWave } from "@/lib/deliveryWaves";
 
 const KITCHEN_PENDING = ["attente", "preparation", "prete"];
 
-function mapsUrl(o) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.deliveryAddress || "")}`;
-}
 function telUrl(phone) {
   return `tel:${(phone || "").replace(/[\s.\-()]/g, "")}`;
 }
@@ -60,7 +59,7 @@ function Login() {
   );
 }
 
-function Card({ order, restaurantName, children }) {
+function Card({ order, restaurantName, navApp, platform, children }) {
   const paid = isOrderPaid(order);
   return (
     <div className="rounded-2xl border border-[#3a2b1f] bg-[#211712] p-4 mb-4">
@@ -75,7 +74,7 @@ function Card({ order, restaurantName, children }) {
         <div className="font-bold text-[#f5ebdd] leading-snug">{order.deliveryAddress}</div>
         {order.deliveryInstructions && <div className="text-sm mt-1" style={{ color: "#cfe6fa" }}>ℹ️ {order.deliveryInstructions}</div>}
         <div className="flex gap-2 mt-3">
-          <a href={mapsUrl(order)} target="_blank" rel="noopener noreferrer" className="tap-scale flex-1 text-center rounded-lg py-3 text-sm font-bold" style={{ background: "#2b5a82", color: "#fff" }}>🗺️ Itinéraire</a>
+          <a href={navUrl(navApp, order.deliveryAddress, { platform })} target="_blank" rel="noopener noreferrer" className="tap-scale flex-1 text-center rounded-lg py-3 text-sm font-bold" style={{ background: "#2b5a82", color: "#fff" }}>🗺️ Itinéraire</a>
           {order.deliveryPhone && (
             <a href={telUrl(order.deliveryPhone)} className="tap-scale flex-1 text-center rounded-lg py-3 text-sm font-bold" style={{ background: "#2b5a82", color: "#fff" }}>📞 Appeler</a>
           )}
@@ -107,6 +106,7 @@ function Section({ title, count, children }) {
 function Board({ onSignOut }) {
   const { orders, loading } = useDriverDeliveries();
   const restaurants = useRestaurantsList();
+  const { app: navApp, setApp: setNavApp, platform } = useNavApp();
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
   const nameOf = (id) => restaurants.find((r) => r.id === id)?.name || "";
@@ -141,6 +141,7 @@ function Board({ onSignOut }) {
         <h1 className="display-font text-2xl font-semibold">🛵 Livraisons</h1>
         <button onClick={onSignOut} className="text-sm text-[#a88f78] underline">Déconnexion</button>
       </div>
+      <NavAppPicker app={navApp} setApp={setNavApp} />
       {error && <p className="text-[#C0392B] text-sm font-bold mb-3">{error}</p>}
       {loading && <p className="text-[#8a7561]">Chargement…</p>}
       {!loading && deliveries.length === 0 && <p className="text-[#8a7561]">Aucune livraison pour l&apos;instant.</p>}
@@ -148,9 +149,9 @@ function Board({ onSignOut }) {
       <Section title="🟢 Prêtes à livrer" count={ready.length}>
         {groupByWave(ready).map((group) => (
           <div key={group.time || "none"} className="mb-4">
-            {(group.time || ready.some((o) => o.deliveryWave)) && <WaveHeader group={group} readyOrders={group.orders} />}
+            {(group.time || ready.some((o) => o.deliveryWave)) && <WaveHeader group={group} readyOrders={group.orders} navApp={navApp} platform={platform} />}
             {group.orders.map((o) => (
-              <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
+              <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
                 {btn("🛵 Je pars livrer", "#C0392B", "#fff5ea", () => set(o, "en_route"), o)}
               </Card>
             ))}
@@ -159,7 +160,7 @@ function Board({ onSignOut }) {
       </Section>
       <Section title="🛵 En route" count={enRoute.length}>
         {enRoute.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
+          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
             {btn("✅ Livrée", "#204a3a", "#a8e8c8", () => set(o, "livree"), o)}
             <button onClick={() => set(o, "a_livrer")} className="tap-scale w-full mt-2 text-sm font-semibold text-[#a88f78]">↩ Remettre dans « Prêtes »</button>
           </Card>
@@ -167,14 +168,14 @@ function Board({ onSignOut }) {
       </Section>
       <Section title="🔴 En préparation" count={pending.length}>
         {pending.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
+          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
             <div className="text-center text-sm text-[#a88f78]">En cuisine — elle passera dans « Prêtes » à la sortie.</div>
           </Card>
         ))}
       </Section>
       <Section title="✅ Livrées aujourd'hui" count={done.length}>
         {done.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
+          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)} navApp={navApp} platform={platform}>
             {!isOrderPaid(o) && <div className="text-center text-sm font-bold mb-2" style={{ color: "#E8B23D" }}>💰 À remettre en Caisse</div>}
             <button onClick={() => set(o, "en_route")} className="tap-scale w-full text-sm font-semibold text-[#a88f78]">↩ Remettre « En route »</button>
           </Card>
