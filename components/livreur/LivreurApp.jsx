@@ -13,6 +13,8 @@ import { useRestaurantsList } from "@/lib/restaurant";
 import { isOrderPaid, isOrderActiveToday } from "@/lib/business";
 import { eur } from "@/lib/menu";
 import GroupedItemList from "../GroupedItemList";
+import WaveHeader from "../WaveHeader";
+import { groupByWave } from "@/lib/deliveryWaves";
 
 const KITCHEN_PENDING = ["attente", "preparation", "prete"];
 
@@ -65,7 +67,7 @@ function Card({ order, restaurantName, children }) {
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="display-font text-xl font-bold">{order.name}</div>
         <div className="text-xs font-bold rounded-full px-2 py-1" style={{ background: "#3a2b1f", color: "#E8B23D" }}>
-          {restaurantName} · {timeOf(order)}
+          {restaurantName} · {order.deliveryWave ? `départ ${order.deliveryWave}` : timeOf(order)}
         </div>
       </div>
       <div className="rounded-xl px-3 py-3 my-3" style={{ background: "#1c3a52" }}>
@@ -144,10 +146,15 @@ function Board({ onSignOut }) {
       {!loading && deliveries.length === 0 && <p className="text-[#8a7561]">Aucune livraison pour l&apos;instant.</p>}
 
       <Section title="🟢 Prêtes à livrer" count={ready.length}>
-        {ready.map((o) => (
-          <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
-            {btn("🛵 Je pars livrer", "#C0392B", "#fff5ea", () => set(o, "en_route"), o)}
-          </Card>
+        {groupByWave(ready).map((group) => (
+          <div key={group.time || "none"} className="mb-4">
+            {(group.time || ready.some((o) => o.deliveryWave)) && <WaveHeader group={group} readyOrders={group.orders} />}
+            {group.orders.map((o) => (
+              <Card key={o.id} order={o} restaurantName={nameOf(o.restaurantId)}>
+                {btn("🛵 Je pars livrer", "#C0392B", "#fff5ea", () => set(o, "en_route"), o)}
+              </Card>
+            ))}
+          </div>
         ))}
       </Section>
       <Section title="🛵 En route" count={enRoute.length}>

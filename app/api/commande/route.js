@@ -124,13 +124,16 @@ export async function POST(request) {
       p_ip_address: ip,
       p_user_agent: userAgent,
       p_delivery_citycode: delivery.cityCode || null,
+      // Départ groupé choisi (delivery_waves.sql). Envoyé seulement s'il y en a un : tant que le
+      // script SQL n'est pas joué, la fonction n'a pas ce paramètre et un appel avec échouerait.
+      ...(typeof delivery.wave === "string" && delivery.wave ? { p_delivery_wave: delivery.wave } : {}),
     };
   }
 
   const { data, error } = await supabase.rpc(rpcName, rpcArgs);
 
   if (error) {
-    const businessRejection = delivery && /hors de notre zone|Minimum de commande|indisponible|Adresse/i.test(error.message || "");
+    const businessRejection = delivery && /hors de notre zone|Minimum de commande|indisponible|Adresse|départ de livraison/i.test(error.message || "");
     return NextResponse.json(
       { error: error.message || "Échec de l'enregistrement" },
       { status: businessRejection ? 400 : 500 }

@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRestaurantsList } from "@/lib/restaurant";
 import { fetchDeliveryConfig, saveDeliveryConfig, DEFAULT_DELIVERY_SETTINGS } from "@/lib/data";
+import { WAVE_SECTORS, buildWaveSchedule, parseHHMM } from "@/lib/deliveryWaves";
 
 const PRIMARY_BTN = { background: "#C0392B", color: "#fff5ea" };
 const INPUT_STYLE = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
@@ -43,9 +44,12 @@ function toForm(config) {
     estimatedMinutes: toStr(s.estimatedMinutes),
     lat: s.lat,
     lng: s.lng,
+    wavesEnabled: Boolean(s.wavesEnabled),
+    waves: (config.waves || []).map((w) => ({ id: w.departTime, departTime: w.departTime, sector: w.sector, capacity: toStr(w.capacity), active: w.active })),
+    wavesAvailable: Boolean(config.wavesAvailable),
     zones: config.zones.map((z) => ({ id: z.id, label: z.label, postalCode: z.postalCode, fee: toStr(z.fee), minOrder: toStr(z.minOrder), active: z.active })),
     tiers: config.tiers.map((t) => ({ id: t.id, upToKm: toStr(t.upToKm), fee: toStr(t.fee) })),
-    cities: config.cities.map((c) => ({ code: c.code, label: c.label, postalCodes: c.postalCodes, distanceKm: null, mode: c.mode, radiusKm: toStr(c.radiusKm) })),
+    cities: config.cities.map((c) => ({ code: c.code, label: c.label, postalCodes: c.postalCodes, distanceKm: null, mode: c.mode, radiusKm: toStr(c.radiusKm), sector: c.sector || null })),
     citiesAvailable: config.citiesAvailable,
   };
 }
@@ -66,6 +70,7 @@ function mergeCities(existing, fetched) {
       distanceKm: f.distanceKm,
       mode: old?.mode || "all",
       radiusKm: old?.radiusKm ?? "",
+      sector: old?.sector ?? null,
     };
   });
   existing.filter((c) => !fetchedCodes.has(c.code)).forEach((c) => merged.push({ ...c, outOfRange: true }));
@@ -104,6 +109,7 @@ function fromForm(f) {
     estimatedMinutes: Math.round(estimatedMinutes) || 30,
     lat: f.lat,
     lng: f.lng,
+    wavesEnabled: f.wavesEnabled,
   };
 
   const zones = f.zones.map((z) => ({
@@ -142,7 +148,24 @@ function fromForm(f) {
     postalCodes: c.postalCodes,
     mode: c.mode,
     radiusKm: c.mode === "radius" ? toNum(c.radiusKm) : null,
+    sector: c.sector || null,
   }));
+
+  const waves = f.waves.map((w) => ({
+    departTime: String(w.departTime).trim(),
+    sector: w.sector,
+    capacity: Math.round(toNum(w.capacity)),
+    active: w.active,
+  }));
+  if (f.wavesEnabled) {
+    waves.forEach((w) => {
+      if (parseHHMM(w.departTime) == null) errors.push(`Départ « ${w.departTime || "?"} » : saisissez une heure valide (ex. 19:00).`);
+      if (!(w.capacity > 0)) errors.push(`Départ ${w.departTime || "?"} : le nombre maximum de commandes doit être au moins 1.`);
+    });
+    const times = waves.map((w) => w.departTime);
+    if (new Set(times).size !== times.length) errors.push("Deux départs ont la même heure.");
+    if (waves.filter((w) => w.active).length === 0) errors.push("Ajoutez au moins un départ actif pour activer les départs groupés.");
+  }
   if (f.feeMode === "distance") {
     cities.forEach((c) => {
       if (c.mode === "radius" && !(c.radiusKm > 0)) errors.push(`${c.label} : saisissez un rayon en km pour la limiter.`);
@@ -151,7 +174,7 @@ function fromForm(f) {
   }
   return errors.length
     ? { errors: [...new Set(errors)] }
-    : { config: { settings, zones, tiers, cities, citiesAvailable: f.citiesAvailable } };
+    : { config: { settings, zones, tiers, cities, citiesAvailable: f.citiesAvailable, waves, wavesAvailable: f.wavesAvailable } };
 }
 
 function Field({ label, hint, children }) {
@@ -374,11 +397,120 @@ function CitiesSection({ form, set, hasPosition }) {
                 </span>
               )}
             </div>
+            {form.wavesAvailable && c.mode !== "off" && (
+              <div className="flex gap-2 flex-wrap items-center mt-2">
+                <span className="text-xs text-[#a88f78]">Secteur de tournée :</span>
+                {[{ key: null, label: "Local (tous les départs)" }, ...WAVE_SECTORS].map((sec) => (
+                  <button
+                    key={sec.key ?? "local"}
+                    type="button"
+                    onClick={() => setCity(c.code, { sector: sec.key })}
+                    className="tap-scale rounded-full px-3 py-1 text-xs font-bold border-2"
+                    style={(c.sector || null) === sec.key ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f" }}
+                  >
+                    {sec.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {!loading && !error && form.cities.length === 0 && <p className="text-sm text-[#8a7561]">Aucune commune trouvée dans ce rayon.</p>}
       </div>
     </div>
+  );
+}
+
+// « Départs groupés » : un seul livreur → des départs fixes, chacun dédié à un
+// secteur (la tournée est une boucle), avec un nombre maximum de commandes.
+// Un départ plein disparaît de la liste proposée au client. Le secteur de
+// chaque commune se règle dans « Villes desservies ».
+function WavesSection({ form, set }) {
+  if (!form.wavesAvailable) {
+    return (
+      <section>
+        <h3 className="font-bold mb-2">🕒 Départs groupés</h3>
+        <p className="text-sm text-[#8a7561]">Cette option nécessite le script delivery_waves.sql (à exécuter dans Supabase).</p>
+      </section>
+    );
+  }
+  const setWave = (id, patch) => set({ waves: form.waves.map((w) => (w.id === id ? { ...w, ...patch } : w)) });
+  const sorted = [...form.waves].sort((a, b) => (parseHHMM(a.departTime) ?? 1e9) - (parseHHMM(b.departTime) ?? 1e9));
+  const generate = () => {
+    if (form.waves.length > 0 && !window.confirm("Remplacer les départs actuels par la grille 18h30 → 21h00 (toutes les 30 min, Est/Sud en alternance) ?")) return;
+    set({ waves: buildWaveSchedule().map((w) => ({ id: w.departTime, departTime: w.departTime, sector: w.sector, capacity: String(w.capacity), active: true })) });
+  };
+  return (
+    <section>
+      <h3 className="font-bold mb-2">🕒 Départs groupés</h3>
+      <button
+        onClick={() => set({ wavesEnabled: !form.wavesEnabled })}
+        className="tap-scale w-full rounded-xl py-3 px-4 font-bold border-2 text-left flex items-center justify-between mb-3"
+        style={form.wavesEnabled ? { background: "#204a3a", borderColor: "#204a3a", color: "#a8e8c8" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
+      >
+        <span>{form.wavesEnabled ? "✅ Départs groupés activés" : "⏸️ Départs groupés désactivés"}</span>
+        <span className="text-xs font-normal">{form.wavesEnabled ? "Le client choisit un départ" : "Livraison sans limite par départ"}</span>
+      </button>
+      <p className="text-xs text-[#8a7561] mb-3">
+        Le livreur part à l&apos;heure du départ avec les commandes d&apos;un seul secteur. Chaque heure de départ doit correspondre à un créneau four existant (créneaux de 10 min).
+        Une commune « Local » peut monter dans n&apos;importe quel départ.
+      </p>
+      <div className="flex flex-col gap-2">
+        {sorted.map((w) => (
+          <div key={w.id} className="rounded-xl p-3 flex flex-wrap items-center gap-3" style={{ background: "#211712", border: "1px solid #3a2b1f", opacity: w.active ? 1 : 0.55 }}>
+            <input
+              value={w.departTime}
+              onChange={(e) => setWave(w.id, { departTime: e.target.value })}
+              placeholder="19:00"
+              inputMode="numeric"
+              className="w-20 rounded-lg px-3 py-2 text-base font-bold outline-none"
+              style={INPUT_STYLE}
+            />
+            <div className="flex gap-1">
+              {WAVE_SECTORS.map((sec) => (
+                <button
+                  key={sec.key}
+                  type="button"
+                  onClick={() => setWave(w.id, { sector: sec.key })}
+                  className="tap-scale rounded-full px-3 py-1 text-sm font-bold border-2"
+                  style={w.sector === sec.key ? { borderColor: "#C0392B", background: "#2c1c14" } : { borderColor: "#3a2b1f" }}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+            <span className="inline-flex items-center gap-2">
+              <span className="text-sm text-[#a88f78]">max</span>
+              <NumInput value={w.capacity} onChange={(v) => setWave(w.id, { capacity: v })} suffix="commandes" width="w-14" />
+            </span>
+            <button type="button" onClick={() => setWave(w.id, { active: !w.active })} className="tap-scale rounded-full px-3 py-1 text-sm font-bold border-2 border-[#3a2b1f]">
+              {w.active ? "Actif" : "Désactivé"}
+            </button>
+            <button type="button" onClick={() => set({ waves: form.waves.filter((x) => x.id !== w.id) })} aria-label={`Supprimer le départ de ${w.departTime}`} className="tap-scale w-9 h-9 rounded-full font-bold ml-auto" style={{ background: "#4a2020", color: "#e88a8a" }}>
+              ✕
+            </button>
+          </div>
+        ))}
+        {form.waves.length === 0 && <p className="text-sm text-[#8a7561]">Aucun départ.</p>}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button
+          type="button"
+          onClick={() => set({ waves: [...form.waves, { id: `new-${Date.now()}-${form.waves.length}`, departTime: "", sector: "est", capacity: "4", active: true }] })}
+          className="tap-scale rounded-full px-5 py-2 font-bold border-2 border-[#3a2b1f]"
+        >
+          + Ajouter un départ
+        </button>
+        <button type="button" onClick={generate} className="tap-scale rounded-full px-5 py-2 font-bold border-2 border-[#3a2b1f]">
+          ⚡ Générer 18h30 → 21h00
+        </button>
+      </div>
+      {form.wavesEnabled && form.cities.length > 0 && form.cities.some((c) => c.mode !== "off" && !c.sector) && (
+        <p className="text-xs mt-3" style={{ color: "#E8B23D" }}>
+          Communes sans secteur (considérées « Local ») : {form.cities.filter((c) => c.mode !== "off" && !c.sector).map((c) => c.label).join(", ")}.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -572,6 +704,8 @@ function RestaurantDelivery({ restaurant }) {
           </div>
         )}
       </section>
+
+      <WavesSection form={form} set={set} />
 
       {/* Règles communes */}
       <section>
