@@ -109,7 +109,7 @@ function Board({ onSignOut }) {
   const [error, setError] = useState(null);
   const nameOf = (id) => restaurants.find((r) => r.id === id)?.name || "";
 
-  const deliveries = orders.filter((o) => o.deliveryStatus && o.deliveryStatus !== "annulee" && !o.isTest && isOrderActiveToday(o));
+  const deliveries = orders.filter((o) => o.deliveryStatus && o.deliveryStatus !== "annulee" && isOrderActiveToday(o));
   const pending = deliveries.filter((o) => o.deliveryStatus === "a_livrer" && KITCHEN_PENDING.includes(o.status));
   const ready = deliveries.filter((o) => o.deliveryStatus === "a_livrer" && !KITCHEN_PENDING.includes(o.status));
   const enRoute = deliveries.filter((o) => o.deliveryStatus === "en_route");

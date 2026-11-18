@@ -1,6 +1,6 @@
 "use client";
 
-export default function WelcomeScreen({ onStart, onStartDelivery, onTeam, restaurantName, hoursNote }) {
+export default function WelcomeScreen({ onStart, onStartDelivery, testDelivery, onTeam, restaurantName, hoursNote }) {
   return (
     <div className="relative flex-1 flex flex-col items-center justify-center px-8 text-center">
       <div className="oven-glow" />
@@ -27,7 +27,7 @@ export default function WelcomeScreen({ onStart, onStartDelivery, onTeam, restau
             className="tap-scale rounded-full px-16 py-6 text-2xl font-bold display-font italic mt-4"
             style={{ background: "transparent", color: "#E8B23D", border: "2px solid #E8B23D" }}
           >
-            🛵 Me faire livrer
+            🛵 Me faire livrer{testDelivery ? " (🧪 test)" : ""}
           </button>
         )}
         <p className="text-[#8a7561] text-sm mt-8 tracking-wide uppercase">
