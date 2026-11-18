@@ -142,7 +142,8 @@ export default function CheckoutScreen({
                 style={isSelected ? { background: "#C0392B", borderColor: "#C0392B", color: "#fff5ea" } : { background: "#211712", borderColor: "#3a2b1f", color: "#a88f78" }}
               >
                 {isSelected && <span>✓</span>}
-                {opt}
+                {/* En livraison, la commande reste enregistrée comme « à emporter » côté cuisine : seul l'affichage change. */}
+                {delivery && isTakeawayLike(opt) ? "🛵 Livraison" : opt}
               </button>
             );
           })}
