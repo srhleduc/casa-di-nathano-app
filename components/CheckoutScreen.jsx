@@ -4,6 +4,7 @@ import { eur, noteIcon } from "@/lib/menu";
 import { lineUnitPrice, tableDisplayName, TAKEAWAY_SERVICE_TYPE, isTakeawayLike, isValidPhoneFr } from "@/lib/business";
 import { CGV_NO_SHOW_CLAUSE, CGV_DELIVERY_NO_SHOW_CLAUSE } from "@/lib/cgv";
 import { LoyaltyLookupButton, LoyaltyLinkedChip } from "./team/LoyaltyAccountPicker";
+import { EMAIL_RE } from "@/lib/orderTracking";
 
 const DEFAULT_OPTIONS = ["🍽️ Sur place", "🥡 À emporter"];
 
@@ -46,6 +47,8 @@ export default function CheckoutScreen({
   requireCommitment,
   phone,
   setPhone,
+  email,
+  setEmail,
   commitmentAccepted,
   setCommitmentAccepted,
   onOpenCgv,
@@ -56,6 +59,7 @@ export default function CheckoutScreen({
   const options = serviceTypeOptions || DEFAULT_OPTIONS;
   const nameOk = !requireCommitment || (tableName || "").trim().length > 0;
   const phoneOk = !requireCommitment || isValidPhoneFr(phone);
+  const emailOk = !email || EMAIL_RE.test(email.trim());
   const commitmentOk = !requireCommitment || commitmentAccepted === true;
   const deliveryFee = delivery?.quote?.deliverable ? delivery.quote.fee : 0;
   const deliveryMinOrder = delivery?.quote?.minOrder || 0;
@@ -63,7 +67,7 @@ export default function CheckoutScreen({
   const deliveryOk = !delivery || (delivery.quote?.deliverable === true && !deliveryBelowMin);
   const grandTotal = total + deliveryFee;
   const noShowClause = delivery ? CGV_DELIVERY_NO_SHOW_CLAUSE : CGV_NO_SHOW_CLAUSE;
-  const canConfirm = cart.length > 0 && nameOk && phoneOk && commitmentOk && deliveryOk;
+  const canConfirm = cart.length > 0 && nameOk && phoneOk && emailOk && commitmentOk && deliveryOk;
   return (
     <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
@@ -244,6 +248,26 @@ export default function CheckoutScreen({
           />
           {phone && !isValidPhoneFr(phone) && (
             <p className="text-sm mt-2" style={{ color: "#e88a8a" }}>Numéro invalide — format attendu : 06 12 34 56 78</p>
+          )}
+
+          {setEmail && (
+            <div className="mt-6">
+              <div className="text-sm font-bold text-[#a88f78] uppercase tracking-wide mb-2">Email (facultatif)</div>
+              <p className="text-sm text-[#8a7561] mb-2 leading-relaxed">
+                Pour recevoir une confirmation et suivre l'avancée de votre commande. Utilisé uniquement pour cette commande.
+              </p>
+              <input
+                value={email || ""}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="Ex. prenom@exemple.fr"
+                className="w-full rounded-xl px-4 py-4 text-lg outline-none"
+                style={{ background: "#211712", border: `1px solid ${email && !emailOk ? "#C0392B" : "#3a2b1f"}`, color: "#f5ebdd" }}
+              />
+              {email && !emailOk && <p className="text-sm mt-2" style={{ color: "#e88a8a" }}>Email invalide.</p>}
+            </div>
           )}
 
           <label className="flex items-start gap-3 mt-5 cursor-pointer">

@@ -17,6 +17,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { syncWalletAfterPointsChange } from "@/lib/googleWallet";
+import { EMAIL_RE } from "@/lib/orderTracking";
+import { sendOrderConfirmationEmail } from "@/lib/orderEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +55,7 @@ export async function POST(request) {
     cgvSnapshot,
     cgvVersion,
     delivery,
+    email,
   } = body || {};
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -159,9 +162,49 @@ export async function POST(request) {
     console.error("[wallet] sync click&collect:", err?.message || err);
   }
 
+  // Suivi par email (facultatif, jamais bloquant). Besoin de la clé service_role
+  // (SUPABASE_SERVICE_ROLE_KEY) pour lire le jeton de suivi et enregistrer l'email.
+  let trackingUrl = null;
+  let emailSent = false;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (row?.order_id && service) {
+    try {
+      const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
+      const cleanEmail = typeof email === "string" ? email.trim().toLowerCase().slice(0, 200) : "";
+      const validEmail = EMAIL_RE.test(cleanEmail) ? cleanEmail : null;
+      if (validEmail) await admin.from("orders").update({ customer_email: validEmail }).eq("id", row.order_id);
+      const { data: o } = await admin
+        .from("orders")
+        .select("tracking_token, restaurant_id, items, total, takeaway_number")
+        .eq("id", row.order_id)
+        .maybeSingle();
+      if (o?.tracking_token) {
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+        trackingUrl = `${origin.replace(/\/$/, "")}/suivi/${o.tracking_token}`;
+        if (validEmail) {
+          const { data: r } = await admin.from("restaurants").select("name").eq("id", o.restaurant_id).maybeSingle();
+          const res = await sendOrderConfirmationEmail({
+            to: validEmail,
+            restaurantName: r?.name || "Casa Di Nathano",
+            number: o.takeaway_number,
+            isDelivery: Boolean(delivery),
+            items: o.items,
+            total: o.total,
+            trackingUrl,
+          });
+          emailSent = Boolean(res?.sent);
+        }
+      }
+    } catch (err) {
+      console.error("[suivi] email/lien:", err?.message || err);
+    }
+  }
+
   return NextResponse.json({
     orderId: row?.order_id ?? null,
     takeawayNumber: row?.takeaway_number ?? null,
+    trackingUrl,
+    emailSent,
     ...(delivery ? { deliveryFee: Number(row?.delivery_fee ?? 0), total: Number(row?.total ?? 0) } : {}),
   });
 }
