@@ -26,6 +26,7 @@ export default function DriversAdmin() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -44,8 +45,10 @@ export default function DriversAdmin() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setNotice(null);
     try {
-      await api("POST", "", form);
+      const res = await api("POST", "", form);
+      if (res.linked) setNotice("Compte existant rattaché comme livreur. Il garde son mot de passe actuel.");
       setForm({ name: "", email: "", password: "" });
       await load();
     } catch (err) {
@@ -70,6 +73,7 @@ export default function DriversAdmin() {
         Les livreurs se connectent à l&apos;app « Livraison » avec leur email et leur mot de passe. Ils voient uniquement les livraisons des deux restaurants.
       </p>
       {error && <p className="text-[#C0392B] text-sm font-bold mb-3">{error}</p>}
+      {notice && <p className="text-[#8fbf7f] text-sm font-bold mb-3">{notice}</p>}
 
       <div className="font-bold mb-2">Livreurs ({drivers?.length ?? 0})</div>
       {drivers === null && <p className="text-[#8a7561] text-sm">Chargement…</p>}

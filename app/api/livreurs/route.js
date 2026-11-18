@@ -36,6 +36,18 @@ async function authorize(request) {
   return { admin };
 }
 
+async function findUserByEmail(admin, email) {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    const users = data?.users || [];
+    const hit = users.find((u) => (u.email || "").toLowerCase() === email);
+    if (hit) return hit;
+    if (users.length < 200) return null;
+  }
+  return null;
+}
+
 export async function GET(request) {
   const { admin, error } = await authorize(request);
   if (error) return error;
@@ -68,7 +80,16 @@ export async function POST(request) {
   const { data, error: createErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (createErr || !data?.user) {
     const exists = /already|registered|exists/i.test(createErr?.message || "");
-    return NextResponse.json({ error: exists ? "Cet email a déjà un compte." : "Création du compte impossible." }, { status: exists ? 409 : 500 });
+    if (!exists) return NextResponse.json({ error: "Création du compte impossible." }, { status: 500 });
+    // Email déjà inscrit (ex. compte Direction) : on rattache ce compte comme livreur,
+    // SANS toucher à son mot de passe (il garde celui qu'il a déjà).
+    const existing = await findUserByEmail(admin, email);
+    if (!existing) return NextResponse.json({ error: "Cet email a déjà un compte (introuvable pour le rattacher)." }, { status: 409 });
+    const { data: already } = await admin.from("drivers").select("auth_uid").eq("auth_uid", existing.id).maybeSingle();
+    if (already) return NextResponse.json({ error: "Cet email est déjà livreur." }, { status: 409 });
+    const { error: linkErr } = await admin.from("drivers").insert({ auth_uid: existing.id, name });
+    if (linkErr) return NextResponse.json({ error: "Enregistrement du livreur impossible." }, { status: 500 });
+    return NextResponse.json({ driver: { id: existing.id, name, email }, linked: true });
   }
   const { error: insErr } = await admin.from("drivers").insert({ auth_uid: data.user.id, name });
   if (insErr) {
