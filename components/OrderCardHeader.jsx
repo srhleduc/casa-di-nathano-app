@@ -11,23 +11,23 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
   return (
     <>
     <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap min-w-0">
         {order.takeawayNumber != null && (
-          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#C0392B", color: "#fff5ea" }}>
+          <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#C0392B", color: "#fff5ea" }}>
             N°{order.takeawayNumber}
           </span>
         )}
-        <span className="text-xs font-bold rounded-full px-3 py-1" style={serviceTypeBadgeStyle(order.serviceType)}>
+        <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={serviceTypeBadgeStyle(order.serviceType)}>
           {order.serviceType}
         </span>
         {order.deliveryStatus && (
-          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#1c3a52", color: "#9fd0f5" }} title={order.deliveryAddress || "Livraison"}>
+          <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#1c3a52", color: "#9fd0f5" }} title={order.deliveryAddress || "Livraison"}>
             🛵 Livraison
           </span>
         )}
         {isOrderPaid(order) && order.status !== "servie" && (
           <span
-            className="text-xs font-bold rounded-full px-3 py-1"
+            className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap"
             style={{ background: "#204a3a", color: "#a8e8c8" }}
             title="Déjà réglée — ne pas encaisser une deuxième fois"
           >
@@ -35,13 +35,13 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
           </span>
         )}
         {order.isTest && (
-          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a3a10", color: "#f0c860" }}>
+          <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#4a3a10", color: "#f0c860" }}>
             🧪 TEST
           </span>
         )}
         {Array.isArray(order.items) && order.items.some((it) => it.source) && (
           <span
-            className="text-xs font-bold rounded-full px-3 py-1"
+            className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap"
             style={{ background: "#2c1c14", color: "#a88f78" }}
             title="Contient des articles saisis par le client (borne à table ou click & collect)"
           >
@@ -49,12 +49,12 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
           </span>
         )}
         {order.slotForced && (
-          <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#4a1c1c", color: "#ff6b6b" }}>
+          <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#4a1c1c", color: "#ff6b6b" }}>
             ⚠️ Créneau forcé
           </span>
         )}
         {onEdit && (
-          <button onClick={onEdit} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f]">
+          <button onClick={onEdit} className="tap-scale text-xs font-bold rounded-full px-3 py-1 border-2 border-[#3a2b1f] whitespace-nowrap">
             ✏️
           </button>
         )}
@@ -62,11 +62,11 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
       <div className="flex items-center gap-2">
         {showTime &&
           (order.slotAllocations && order.slotAllocations.length > 0 ? (
-            <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
+            <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#2c1c14", color: "#E8B23D" }}>
               🕐 {formatSlotAllocations(order.slotAllocations)}
             </span>
           ) : order.scheduledTime ? (
-            <span className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "#2c1c14", color: "#E8B23D" }}>
+            <span className="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: "#2c1c14", color: "#E8B23D" }}>
               🕐 {order.scheduledTime}
             </span>
           ) : null)}
