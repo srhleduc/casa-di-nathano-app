@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { canonicalLoyaltyPhone, isValidPhoneFr } from "@/lib/business";
 import BirthdayInput from "./BirthdayInput";
+import { LoyaltyLookupButton } from "./LoyaltyAccountPicker";
 import { eur } from "@/lib/menu";
 import {
   fetchLoyaltyCustomerByPhone,
@@ -526,6 +527,7 @@ const VOUCHER_REASONS = ["Erreur sur la commande", "Client insatisfait", "Attent
 
 function VoucherForm({ onClose }) {
   const [phone, setPhone] = useState("");
+  const [picked, setPicked] = useState(null); // compte choisi via la loupe (pour afficher son nom)
   const [amount, setAmount] = useState(5);
   const [reason, setReason] = useState(VOUCHER_REASONS[0]);
   const [detail, setDetail] = useState("");
@@ -545,7 +547,7 @@ function VoucherForm({ onClose }) {
     try {
       const note = [reason, detail.trim()].filter(Boolean).join(" — ");
       const v = await createPhoneVoucher({ phone: canonicalLoyaltyPhone(phone) || phone, amount: Number(amount), note, days: Number(days) || 30 });
-      setDone({ code: v.code, expiresAt: v.expiresAt, amount: Number(amount), phone });
+      setDone({ code: v.code, expiresAt: v.expiresAt, amount: Number(amount), phone, nom: picked?.nom || null });
     } catch (e2) {
       console.error(e2);
       setErr("Impossible de créer le bon. Vérifiez le numéro et le montant.");
@@ -563,30 +565,49 @@ function VoucherForm({ onClose }) {
       {done ? (
         <div className="text-sm leading-relaxed mt-2">
           <div className="font-bold" style={{ color: "#a8e8c8" }}>
-            ✅ Bon de {eur(done.amount)} créé pour {done.phone}
+            ✅ Bon de {eur(done.amount)} créé pour {done.nom ? `${done.nom} · ` : ""}{done.phone}
           </div>
           <div className="text-[#c9b8a4] mt-1">
             Valable jusqu&apos;au {fmtDate(done.expiresAt)} · code {done.code}. Il se déduit tout seul à sa prochaine commande en ligne :
             le client le voit sur l&apos;écran de commande et la vignette est signalée en vert à l&apos;équipe.
           </div>
-          <button type="button" onClick={() => { setDone(null); setPhone(""); setDetail(""); }} className="tap-scale mt-3 rounded-lg px-4 py-2 font-bold text-sm border-2 border-[#3a2b1f]">
+          <button type="button" onClick={() => { setDone(null); setPhone(""); setPicked(null); setDetail(""); }} className="tap-scale mt-3 rounded-lg px-4 py-2 font-bold text-sm border-2 border-[#3a2b1f]">
             Offrir un autre bon
           </button>
         </div>
       ) : (
         <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-bold text-[#a88f78] uppercase">Téléphone du client</span>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              type="tel"
-              inputMode="tel"
-              required
-              placeholder="06 12 34 56 78"
-              className="rounded-lg px-3 py-2"
-              style={INPUT_STYLE}
-            />
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Client (téléphone ou recherche)</span>
+            <div className="flex items-stretch gap-2">
+              <input
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setPicked(null);
+                }}
+                type="tel"
+                inputMode="tel"
+                required
+                placeholder="06 12 34 56 78"
+                className="rounded-lg px-3 py-2 flex-1 min-w-0"
+                style={INPUT_STYLE}
+              />
+              <LoyaltyLookupButton
+                initialTerm=""
+                hint="Choisis le client : son numéro est repris automatiquement dans le bon."
+                onSelect={(c) => {
+                  setPhone(c.phone || "");
+                  setPicked(c);
+                }}
+              />
+            </div>
+            {picked && (
+              <span className="text-xs font-bold" style={{ color: "#a8e8c8" }}>
+                ⭐ {picked.nom || "Sans nom"} · {picked.phone}
+                {typeof picked.soldePoints === "number" ? ` · ${picked.soldePoints} pts` : ""}
+              </span>
+            )}
             {phone && !phoneOk && <span className="text-xs" style={{ color: "#e88a8a" }}>Numéro invalide</span>}
           </label>
           <div className="flex flex-col gap-1">
