@@ -142,6 +142,22 @@ export async function POST(request) {
 
   const row = Array.isArray(data) ? data[0] : data;
 
+  // Bon de réduction rattaché au téléphone (voucher_by_phone.sql) : déjà déduit
+  // par la fonction Postgres. On relit la commande pour l'annoncer au client et
+  // pour que les points Wallet reflètent le montant réellement dû. Jamais
+  // bloquant : sans lecture, la commande est confirmée comme avant.
+  let voucherAmount = 0;
+  let orderTotal = null;
+  if (row?.order_id) {
+    try {
+      const { data: ov } = await supabase.from("orders").select("total, voucher_amount").eq("id", row.order_id).maybeSingle();
+      voucherAmount = Number(ov?.voucher_amount || 0);
+      orderTotal = ov?.total == null ? null : Number(ov.total);
+    } catch {
+      /* ignoré */
+    }
+  }
+
   // Fidélité Google Wallet : create_takeaway_order a déjà crédité les points
   // (award_loyalty_points, dans la même transaction). On resynchronise le solde
   // affiché sur la carte du client s'il en a ajouté une, et on envoie au plus
@@ -154,11 +170,11 @@ export async function POST(request) {
     );
     const walletRow = Array.isArray(walletRows) ? walletRows[0] : walletRows;
     if (walletRow?.id) {
-      // Points crédités = floor(total), comme award_loyalty_points.
+      // Points crédités = floor(montant dû), comme award_loyalty_points (bon déduit).
       await syncWalletAfterPointsChange(
         walletRow.id,
         walletRow.solde_points,
-        Math.floor(Number(total) || 0)
+        Math.floor(Math.max((Number(total) || 0) - voucherAmount, 0))
       );
     }
   } catch (err) {
@@ -209,5 +225,6 @@ export async function POST(request) {
     trackingUrl,
     emailSent,
     ...(delivery ? { deliveryFee: Number(row?.delivery_fee ?? 0), total: Number(row?.total ?? 0) } : {}),
+    ...(voucherAmount > 0 ? { voucherAmount, ...(delivery || orderTotal == null ? {} : { total: orderTotal }) } : {}),
   });
 }
