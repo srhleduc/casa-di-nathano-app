@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { serviceTypeBadgeStyle, formatSlotAllocations, isOrderPaid } from "@/lib/business";
 import { FullOrderToggleButton, FullOrderPanel } from "./FullOrderPanel";
+import OrderVoucher from "./OrderVoucher";
 
 // `expandable` : flèche fluo qui déroule la commande complète. À désactiver
 // (false) sur les écrans qui affichent déjà toute la commande (Caisse, programmées).
@@ -10,6 +11,7 @@ export default function OrderCardHeader({ order, onEdit, onDelete, showTime = tr
   const [open, setOpen] = useState(false);
   return (
     <>
+    <OrderVoucher order={order} />
     <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
       <div className="flex items-center gap-2 flex-wrap min-w-0">
         {order.takeawayNumber != null && (

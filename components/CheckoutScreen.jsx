@@ -47,6 +47,8 @@ export default function CheckoutScreen({
   requireCommitment,
   phone,
   setPhone,
+  // Bon de réduction rattaché au numéro saisi : { amount } (aperçu ; le serveur déduit réellement).
+  voucher,
   email,
   setEmail,
   commitmentAccepted,
@@ -65,7 +67,8 @@ export default function CheckoutScreen({
   const deliveryMinOrder = delivery?.quote?.minOrder || 0;
   const deliveryBelowMin = Boolean(delivery) && total < deliveryMinOrder;
   const deliveryOk = !delivery || (delivery.quote?.deliverable === true && !deliveryBelowMin);
-  const grandTotal = total + deliveryFee;
+  const voucherDiscount = voucher?.amount > 0 ? Math.min(voucher.amount, total) : 0;
+  const grandTotal = total - voucherDiscount + deliveryFee;
   const noShowClause = delivery ? CGV_DELIVERY_NO_SHOW_CLAUSE : CGV_NO_SHOW_CLAUSE;
   const canConfirm = cart.length > 0 && nameOk && phoneOk && emailOk && commitmentOk && deliveryOk;
   return (
@@ -345,8 +348,24 @@ export default function CheckoutScreen({
           Minimum de commande pour la livraison : {eur(deliveryMinOrder)} (il vous manque {eur(deliveryMinOrder - total)}).
         </p>
       )}
+      {voucherDiscount > 0 && (
+        <div className="rounded-xl px-4 py-3 mb-4 text-sm leading-relaxed" style={{ background: "#1d3a2c", border: "2px solid #3fae7a" }}>
+          <div className="font-bold text-base" style={{ color: "#a8e8c8" }}>
+            🎁 Un bon de {eur(voucherDiscount)} vous est offert !
+          </div>
+          <div className="text-[#c9b8a4] mb-2">Il est déduit automatiquement de cette commande.</div>
+          <div className="flex items-center justify-between text-[#c9b8a4]">
+            <span>Articles</span>
+            <span>{eur(total)}</span>
+          </div>
+          <div className="flex items-center justify-between font-bold" style={{ color: "#a8e8c8" }}>
+            <span>Bon offert</span>
+            <span>− {eur(voucherDiscount)}</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xl font-bold">Total</span>
+        <span className="text-xl font-bold">{voucherDiscount > 0 ? "À régler" : "Total"}</span>
         <span className="display-font text-3xl font-bold text-[#E8B23D]">{eur(grandTotal)}</span>
       </div>
       <button onClick={onConfirm} disabled={!canConfirm} className="tap-scale rounded-full py-6 text-2xl font-bold disabled:opacity-40" style={{ background: "#C0392B", color: "#fff5ea" }}>

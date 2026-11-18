@@ -19,6 +19,7 @@ import {
   countOvenItems,
   minutesFromNow,
   normalizePhoneFr,
+  isValidPhoneFr,
   availableTakeawayDesserts,
   isTakeawayClosedToday,
   describeTakeawayHoursToday,
@@ -48,6 +49,7 @@ import {
   useDeliverySettings,
   quoteDelivery,
   fetchDeliveryWaves,
+  fetchPhoneVoucherPreview,
 } from "@/lib/data";
 import { computeWaveChoice, isWaveStillOffered } from "@/lib/deliveryWaves";
 import { useRestaurant } from "@/lib/restaurant";
@@ -81,11 +83,11 @@ function isDeliveryRejection(err) {
 async function submitWithRetry(payload, attempt = 1) {
   try {
     if (payload.delivery) {
-      const { takeawayNumber, total, emailSent } = await submitDeliveryOrderWithCommitment(payload);
-      return { takeawayNumber, total, emailSent };
+      const { takeawayNumber, total, emailSent, voucherAmount } = await submitDeliveryOrderWithCommitment(payload);
+      return { takeawayNumber, total, emailSent, voucherAmount };
     }
-    const { takeawayNumber, emailSent } = await submitTakeawayOrderWithCommitment(payload);
-    return { takeawayNumber, emailSent };
+    const { takeawayNumber, emailSent, total, voucherAmount } = await submitTakeawayOrderWithCommitment(payload);
+    return { takeawayNumber, emailSent, total, voucherAmount };
   } catch (err) {
     if (!isSlotRejection(err) && !isDeliveryRejection(err) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 400));
@@ -182,7 +184,9 @@ export default function TakeawayOrder() {
   const [orderMode, setOrderMode] = useState("pickup"); // pickup | delivery
   const [deliveryInfo, setDeliveryInfo] = useState(null); // { address, instructions, quote } choisis à l'écran adresse
   const [liveQuote, setLiveQuote] = useState(null); // devis recalculé avec le total du panier (frais offerts dès X €, minimum)
-  const [confirmedTotal, setConfirmedTotal] = useState(null); // total final renvoyé par le serveur (livraison)
+  const [confirmedTotal, setConfirmedTotal] = useState(null); // total final renvoyé par le serveur (livraison, ou commande avec bon)
+  const [voucher, setVoucher] = useState(null); // bon de réduction du numéro saisi (aperçu) : { amount, expiresAt }
+  const [confirmedVoucher, setConfirmedVoucher] = useState(null); // montant du bon réellement déduit (réponse serveur)
 
   const { orders } = useOrders();
   const { slots } = useSlots();
@@ -226,6 +230,25 @@ export default function TakeawayOrder() {
   );
 
   const total = useMemo(() => cart.reduce((s, i) => s + lineUnitPrice(i) * i.qty, 0), [cart]);
+
+  // Bon de réduction rattaché au numéro saisi (voucher_by_phone.sql) : simple
+  // aperçu pour prévenir le client avant de valider — la déduction réelle est
+  // faite côté serveur à la création de la commande.
+  useEffect(() => {
+    if (!isValidPhoneFr(phone)) {
+      setVoucher(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const v = await fetchPhoneVoucherPreview(normalizePhoneFr(phone));
+      if (!cancelled) setVoucher(v);
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [phone]);
   const itemCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
 
   // Livraison : à l'écran panier, on redemande le devis avec le vrai total
@@ -314,6 +337,8 @@ export default function TakeawayOrder() {
     setDeliveryInfo(null);
     setLiveQuote(null);
     setConfirmedTotal(null);
+    setVoucher(null);
+    setConfirmedVoucher(null);
     setScreen("welcome");
   }
 
@@ -390,7 +415,7 @@ export default function TakeawayOrder() {
         cgvVersion: delivery ? CGV_DELIVERY_VERSION : CGV_VERSION,
       },
       ...(delivery ? { delivery } : {}),
-    }).then(({ takeawayNumber, total: serverTotal, emailSent: sent, error }) => {
+    }).then(({ takeawayNumber, total: serverTotal, emailSent: sent, voucherAmount, error }) => {
       if (error) {
         setOrderError(error);
         return;
@@ -398,6 +423,7 @@ export default function TakeawayOrder() {
       setConfirmedNumber(takeawayNumber);
       setEmailSent(Boolean(sent));
       if (serverTotal != null) setConfirmedTotal(serverTotal);
+      setConfirmedVoucher(voucherAmount > 0 ? voucherAmount : null);
     });
   }
 
@@ -554,9 +580,13 @@ export default function TakeawayOrder() {
     if (isDelivery) {
       const eta = deliverySettings?.estimatedMinutes ? ` (environ ${deliverySettings.estimatedMinutes} min après la préparation)` : "";
       const totalTxt = confirmedTotal != null ? ` Total à régler au livreur : ${eur(confirmedTotal)}.` : "";
-      return `Merci ${tableName ? tableName + " " : ""}— ta commande sera livrée à l'adresse indiquée${eta}.${totalTxt}${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
+      const voucherTxt = confirmedVoucher ? ` 🎁 Ton bon de ${eur(confirmedVoucher)} est déduit.` : "";
+      return `Merci ${tableName ? tableName + " " : ""}— ta commande sera livrée à l'adresse indiquée${eta}.${voucherTxt}${totalTxt}${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
     }
-    return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
+    const voucherTxt = confirmedVoucher
+      ? ` 🎁 Ton bon de ${eur(confirmedVoucher)} est déduit${confirmedTotal != null ? " : il te reste " + eur(confirmedTotal) + " à régler" : ""}.`
+      : "";
+    return `Merci ${tableName ? tableName + " " : ""}— rends-toi sur place pour récupérer ta commande et régler.${voucherTxt}${emailSent ? " Un email avec le lien de suivi vient de t'être envoyé." : ""}`;
   }
 
   if (suspendedLoading) {
@@ -704,6 +734,7 @@ export default function TakeawayOrder() {
           requireCommitment
           phone={phone}
           setPhone={setPhone}
+          voucher={voucher}
           email={email}
           setEmail={process.env.NEXT_PUBLIC_EMAIL_SUIVI === "1" ? setEmail : undefined}
           commitmentAccepted={commitmentAccepted}

@@ -7,7 +7,7 @@
 // deux restaurants (voir lib/data.js et supabase/schema.sql).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { canonicalLoyaltyPhone } from "@/lib/business";
+import { canonicalLoyaltyPhone, isValidPhoneFr } from "@/lib/business";
 import BirthdayInput from "./BirthdayInput";
 import { eur } from "@/lib/menu";
 import {
@@ -23,6 +23,7 @@ import {
   setPromoCodeExpiry,
   deletePromoCode,
   addManualPromoCode,
+  createPhoneVoucher,
   awardLoyaltyPointsManual,
 } from "@/lib/data";
 
@@ -47,7 +48,7 @@ function isoDay(offsetDays = 0) {
 
 const MOVEMENT_LABEL = { gain: "Gain", depense: "Bon débloqué", ajustement: "Ajustement" };
 const SOURCE_LABEL = { click_and_collect: "Click & collect", caisse: "Caisse" };
-const REASON_LABEL = { palier_150: "Palier 150 points", anniversaire: "Anniversaire", manuel: "Ajout manuel" };
+const REASON_LABEL = { palier_150: "Palier 150 points", anniversaire: "Anniversaire", manuel: "Geste commercial" };
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const DIR_PAGE = 100; // lignes affichées d'un coup dans le listing
@@ -85,6 +86,7 @@ export default function LoyaltyAdmin({ readOnly = false }) {
   const [results, setResults] = useState(null); // null = pas encore cherché ; [] = aucun résultat
   const [createPhone, setCreatePhone] = useState(null); // string quand la recherche est un n° exact sans résultat
   const [creatingNew, setCreatingNew] = useState(false); // formulaire "Créer un compte" ouvert
+  const [offeringVoucher, setOfferingVoucher] = useState(false); // formulaire "Offrir un bon" ouvert
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -351,7 +353,19 @@ export default function LoyaltyAdmin({ readOnly = false }) {
             ➕ Créer un compte
           </button>
         )}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setOfferingVoucher((v) => !v)}
+            className="tap-scale rounded-lg px-5 py-2 font-bold text-sm border-2"
+            style={{ borderColor: "#3fae7a", color: "#a8e8c8" }}
+          >
+            🎁 Offrir un bon
+          </button>
+        )}
       </form>
+
+      {offeringVoucher && !readOnly && <VoucherForm onClose={() => setOfferingVoucher(false)} />}
 
       {(results !== null || creatingNew) && (
         <button type="button" onClick={backToDirectory} className="tap-scale mb-4 text-sm font-bold text-[#a88f78] underline">
@@ -498,6 +512,145 @@ export default function LoyaltyAdmin({ readOnly = false }) {
             onDeleted={backToDirectory}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+// Bon offert à un client à partir de son numéro (erreur de commande,
+// insatisfaction…). Le montant se déduit automatiquement à sa prochaine commande
+// en ligne ; le client le voit sur l'écran de commande et la vignette équipe
+// l'affiche en vert fluo. Le motif reste interne.
+const VOUCHER_AMOUNTS = [5, 10, 15, 20];
+const VOUCHER_REASONS = ["Erreur sur la commande", "Client insatisfait", "Attente trop longue", "Geste commercial"];
+
+function VoucherForm({ onClose }) {
+  const [phone, setPhone] = useState("");
+  const [amount, setAmount] = useState(5);
+  const [reason, setReason] = useState(VOUCHER_REASONS[0]);
+  const [detail, setDetail] = useState("");
+  const [days, setDays] = useState(30);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [done, setDone] = useState(null);
+
+  const phoneOk = isValidPhoneFr(phone);
+  const amountOk = Number(amount) > 0 && Number(amount) <= 200;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!phoneOk || !amountOk || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const note = [reason, detail.trim()].filter(Boolean).join(" — ");
+      const v = await createPhoneVoucher({ phone: canonicalLoyaltyPhone(phone) || phone, amount: Number(amount), note, days: Number(days) || 30 });
+      setDone({ code: v.code, expiresAt: v.expiresAt, amount: Number(amount), phone });
+    } catch (e2) {
+      console.error(e2);
+      setErr("Impossible de créer le bon. Vérifiez le numéro et le montant.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl p-4 max-w-md mb-4" style={{ background: "#14281f", border: "1px solid #3fae7a" }}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="font-bold">🎁 Offrir un bon à un client</div>
+        <button type="button" onClick={onClose} className="text-[#a88f78] text-sm font-bold">✕</button>
+      </div>
+      {done ? (
+        <div className="text-sm leading-relaxed mt-2">
+          <div className="font-bold" style={{ color: "#a8e8c8" }}>
+            ✅ Bon de {eur(done.amount)} créé pour {done.phone}
+          </div>
+          <div className="text-[#c9b8a4] mt-1">
+            Valable jusqu&apos;au {fmtDate(done.expiresAt)} · code {done.code}. Il se déduit tout seul à sa prochaine commande en ligne :
+            le client le voit sur l&apos;écran de commande et la vignette est signalée en vert à l&apos;équipe.
+          </div>
+          <button type="button" onClick={() => { setDone(null); setPhone(""); setDetail(""); }} className="tap-scale mt-3 rounded-lg px-4 py-2 font-bold text-sm border-2 border-[#3a2b1f]">
+            Offrir un autre bon
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Téléphone du client</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              type="tel"
+              inputMode="tel"
+              required
+              placeholder="06 12 34 56 78"
+              className="rounded-lg px-3 py-2"
+              style={INPUT_STYLE}
+            />
+            {phone && !phoneOk && <span className="text-xs" style={{ color: "#e88a8a" }}>Numéro invalide</span>}
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Montant du bon</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {VOUCHER_AMOUNTS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAmount(a)}
+                  className="tap-scale rounded-full px-4 py-1.5 text-sm font-bold border-2"
+                  style={Number(amount) === a ? { background: "#3fae7a", borderColor: "#3fae7a", color: "#052a1a" } : { borderColor: "#3a2b1f" }}
+                >
+                  {a} €
+                </button>
+              ))}
+              <input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                type="number"
+                inputMode="decimal"
+                min="1"
+                max="200"
+                step="0.5"
+                className="rounded-lg px-3 py-1.5 w-24 text-sm"
+                style={INPUT_STYLE}
+                aria-label="Montant libre en euros"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Motif (interne, pas montré au client)</span>
+            <div className="flex flex-wrap gap-2">
+              {VOUCHER_REASONS.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setReason(r)}
+                  className="tap-scale rounded-full px-3 py-1.5 text-xs font-bold border-2"
+                  style={reason === r ? { background: "#3fae7a", borderColor: "#3fae7a", color: "#052a1a" } : { borderColor: "#3a2b1f" }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <input
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              maxLength={120}
+              placeholder="Précision (facultatif) : pizza oubliée, retard de 20 min…"
+              className="rounded-lg px-3 py-2 text-sm mt-1"
+              style={INPUT_STYLE}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-xs font-bold text-[#a88f78] uppercase">Valable</span>
+            <input value={days} onChange={(e) => setDays(e.target.value)} type="number" min="1" max="365" className="rounded-lg px-3 py-1.5 w-20 text-sm" style={INPUT_STYLE} />
+            <span className="text-[#c9b8a4]">jours</span>
+          </label>
+          {err && <div className="text-sm font-bold" style={{ color: "#e88a8a" }}>{err}</div>}
+          <button type="submit" disabled={busy || !phoneOk || !amountOk} className="tap-scale rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-50 self-start" style={{ background: "#3fae7a", color: "#052a1a" }}>
+            🎁 Offrir le bon
+          </button>
+        </form>
       )}
     </div>
   );
@@ -890,6 +1043,7 @@ function PromoCodeRow({ bon, readOnly }) {
           {clickable && <span className="text-[#5a4a3a] ml-2">{open ? "▲" : "▼"}</span>}
         </div>
         <div className="text-xs text-[#8a7561]">Code {bon.code} · créé le {fmtDate(bon.createdAt)}</div>
+        {bon.note && <div className="text-xs text-[#a88f78]">📝 {bon.note}</div>}
         <span className="inline-block mt-1 text-xs font-bold rounded-full px-2 py-0.5" style={{ background: badge.bg, color: badge.fg }}>
           {badge.text}
         </span>
