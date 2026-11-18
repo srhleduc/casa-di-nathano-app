@@ -14,7 +14,11 @@ import { deriveSlotDisplayOptions } from "@/lib/business";
 // déjà pleins théoriquement (en rouge), sélectionnables avec double
 // confirmation. Sans ce prop (borne client, lien à emporter), le comportement
 // est strictement celui d'avant.
-export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, setSelectedOption, allSlotsConfigured, staffForceOptions, onBack, onConfirm, note }) {
+//
+// `deliveryWaves` (livraison par départs groupés, voir lib/deliveryWaves.js) :
+// les options sont alors les heures de départ du livreur qui ont encore de la
+// place, plutôt que des créneaux four ; seuls les libellés changent.
+export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, setSelectedOption, allSlotsConfigured, staffForceOptions, onBack, onConfirm, note, deliveryWaves = false }) {
   const [showAll, setShowAll] = useState(false);
   const [confirmingForce, setConfirmingForce] = useState(false);
   const mode = slotChoice?.mode;
@@ -73,9 +77,11 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
       <button onClick={onBack} className="text-[#c9b8a4] text-sm font-semibold mb-6 self-start tap-scale">
         ← Retour
       </button>
-      <h2 className="display-font text-3xl font-semibold mb-2">Ton créneau</h2>
+      <h2 className="display-font text-3xl font-semibold mb-2">{deliveryWaves ? "Ton départ de livraison" : "Ton créneau"}</h2>
       <p className="text-[#a88f78] mb-8">
-        {pizzaCount} pizza{pizzaCount > 1 ? "s" : ""} dans ta commande — on t'affiche uniquement les horaires où le four a la place.
+        {deliveryWaves
+          ? "Choisis l'heure à laquelle le livreur part : ta commande sera prête à ce moment-là. On t'affiche uniquement les départs qui desservent ta commune et ont encore de la place."
+          : `${pizzaCount} pizza${pizzaCount > 1 ? "s" : ""} dans ta commande — on t'affiche uniquement les horaires où le four a la place.`}
       </p>
       {note && <p className="text-[#E8B23D] font-semibold mb-6 -mt-4">{note}</p>}
 
@@ -84,6 +90,14 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
           <span className="text-5xl mb-4">🧑‍🍳</span>
           <p className="text-[#c9b8a4]">L'équipe n'a pas encore ouvert les créneaux du service.</p>
           <p className="text-[#8a7561] text-sm mt-2">Adresse-toi directement à un membre de l'équipe.</p>
+        </div>
+      )}
+
+      {allSlotsConfigured && deliveryWaves && displayOptions.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <span className="text-5xl mb-4">🛵</span>
+          <p className="text-[#c9b8a4]">Plus aucun départ de livraison disponible pour ta commune ce soir.</p>
+          <p className="text-[#8a7561] text-sm mt-2">Tu peux commander à emporter, ou appeler directement le restaurant.</p>
         </div>
       )}
 
@@ -112,7 +126,7 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
 
       {allSlotsConfigured && !skipToForceList && earliest && !showAll && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-sm font-bold uppercase tracking-wide text-[#a88f78] mb-3">Créneau le plus proche</span>
+          <span className="text-sm font-bold uppercase tracking-wide text-[#a88f78] mb-3">{deliveryWaves ? "Prochain départ" : "Créneau le plus proche"}</span>
           <div className="rounded-3xl border-2 border-[#C0392B] bg-[#2c1c14] px-14 py-10 mb-6">
             <div className="display-font text-6xl font-bold">{earliest.label}</div>
             {earliest.remaining != null && (
@@ -123,7 +137,7 @@ export default function SlotScreen({ pizzaCount, slotChoice, selectedOption, set
           </div>
           {laterOptions.length > 0 && (
             <button onClick={() => setShowAll(true)} className="text-[#c9b8a4] font-semibold underline underline-offset-4 tap-scale">
-              Choisir un autre créneau
+              {deliveryWaves ? "Choisir un autre départ" : "Choisir un autre créneau"}
             </button>
           )}
         </div>

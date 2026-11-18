@@ -18,6 +18,8 @@ import OrderNote from "../OrderNote";
 import GroupedItemList from "../GroupedItemList";
 import ElapsedBadge from "../ElapsedBadge";
 import EditOrderModal from "./EditOrderModal";
+import WaveHeader from "../WaveHeader";
+import { groupByWave } from "@/lib/deliveryWaves";
 
 // Statuts cuisine « pas encore sorti de Finition ».
 const KITCHEN_PENDING = ["attente", "preparation", "prete"];
@@ -36,7 +38,14 @@ function DeliveryCard({ order, onEdit, onDelete, children }) {
       <OrderCardHeader order={order} onEdit={onEdit} onDelete={onDelete} />
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="display-font text-xl font-bold">{order.name}</div>
-        <ElapsedBadge since={order.createdAt} />
+        <div className="flex items-center gap-2">
+          {order.deliveryWave && (
+            <span className="text-xs font-bold rounded-full px-2 py-1" style={{ background: "#3a2b1f", color: "#E8B23D" }}>
+              🕒 {order.deliveryWave}
+            </span>
+          )}
+          <ElapsedBadge since={order.createdAt} />
+        </div>
       </div>
 
       <div className="rounded-lg px-3 py-3 mb-3" style={{ background: "#1c3a52" }}>
@@ -120,15 +129,27 @@ export default function DeliveryBoard({ readOnly }) {
       <p className="text-[#a88f78] mb-4 text-sm">Commandes à livrer. Le règlement se fait auprès du livreur ; la caissière valide l&apos;encaissement en Caisse.</p>
       {deliveries.length === 0 && <p className="text-[#8a7561]">Aucune livraison pour l&apos;instant.</p>}
 
-      {section("🟢 Prêtes à livrer", ready, (o) => (
-        <DeliveryCard key={o.id} order={o} onEdit={readOnly ? undefined : () => setEditingOrder(o)} onDelete={readOnly ? undefined : () => cancelOrder(o)}>
-          {!readOnly && (
-            <button onClick={() => startDelivery(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
-              🛵 Je pars livrer
-            </button>
-          )}
-        </DeliveryCard>
-      ))}
+      {ready.length > 0 && (
+        <div className="mb-6">
+          <div className="font-bold mb-3">🟢 Prêtes à livrer ({ready.length})</div>
+          {groupByWave(ready).map((group) => (
+            <div key={group.time || "none"} className="mb-4">
+              {(group.time || ready.some((o) => o.deliveryWave)) && <WaveHeader group={group} readyOrders={group.orders} />}
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {sortOrdersByTime(group.orders).map((o) => (
+                  <DeliveryCard key={o.id} order={o} onEdit={readOnly ? undefined : () => setEditingOrder(o)} onDelete={readOnly ? undefined : () => cancelOrder(o)}>
+                    {!readOnly && (
+                      <button onClick={() => startDelivery(o)} className="tap-scale w-full rounded-xl py-4 text-lg font-bold" style={{ background: "#C0392B", color: "#fff5ea" }}>
+                        🛵 Je pars livrer
+                      </button>
+                    )}
+                  </DeliveryCard>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {section("🛵 En route", enRoute, (o) => (
         <DeliveryCard key={o.id} order={o} onEdit={readOnly ? undefined : () => setEditingOrder(o)} onDelete={readOnly ? undefined : () => cancelOrder(o)}>

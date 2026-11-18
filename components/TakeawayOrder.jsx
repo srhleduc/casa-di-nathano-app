@@ -13,6 +13,8 @@ import {
   computeSlotOptions,
   isSlotChoiceStillOffered,
   restrictSlotsForCart,
+  remainingForSlot,
+  backwardFillPlanWithScheduled,
   conflictingCartItem,
   countOvenItems,
   minutesFromNow,
@@ -45,7 +47,9 @@ import {
   submitDeliveryOrderWithCommitment,
   useDeliverySettings,
   quoteDelivery,
+  fetchDeliveryWaves,
 } from "@/lib/data";
+import { computeWaveChoice, isWaveStillOffered } from "@/lib/deliveryWaves";
 import { useRestaurant } from "@/lib/restaurant";
 
 import WelcomeScreen from "./WelcomeScreen";
@@ -72,7 +76,7 @@ function isSlotRejection(err) {
 // Livraison : adresse hors zone, minimum non atteint… — même logique, inutile
 // de rejouer une requête que le serveur a refusée pour une raison métier.
 function isDeliveryRejection(err) {
-  return /hors de notre zone|Minimum de commande|Livraison indisponible|Adresse/i.test(err?.message || "");
+  return /hors de notre zone|Minimum de commande|Livraison indisponible|Adresse|départ de livraison/i.test(err?.message || "");
 }
 async function submitWithRetry(payload, attempt = 1) {
   try {
@@ -353,7 +357,7 @@ export default function TakeawayOrder() {
       </div>
     ) : null;
 
-  function submitOrder(finalPlan) {
+  function submitOrder(finalPlan, wave = null) {
     const newOrder = {
       items: cart.map(({ id, name, price, cat, qty, note, modifiers }) => ({ id, name, price, cat, qty, note, modifiers, source: "click_and_collect" })),
       serviceType: TAKEAWAY_SERVICE_TYPE,
@@ -373,6 +377,7 @@ export default function TakeawayOrder() {
           lat: deliveryInfo.address.lat,
           lng: deliveryInfo.address.lng,
           instructions: deliveryInfo.instructions || null,
+          wave: wave || null,
         }
       : null;
     submitWithRetry({
@@ -445,7 +450,39 @@ export default function TakeawayOrder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeCampaigns]);
 
-  function goToSlot() {
+  // Livraison par départs groupés (un seul livreur) : au lieu des créneaux four
+  // libres, on propose les départs du secteur du client qui ont encore de la
+  // place — voir lib/deliveryWaves.js. Le quota est revérifié par la base.
+  const wavesMode = isDelivery && Boolean(deliverySettings?.wavesEnabled);
+  async function computeWavesChoice() {
+    const waves = await fetchDeliveryWaves(deliveryInfo.address.citycode);
+    const now = new Date();
+    const usable = restrictSlotsForCart(slots, cart);
+    return computeWaveChoice({
+      waves,
+      slots: usable,
+      needed: pizzaCount,
+      nowMinutes: now.getHours() * 60 + now.getMinutes(),
+      marginMinutes: TAKEAWAY_SLOT_MARGIN_MINUTES,
+      remainingFor: (slot) => remainingForSlot(orders, slot, usable),
+      fillPlan: (label, needed) => backwardFillPlanWithScheduled(orders, usable, label, needed),
+    });
+  }
+
+  async function goToSlot() {
+    if (wavesMode) {
+      try {
+        const choice = await computeWavesChoice();
+        setSelectedOption(null);
+        setSlotChoice(choice);
+        setScreen("slot");
+      } catch (err) {
+        console.error("Départs de livraison indisponibles", err);
+        setOrderError("Impossible de charger les départs de livraison. Merci de réessayer.");
+        setScreen("done");
+      }
+      return;
+    }
     if (pizzaCount === 0) {
       submitOrder(null);
       return;
@@ -463,7 +500,24 @@ export default function TakeawayOrder() {
   // commandes), on rafraîchit la liste au lieu de valider un horaire déjà
   // entamé — le client revoit alors le nouveau créneau le plus proche et doit
   // confirmer à nouveau, plutôt que d'être basculé silencieusement.
-  function handleSlotConfirm() {
+  async function handleSlotConfirm() {
+    if (wavesMode) {
+      if (!selectedOption) return;
+      try {
+        const fresh = await computeWavesChoice();
+        if (isWaveStillOffered(fresh, selectedOption.wave)) {
+          submitOrder(selectedOption.plan, selectedOption.wave);
+          return;
+        }
+        setSlotChoice(fresh);
+        setSelectedOption(null);
+      } catch (err) {
+        console.error("Départs de livraison indisponibles", err);
+        setOrderError("Impossible de vérifier le départ de livraison. Merci de réessayer.");
+        setScreen("done");
+      }
+      return;
+    }
     if (!selectedOption) {
       submitOrder(null);
       return;
@@ -670,7 +724,14 @@ export default function TakeawayOrder() {
           allSlotsConfigured={slots.length > 0}
           onBack={() => setScreen("checkout")}
           onConfirm={handleSlotConfirm}
-          note={isDelivery && deliverySettings?.estimatedMinutes ? `🛵 Livraison environ ${deliverySettings.estimatedMinutes} min après ce créneau.` : undefined}
+          deliveryWaves={wavesMode}
+          note={
+            isDelivery && deliverySettings?.estimatedMinutes
+              ? wavesMode
+                ? `🛵 Le livreur part à l'heure choisie, livraison environ ${deliverySettings.estimatedMinutes} min plus tard.`
+                : `🛵 Livraison environ ${deliverySettings.estimatedMinutes} min après ce créneau.`
+              : undefined
+          }
         />
       )}
 
