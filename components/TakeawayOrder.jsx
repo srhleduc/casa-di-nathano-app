@@ -736,7 +736,7 @@ export default function TakeawayOrder() {
           setPhone={setPhone}
           voucher={voucher}
           email={email}
-          setEmail={process.env.NEXT_PUBLIC_EMAIL_SUIVI === "1" ? setEmail : undefined}
+          setEmail={process.env.NEXT_PUBLIC_EMAIL_SUIVI === "1" || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("test") === "livraison") ? setEmail : undefined}
           commitmentAccepted={commitmentAccepted}
           setCommitmentAccepted={setCommitmentAccepted}
           onOpenCgv={() => setCgvOpen(true)}
