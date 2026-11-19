@@ -65,7 +65,11 @@ export default function TeamSpace({ onExit }) {
   const { testMode } = useTestMode();
   const restaurantFilter = useRestaurantFilter();
   const restaurant = useRestaurant(restaurantFilter);
-  const readOnly = Boolean(restaurantFilter); // vu depuis l'espace Direction
+  // Vu depuis l'espace Direction : accès complet comme l'équipe du restaurant
+  // (plus de lecture seule). Seules les automatisations de fond des appareils
+  // sur place (carillon, recalcul des créneaux) restent réservées à l'équipe.
+  const fromDirection = Boolean(restaurantFilter);
+  const readOnly = false;
 
   // Carillon "commande autonome" (click & collect passé par le client, ou
   // ajout /sat sur une table) — pour qu'une équipe occupée sur un autre
@@ -76,10 +80,10 @@ export default function TeamSpace({ onExit }) {
   const seenOrderIdsRef = useRef(null);
   const seenSatSignatureRef = useRef(null);
   useEffect(() => {
-    if (!readOnly && restaurant.notificationSoundUrl) preloadCustomSound(restaurant.notificationSoundUrl);
-  }, [readOnly, restaurant.notificationSoundUrl]);
+    if (!fromDirection && restaurant.notificationSoundUrl) preloadCustomSound(restaurant.notificationSoundUrl);
+  }, [fromDirection, restaurant.notificationSoundUrl]);
   useEffect(() => {
-    if (readOnly) return;
+    if (fromDirection) return;
     if (seenOrderIdsRef.current == null) {
       seenOrderIdsRef.current = new Set(orders.map((o) => o.id));
       seenSatSignatureRef.current = new Map(
@@ -103,7 +107,7 @@ export default function TeamSpace({ onExit }) {
       seenOrderIdsRef.current.add(o.id);
     }
     if (shouldPlay) playAutonomousOrderChime(restaurant.notificationSoundUrl);
-  }, [orders, readOnly]);
+  }, [orders, fromDirection]);
 
   // Écrit une répartition de créneaux recalculée sur une commande (programmée
   // ou prise le jour même) — jamais autre chose (voir updateOrder, qui
@@ -130,9 +134,9 @@ export default function TeamSpace({ onExit }) {
   // qu'elle s'affiche partout comme n'importe quelle commande répartie.
   // Non applicable à la vue Direction (lecture seule).
   useEffect(() => {
-    if (readOnly) return;
+    if (fromDirection) return;
     computeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
-  }, [orders, slots, readOnly]);
+  }, [orders, slots, fromDirection]);
 
   // Si le pizzaiolo ajuste la capacité d'un créneau en cours de service
   // (SlotsAdmin), toute commande programmée déjà répartie mais pas encore
@@ -140,9 +144,9 @@ export default function TeamSpace({ onExit }) {
   // commande déjà partie en cuisine, dont la répartition reflète une
   // réalité physique qu'aucun recalcul ne doit bousculer.
   useEffect(() => {
-    if (readOnly) return;
+    if (fromDirection) return;
     recomputeScheduledOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
-  }, [orders, slots, readOnly]);
+  }, [orders, slots, fromDirection]);
 
   // Même logique pour une commande "à emporter"/"sur place" classique (pas
   // programmée à l'avance) déjà répartie sur un ou plusieurs créneaux réels :
@@ -150,9 +154,9 @@ export default function TeamSpace({ onExit }) {
   // pizzas max), une commande de 6 pizzas restée sur 4+2 doit se retrouver en
   // 5+1 sans intervention, tant qu'elle n'est pas encore enfournée.
   useEffect(() => {
-    if (readOnly) return;
+    if (fromDirection) return;
     recomputeImmediateOrderSlotAllocations(orders, slots).forEach(({ orderId, slotAllocations }) => writeRecomputedSlotAllocations(orderId, slotAllocations));
-  }, [orders, slots, readOnly]);
+  }, [orders, slots, fromDirection]);
 
   function goZone(z, defaultTab) {
     setZone(z);
@@ -206,12 +210,6 @@ export default function TeamSpace({ onExit }) {
           Fermer
         </button>
       </div>
-
-      {readOnly && (
-        <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#2c1c14", color: "#a88f78" }}>
-          👁️ Vue Direction en lecture seule — les actions ne sont pas prises en compte, seule l'équipe sur place peut agir
-        </div>
-      )}
 
       {!readOnly && testMode.enabled && (
         <div className="px-6 py-2 text-center text-sm font-bold" style={{ background: "#4a3a10", color: "#f0c860" }}>
@@ -364,7 +362,7 @@ export default function TeamSpace({ onExit }) {
             <button onClick={() => setTab("appro")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "appro" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>📦 Approvisionnement</button>
             <button onClick={() => setTab("patons")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "patons" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🍕 Pâtons du jour</button>
             <button onClick={() => setTab("timing")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "timing" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>⏱ Temps de prépa</button>
-            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{readOnly ? "✏️" : "👁️"} Menu</button>
+            <button onClick={() => setTab("newproduct")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "newproduct" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>{fromDirection ? "✏️" : "👁️"} Menu</button>
             <button onClick={() => setTab("maintenance")} className={`tap-scale shrink-0 rounded-full px-6 py-3 font-bold border-2 ${tab === "maintenance" ? "border-[#C0392B] bg-[#2c1c14]" : "border-[#3a2b1f]"}`}>🗑️ Maintenance</button>
           </div>
           {tab === "services" && <ServiceTypesAdmin />}
@@ -372,7 +370,7 @@ export default function TeamSpace({ onExit }) {
           {tab === "appro" && <ApprovisionnementAdmin />}
           {tab === "patons" && <PizzaStockAdmin />}
           {tab === "timing" && <TimingStatsAdmin />}
-          {tab === "newproduct" && <MenuAdmin canEdit={readOnly} />}
+          {tab === "newproduct" && <MenuAdmin canEdit={fromDirection} />}
           {tab === "maintenance" && <MaintenanceAdmin />}
         </>
       )}

@@ -17,7 +17,7 @@ const resaStartMin = (r) => {
   const m = /T(\d\d):(\d\d)/.exec(r.requestedAt || "");
   return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
 };
-import { RestaurantFilterContext, useRestaurantsList } from "@/lib/restaurant";
+import { RestaurantFilterContext, setDirectionRestaurant, useRestaurantsList } from "@/lib/restaurant";
 import { signOutManager, useManagerSession } from "@/lib/managerAuth";
 import { supabase } from "@/lib/supabaseClient";
 import { isPushSupported, getExistingPushSubscription, enablePushNotifications, disablePushNotifications } from "@/lib/push";
@@ -150,7 +150,7 @@ export default function DirectionDashboard() {
   if (selected) {
     return (
       <RestaurantFilterContext.Provider value={selected}>
-        <TeamSpace onExit={() => setSelected(null)} />
+        <TeamSpace onExit={() => { setDirectionRestaurant(null); setSelected(null); }} />
       </RestaurantFilterContext.Provider>
     );
   }
@@ -228,7 +228,7 @@ export default function DirectionDashboard() {
       {tab === "overview" && (
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <p className="text-[#a88f78] text-sm mb-6">
-            Vue en lecture seule — pour agir sur une commande, utilise l'espace équipe du restaurant concerné.
+            Ouvre un restaurant pour accéder à tout son espace équipe et y agir comme l'équipe sur place.
           </p>
           {restaurants.length === 0 && <p className="text-[#8a7561]">Chargement…</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -268,7 +268,7 @@ export default function DirectionDashboard() {
                     {coversByRestaurant[r.id]?.label || "…"}
                   </div>
                   <button
-                    onClick={() => setSelected(r.id)}
+                    onClick={() => { setDirectionRestaurant(r.id); setSelected(r.id); }}
                     className="tap-scale w-full rounded-xl py-4 font-bold"
                     style={{ background: "#C0392B", color: "#fff5ea" }}
                   >
