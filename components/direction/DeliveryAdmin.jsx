@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRestaurantsList } from "@/lib/restaurant";
 import { fetchDeliveryConfig, saveDeliveryConfig, DEFAULT_DELIVERY_SETTINGS } from "@/lib/data";
-import { WAVE_SECTORS, buildWaveSchedule, parseHHMM } from "@/lib/deliveryWaves";
+import { WAVE_SECTORS, buildWaveSchedule, parseHHMM, formatTimeInput, normalizeHHMM } from "@/lib/deliveryWaves";
 
 const PRIMARY_BTN = { background: "#C0392B", color: "#fff5ea" };
 const INPUT_STYLE = { background: "#211712", border: "1px solid #3a2b1f", color: "#f5ebdd" };
@@ -152,7 +152,7 @@ function fromForm(f) {
   }));
 
   const waves = f.waves.map((w) => ({
-    departTime: String(w.departTime).trim(),
+    departTime: normalizeHHMM(w.departTime),
     sector: w.sector,
     capacity: Math.round(toNum(w.capacity)),
     active: w.active,
@@ -461,7 +461,8 @@ function WavesSection({ form, set }) {
           <div key={w.id} className="rounded-xl p-3 flex flex-wrap items-center gap-3" style={{ background: "#211712", border: "1px solid #3a2b1f", opacity: w.active ? 1 : 0.55 }}>
             <input
               value={w.departTime}
-              onChange={(e) => setWave(w.id, { departTime: e.target.value })}
+              onChange={(e) => setWave(w.id, { departTime: formatTimeInput(e.target.value) })}
+              onBlur={() => setWave(w.id, { departTime: normalizeHHMM(w.departTime) })}
               placeholder="19:00"
               inputMode="numeric"
               className="w-20 rounded-lg px-3 py-2 text-base font-bold outline-none"
